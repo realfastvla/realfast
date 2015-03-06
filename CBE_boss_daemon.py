@@ -22,7 +22,7 @@ print "pyinotify..."
 import pyinotify # Wrapper on inotify to monitor SDM directory
 
 print "Finally done importing modules!\n";
-
+   
 # parse input to get name
 parser = argparse.ArgumentParser()
 parser.add_argument("name", help="String to match to SDM file name")
