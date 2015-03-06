@@ -9,9 +9,9 @@
 print "Please be patient while libraries load...\n"
 print "RQ..."
 from rq import Queue, Connection
-print "realtime..."
-import realtime.RT as rt
-import realtime.parsesdm as ps
+print "rtpipe..."
+import rtpipe.RT as rt
+import rtpipe.parsesdm as ps
 print "subprocess..."
 from subprocess import call
 print "OS and SDMreader..."
@@ -26,7 +26,7 @@ print "Finally done importing modules!\n";
 # parse input to get name
 parser = argparse.ArgumentParser()
 parser.add_argument("name", help="String to match to SDM file name")
-args = parser.parse_args(); name = args.name
+args = parser.parse_args(); name_mask = args.name
 
 """
 This job should run "all the time" in the background on a control
@@ -154,7 +154,7 @@ class newSDM(pyinotify.ProcessEvent):
     def process_IN_CREATE(self, event):
         """ Find latest file in directory; read metadata. """
         print "Looking for newest file..."
-        SDM_file = find_newest_file(SDM_workdir,"12A") # Add name mask in the quotes
+        SDM_file = find_newest_file(SDM_workdir,name_mask) # Add name mask in the quotes
         SDM_file = SDM_workdir + SDM_file
         print "Found SDM file " + SDM_file
 
