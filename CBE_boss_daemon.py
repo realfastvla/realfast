@@ -9,13 +9,14 @@
 print "Please be patient while libraries load...\n"
 print "RQ..."
 from rq import Queue, Connection
-print "realtime..."
-import realtime.RT as rt
-import realtime.parsesdm as ps
+print "rtpipe..."
+import rtpipe.RT as rt
+import rtpipe.parsesdm as ps
 print "subprocess..."
 from subprocess import call
 print "OS and SDMreader..."
-import os, sdmreader, time, argparse
+import os, time, argparse
+from sdmreader import sdmreader
 print "Asyncore..."
 import asyncore  # To monitor for new SDM asynchronously
 print "pyinotify..."
@@ -81,13 +82,12 @@ MAKE IT TAKE STRING TO SEARCH FOR. So it can be run by the queue.
 # - - - - - - - - - - - - - - - -
 # Set up variabiles
 # - - - - - - - - - - - - - - - -
-SDM_workdir = "/lustre/aoc/projects/fasttransients/code/RT_TEST/sdmdir/"
+SDM_workdir = "/lustre/aoc/projects/fasttransients/code/RT_TEST2/sdmdir/"
 #SDM_workdir = "/home/mchammer/evla/mcaf/workspace/"
 BDF_workdir = "/lustre/evla/wcbe/data/bunker/"
 SDM_archdir = "/home/mchammer/evla/sdm/"
 BDF_archdir = "/lustre/evla/wcbe/data/archive/"
 our_intent  = "CALIBRATE"
-#global q
 
 # - - - - - - - - - - - - - - - -
 # Determine node availability
@@ -97,7 +97,7 @@ our_intent  = "CALIBRATE"
 NOTE: Need to determine which ~8-10 nodes we can hardwire into the
 code for our tests.
 """
-available_nodes = "nmpost041 nmpost046 nmpost049".split(" ")
+available_nodes = "nmpost037".split(" ")
 
 
 # - - - - - - - - - - - -
@@ -135,9 +135,9 @@ def search(sdmfile, scan):
 def fakey(sdmfile):
     return sdmfile
 
-def fake_search(sdmfile, scan):
+def fake_search(sdmfile, scan, q):
     joblist = []
-    for i in range(10):
+    for i in range(2):
         joblist.append(q.enqueue_call(func=fakey, args=(sdmfile,), timeout=24*3600, result_ttl=24*3600))
 
     return joblist
@@ -151,6 +151,10 @@ def find_newest_file(directory, partial_file_name):
 
 
 class newSDM(pyinotify.ProcessEvent):
+    def __init__(self, q):
+        pyinotify.ProcessEvent.__init__(self)
+        self.q = q
+
     def process_IN_CREATE(self, event):
         """ Find latest file in directory; read metadata. """
         print "Looking for newest file..."
@@ -179,22 +183,21 @@ class newSDM(pyinotify.ProcessEvent):
                 # joblist, which needs to be monitored for return
                 # value (number of candidates).
 
-                joblist = fake_search(SDM_file, scan)
+                joblist = fake_search(SDM_file, scan, self.q)
                 print "fakesearchdone"
                 joblist_all += joblist
                 
         # - - - - - - - - - - - - - - - -
         # Wait for all the results to come back from the slaves
         # - - - - - - - - - - - - - - - -
-        while len(joblist_all):
-            print len(joblist_all)
-            for i in range(len(joblist_all)):
-                if joblist[i].is_finished:
-                    job = joblist.pop(i)
-                    value = job.result
-                    print 'job %d done' % i
-                if joblist[i].is_failed:
-                    print 'uh oh'
+        print 'Submitted %d jobs' % len(joblist_all)
+        for i in range(len(joblist_all)):
+            if joblist_all[i].is_finished:
+                job = joblist_all.pop(i)
+                value = job.result
+                print 'job %d result: %s' % (i, value)
+            if joblist_all[i].is_failed:
+                print 'uh oh'
 
         # - - - - - - - - - - - - - - - -
         # [OPTIONAL] Do candidate auto-assessment/rejection
@@ -250,7 +253,7 @@ if __name__ == '__main__':
         """ Set to watch for new files """
         newfilewatch = pyinotify.IN_CREATE  
         
-        notifier = pyinotify.AsyncNotifier(watchman, newSDM())
+        notifier = pyinotify.AsyncNotifier(watchman, newSDM(q))
         
         """ Watch SDM directory for new files; non-recursive!  (doesn't watch subdirectories) """
         wdd = watchman.add_watch(SDM_workdir, newfilewatch)
