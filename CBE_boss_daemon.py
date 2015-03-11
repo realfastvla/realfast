@@ -12,22 +12,22 @@ from rq import Queue, Connection
 print "rtpipe..."
 import rtpipe.RT as rt
 import rtpipe.parsesdm as ps
-print "subprocess..."
-from subprocess import call
-print "OS and SDMreader..."
-import os, time, argparse
 from sdmreader import sdmreader
-print "Asyncore..."
+print "OS, etc."
+from subprocess import call
+import os, time, argparse, string
+print "asyncore..."
 import asyncore  # To monitor for new SDM asynchronously
 print "pyinotify..."
 import pyinotify # Wrapper on inotify to monitor SDM directory
+print "Done importing modules!\n"
 
-print "Finally done importing modules!\n";
-   
 # parse input to get name
 parser = argparse.ArgumentParser()
 parser.add_argument("partialname", help="String to match to SDM file name")
-args = parser.parse_args(); partialname = args.partialname
+parser.add_argument("--intent", help="Intent to filter scans", default='')
+parser.add_argument("--source", help="Source name to filter scans", default='')
+args = parser.parse_args(); partialname = args.partialname; intent = args.intent; source = args.source
 
 """
 This job should run "all the time" in the background on a control
@@ -41,8 +41,6 @@ Still to do:
 2. Scan-by-scan basis!
 
 """
-
-
 
 """
 CASEY QUESTIONS
@@ -80,15 +78,13 @@ MAKE IT TAKE STRING TO SEARCH FOR. So it can be run by the queue.
 
 
 # - - - - - - - - - - - - - - - -
-# Set up variabiles
+# Set up variables
 # - - - - - - - - - - - - - - - -
-SDM_workdir = "/lustre/aoc/projects/fasttransients/code/RT_TEST2/sdmdir/"
+SDM_workdir = "/lustre/aoc/projects/fasttransients/14sep03/"
 #SDM_workdir = "/home/mchammer/evla/mcaf/workspace/"
 BDF_workdir = "/lustre/evla/wcbe/data/bunker/"
 SDM_archdir = "/home/mchammer/evla/sdm/"
 BDF_archdir = "/lustre/evla/wcbe/data/archive/"
-our_intent  = "TARGET"
-our_source  = "B0355"
 
 # - - - - - - - - - - - - - - - -
 # Determine node availability
@@ -98,8 +94,7 @@ our_source  = "B0355"
 NOTE: Need to determine which ~8-10 nodes we can hardwire into the
 code for our tests.
 """
-available_nodes = "nmpost035".split(" ")
-
+available_nodes = "nmpost013 nmpost014 nmpost035".split(" ")
 
 # - - - - - - - - - - - -
 # Functions for work to be triggered
@@ -109,27 +104,22 @@ def search(sdmfile, scan, q):
     """ Search for transients in scan
     """
 
-    # parameters of search
-    chans = range(256)
-    spw = range(2)
-    nsegments = 100
-    dmarr = [0]
-    dtarr = [1]
-    timesub = 'mean'
-    searchtype = 'image1'
-    sigma_image1 = 8.
-    flagmode = 'standard'
-    uvres = 0
-    npix = 0
+    # move into working directory
+    workdir = string.join(sdmfile.rstrip('/').split('/')[:-1], '/') + '/'
+
+    try:
+        import rtparams
+    except ImportError:
+        print 'No rtparams.py found'
 
     # queue jobs
     joblist = []
     print 'Getting metadata for %s, scan %d' % (sdmfile, scan)
-    state = ps.get_metadata(sdmfile, scan, chans=chans, spw=spw)
-    rt.set_pipeline(state, nsegments=nsegments, dmarr=dmarr, dtarr=dtarr, timesub=timesub, sigma_image1=sigma_image1, flagmode=flagmode, searchtype=searchtype, uvres=uvres, npix=npix)
+    state = ps.get_metadata(sdmfile, scan, chans=rtparams.chans, spw=rtparams.spw)
+    rt.set_pipeline(state, nsegments=rtparams.nsegments, dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix, gainfile=workdir + rtparams.gainfile, bpfile=workdir + rtparams.bpfile)
     print 'Sending %d segments to queue' % (state['nsegments'])
 #    for segment in range(state['nsegments']):
-    for segment in [50]:
+    for segment in range(state['nsegments']):
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
 
     return joblist
@@ -154,7 +144,7 @@ class newSDM(pyinotify.ProcessEvent):
     def process_IN_CREATE(self, event):
         """ Find latest file in directory; read metadata. """
         print "Looking for newest file..."
-        SDM_file = find_newest_file(SDM_workdir,self.partialname) # Add name mask in the quotes
+        SDM_file = find_newest_file(SDM_workdir, self.partialname) # Add name mask in the quotes
         SDM_file = SDM_workdir + SDM_file
         print "Found SDM file " + SDM_file
 
@@ -166,11 +156,13 @@ class newSDM(pyinotify.ProcessEvent):
                         # the SDM is done writing?
         (scandict, sourcedict) = sdmreader.read_metadata(SDM_file)
         
-        """ Does this SDM have the right intent? """
+        """ Iterate over scans for correct intent and/or source name """
         joblist_all = []
         for scan in scandict:
-            if (our_intent in scandict[scan]['intent']) and (our_source in scandict[scan]['source']):
-                print "Found good scan " + str(scan)
+            print "Filtering scans for intent=%s and source=%s" % (intent, source)
+
+            if (intent in scandict[scan]['intent']) and (source in scandict[scan]['source']):
+                print "Submitting work for scan %d" % scan
                 
                 # - - - - - - - - - - - - - - - -
                 # When relevant SDM file exists, start processing.
@@ -180,7 +172,6 @@ class newSDM(pyinotify.ProcessEvent):
                 # value (number of candidates).
 
                 joblist = search(SDM_file, scan, self.q)
-                print "joblist made"
                 joblist_all += joblist
                 
         # - - - - - - - - - - - - - - - -
@@ -188,17 +179,17 @@ class newSDM(pyinotify.ProcessEvent):
         # - - - - - - - - - - - - - - - -
         print 'Submitted %d jobs' % len(joblist_all)
         while len(joblist_all):
-            for i in range(len(joblist_all)):
-                if joblist_all[i].is_finished:
-                    job = joblist_all.pop(i)
-                    print '\t job %d result: %s' % (i, job.return_value)
-                    break
-                elif joblist_all[i].is_failed:
-                    job = joblist_all.pop(i)
-                    print '\t job %d: uh oh...'
-                    break
+            for job in joblist_all:
+                if job.is_finished | job.is_failed:
+                    joblist_all.remove(job)
+                    print '\t scan %d, segment %d. ' % (job.args[0]['scan'], job.args[1]), 
+                    if job.is_finished:
+                        print 'result: %d.' % (job.return_value),
+                    elif job.is_failed:
+                        print 'failed!',
+                    print '%d jobs remaining' % len(joblist_all)
             time.sleep(1)
-        print 'all done with this event!'
+        print 'All done with jobs from this SDM.'
 
         # - - - - - - - - - - - - - - - -
         # [OPTIONAL] Do candidate auto-assessment/rejection
