@@ -88,6 +88,10 @@ BDF_archdir = "/lustre/evla/wcbe/data/archive/"
 # Set nodes availabile for work
 # - - - - - - - - - - - - - - - -
 available_nodes = "cbe-node-01 cbe-node-02".split(" ")
+if 'cbe' in available_nodes[0]:
+    location = 'cbe'
+elif 'nmpost' in available_nodes[0]:
+    location = 'aoc'
 
 # - - - - - - - - - - - -
 # Functions for work to be triggered
@@ -166,7 +170,7 @@ class newSDM(pyinotify.ProcessEvent):
 #        caljob = calibrate(SDM_file, fileroot, self.q)
 
         # submit search jobs
-        (scandict, sourcedict) = sdmreader.read_metadata(SDM_file)
+        (scandict, sourcedict) = sdmreader.read_metadata(SDM_file, location=location)   # location needed to find bdfs relative to sdm
         
         """ Iterate over scans for correct intent and/or source name """
         joblist_all = []
