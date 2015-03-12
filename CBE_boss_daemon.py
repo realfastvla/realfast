@@ -1,11 +1,8 @@
 #!/usr/bin/env python2.7
 #
-#
-# Still need to be resolved:
-#  - what is the naming convention for the slave nodes?
-#
-#
-# 
+# Daemon process run to detect new SDMs on the CBE.
+# Once detected, transient search pipeline (and associated work) started on free CBE nodes.
+
 print "Please be patient while libraries load...\n"
 print "RQ..."
 from rq import Queue, Connection
@@ -80,21 +77,17 @@ MAKE IT TAKE STRING TO SEARCH FOR. So it can be run by the queue.
 # - - - - - - - - - - - - - - - -
 # Set up variables
 # - - - - - - - - - - - - - - - -
-SDM_workdir = "/lustre/aoc/projects/fasttransients/14sep03/"
-#SDM_workdir = "/home/mchammer/evla/mcaf/workspace/"
+#SDM_workdir = "/lustre/aoc/projects/fasttransients/14sep03/"   # for aoc cluster testing
+#SDM_workdir = "/users/claw/"
+SDM_workdir = "/home/mchammer/evla/mcaf/workspace/"
 BDF_workdir = "/lustre/evla/wcbe/data/bunker/"
 SDM_archdir = "/home/mchammer/evla/sdm/"
 BDF_archdir = "/lustre/evla/wcbe/data/archive/"
 
 # - - - - - - - - - - - - - - - -
-# Determine node availability
-# (Paul: "Should be hard-wired")
+# Set nodes availabile for work
 # - - - - - - - - - - - - - - - -
-"""
-NOTE: Need to determine which ~8-10 nodes we can hardwire into the
-code for our tests.
-"""
-available_nodes = "nmpost013 nmpost014 nmpost035".split(" ")
+available_nodes = "cbe-node-01 cbe-node-02".split(" ")
 
 # - - - - - - - - - - - -
 # Functions for work to be triggered
@@ -132,7 +125,7 @@ def search(sdmfile, scan, q, depends_on=None):
     rt.set_pipeline(state, nsegments=rtparams.nsegments, dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix, gainfile=workdir + rtparams.gainfile, bpfile=workdir + rtparams.bpfile)
     print 'Sending %d segments to queue' % (state['nsegments'])
 #    for segment in range(state['nsegments']):
-    for segment in range(state['nsegments']):
+    for segment in [25]:
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))
 
     return joblist
@@ -151,6 +144,9 @@ class newSDM(pyinotify.ProcessEvent):
         self.q = q
         self.partialname = partialname
 
+    def process_IN_MOVED_TO(self, event):
+        self.process_IN_CREATE(self, event)
+
     def process_IN_ONLYDIR(self, event):
         self.process_IN_CREATE(self, event)
 
@@ -160,17 +156,14 @@ class newSDM(pyinotify.ProcessEvent):
         SDM_file = find_newest_file(SDM_workdir, self.partialname) # Add name mask in the quotes
         SDM_file = SDM_workdir + SDM_file
         print "Found SDM file " + SDM_file
-
-        time.sleep(2) # !!! NEED TO EVENTUALLY FIX THIS. Currently
-                        # it's here so the full SDM file can be
-                        # written before we try to read it... Maybe we
-                        # can instead do something like wait for the
-                        # last-written xml file to exist so we know
-                        # the SDM is done writing?
+        while 1:
+            if os.path.exists(SDM_workdir + 'Antenna.xml'):
+                print 'SDM finished writing.'
+                break
 
         # start calibration job on queue
-        fileroot = 'caltest'
-        caljob = calibrate(SDM_file, fileroot, self.q)
+#        fileroot = 'caltest'
+#        caljob = calibrate(SDM_file, fileroot, self.q)
 
         # submit search jobs
         (scandict, sourcedict) = sdmreader.read_metadata(SDM_file)

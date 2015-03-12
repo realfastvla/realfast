@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
 # commands to start up redis and rqworkers on nodes
-# run on gygax for now
+
+# set rq parameter file
+export host `hostname`
+if [ "$host" == 'gygax' ]; then rqsettings='rqsettings_aoc'; fi
+if [ "$host" == 'cbe-master' ]; then rqsettings='rqsettings_cbe'; fi
 
 # start redis
 if [ "$1" = 'start' ]; then
     echo 'Starting redis server'
     redis-server ~claw/code/redis-stable/redis.conf
 
-    nworkers=1
 # start rqworkers
+    nworkers=1
     for nodename in ${@:2}; do
 	echo 'Starting '$nworkers' rqworkers on '$nodename
-#	$logname='nohup_'${nodename}'.log'
 	for i in $(seq 1 $nworkers); do
-	    ssh $nodename "nohup rqworker -c rqsettings > nohup_$nodename.log 2>&1 &"
+	    ssh $nodename screen -d -m rqworker -c $rqsettings
 	done
     done
 fi
