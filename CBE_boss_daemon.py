@@ -105,8 +105,21 @@ available_nodes = "nmpost044 nmpost031 nmpost030".split(" ")
 # Functions for work to be triggered
 # - - - - - - - - - - - -
 
-def search(sdmfile, scan, q):
-    """ Search for transients in scan
+def calibrate(sdmfile, fileroot, q):
+    """ Submit gain and bandpass calibration job to queue
+    Uses intents to create new ms file with calibrator scans at 1s integration time.
+    New ms file used for bp and gain calibration.
+    """
+
+    import rtpipe.calpipe as cp
+    pipe = cp.pipe(sdmfile)
+    job = q.enqueue_call(func=pipe.run, args=(fileroot,), timeout=24*3600, result_ttl=24*3600)
+
+    return job
+
+def search(sdmfile, scan, q, depends_on=None):
+    """ Submit transient search pipeline to queue for a given scan.
+    Enqueued with an optional dependency (e.g., based on calibration job).
     """
 
     # move into working directory
@@ -125,7 +138,7 @@ def search(sdmfile, scan, q):
     print 'Sending %d segments to queue' % (state['nsegments'])
 #    for segment in range(state['nsegments']):
     for segment in range(state['nsegments']):
-        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
+        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))
 
     return joblist
 
@@ -166,6 +179,12 @@ class newSDM(pyinotify.ProcessEvent):
                         # can instead do something like wait for the
                         # last-written xml file to exist so we know
                         # the SDM is done writing?
+
+        # start calibration job on queue
+        fileroot = 'caltest'
+        caljob = calibrate(SDM_file, fileroot, self.q)
+
+        # submit search jobs
         (scandict, sourcedict) = sdmreader.read_metadata(SDM_file)
         
         """ Iterate over scans for correct intent and/or source name """
@@ -183,7 +202,7 @@ class newSDM(pyinotify.ProcessEvent):
                 # joblist, which needs to be monitored for return
                 # value (number of candidates).
 
-                joblist = search(SDM_file, scan, self.q)
+                joblist = search(SDM_file, scan, self.q, caljob)   # submit jobs with dependency on caljob completion
                 joblist_all += joblist
                 
         # - - - - - - - - - - - - - - - -
