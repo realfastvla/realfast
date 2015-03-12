@@ -80,11 +80,16 @@ MAKE IT TAKE STRING TO SEARCH FOR. So it can be run by the queue.
 # - - - - - - - - - - - - - - - -
 # Set up variables
 # - - - - - - - - - - - - - - - -
-SDM_workdir = "/lustre/aoc/projects/fasttransients/14sep03/"
+SDM_workdir = "/lustre/aoc/projects/fasttransients/14jun21/"#/lustre/aoc/projects/fasttransients/14sep03/"
 #SDM_workdir = "/home/mchammer/evla/mcaf/workspace/"
 BDF_workdir = "/lustre/evla/wcbe/data/bunker/"
 SDM_archdir = "/home/mchammer/evla/sdm/"
 BDF_archdir = "/lustre/evla/wcbe/data/archive/"
+
+# This is the file that lists which nodes are in standard use by the CBE. 
+#node_query_file = "/opt/cbe-local/etc/sysconfig/wcbe_lfx_daily.conf"
+# This is a dummy file for gygax testing because the standard CBE file is only accessible from cbe-master
+node_query_file = "/users/sspolaor/soft/vlart/wcbe_lfx_daily.conf"
 
 # - - - - - - - - - - - - - - - -
 # Determine node availability
@@ -94,7 +99,7 @@ BDF_archdir = "/lustre/evla/wcbe/data/archive/"
 NOTE: Need to determine which ~8-10 nodes we can hardwire into the
 code for our tests.
 """
-available_nodes = "nmpost013 nmpost014 nmpost035".split(" ")
+available_nodes = "nmpost044 nmpost031 nmpost030".split(" ")
 
 # - - - - - - - - - - - -
 # Functions for work to be triggered
@@ -138,11 +143,18 @@ class newSDM(pyinotify.ProcessEvent):
         self.q = q
         self.partialname = partialname
 
+    # Listens for new file moved into the watchdir
+    #def process_IN_MOVED_TO(self, event):
+    #    self.process_IN_CREATE(self, event)
+
+    # Listens for only new directories in watchdir (and apparently catches softlinks)
     def process_IN_ONLYDIR(self, event):
         self.process_IN_CREATE(self, event)
 
+    # Listens for any new file created in watchdir
     def process_IN_CREATE(self, event):
         """ Find latest file in directory; read metadata. """
+        archive_scans = []
         print "Looking for newest file..."
         SDM_file = find_newest_file(SDM_workdir, self.partialname) # Add name mask in the quotes
         SDM_file = SDM_workdir + SDM_file
@@ -185,11 +197,23 @@ class newSDM(pyinotify.ProcessEvent):
                     print '\t scan %d, segment %d. ' % (job.args[0]['scan'], job.args[1]), 
                     if job.is_finished:
                         print 'result: %d.' % (job.return_value),
+                        if job.return_value != 0 and job.args[0]['scan'] not in archive_scans:
+                            archive_scans.append(job.args[0]['scan'])# add scan to archive_scans list
                     elif job.is_failed:
                         print 'failed!',
                     print '%d jobs remaining' % len(joblist_all)
             time.sleep(1)
         print 'All done with jobs from this SDM.'
+
+        if len(archive_scans) == 0:
+            print 'No scans found worthy of archiving.'
+        else:
+            # Ultimately this should be written to a text file, sent
+            # to Bryans perl script, or we should do the BDF and
+            # meta-data linking and data clean-up ourselves.
+            print 'Scans tagged for archiving:'
+            for arscan in archive_scans:
+                print arscan
 
         # - - - - - - - - - - - - - - - -
         # [OPTIONAL] Do candidate auto-assessment/rejection
@@ -253,7 +277,12 @@ if __name__ == '__main__':
         try:
             asyncore.loop()
         except KeyboardInterrupt:
-            print "\n\nKeyboard interrupt received. Exiting.\n"
+            print "\n\nKeyboard interrupt received. Killing queue and exiting.\n"
+            try:
+                call(['/users/claw/code/vlart/rqmanage.sh','stop']+available_nodes)#,shell=True)
+            except OSError as e:
+                print "\n\tError in queue stop with rqmanage.sh: ", e
+            exit(1);
 
 
 """
