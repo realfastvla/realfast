@@ -9,7 +9,7 @@ from rq import Queue, Connection
 print "rtpipe..."
 import rtpipe.RT as rt
 import rtpipe.parsesdm as ps
-from sdmreader import sdmreader
+import sdmreader
 print "OS, etc."
 from subprocess import call
 import os, time, argparse, string

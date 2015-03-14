@@ -5,33 +5,36 @@
 
 from rq import Queue, Connection
 import os, glob, time, argparse, pickle, string
+import sdmreader
+import rtpipe.RT as rt
+import rtpipe.parsesdm as ps
+import rtpipe.parsecands as pc
+import rtpipe.calpipe as cp
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
 parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default=0)
 parser.add_argument("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
 parser.add_argument("--mode", help="'read', 'search', 'calibrate'", default='read')
+parser.add_argument("--rtparamfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode
 
-# split path from filename
-workdir = string.join(filename.rstrip('/').split('/')[:-1], '/') + '/'
-if workdir == '/':
-    workdir = os.getcwd() + '/'
-filename = filename.rstrip('/').split('/')[-1]
+# get working directory and filename separately
+workdir, filename = os.path.split(os.path.abspath(filename))
 
-# parameters of search (or could be done as argument?)
-os.chdir(workdir)
+# set up pipeline parameters
 try:
-    from rtparams import *   # fill namespace with processing params
+    rtparams = rt.Params(args.rtparamfile)
 except ImportError:
-    print 'No rtparams.py found in %s' % os.getcwd()
+    print 'No parameters found at %s' % (args.rtparamfile)
 
-# scans to use depends on context
+os.chdir(workdir)
+
+# if no scans defined, set by mode context
 if scans != 0:
     scans = [int(i) for i in scans.split(',')]
 else:
-    import sdmreader
     meta = sdmreader.read_metadata(filename)
 
     # if source list provided, parse it then append all scans to single list
@@ -55,8 +58,6 @@ else:
 def read():
     """ Simple parse and return metadata for pipeline for first scan
     """
-    import realtime.RT as rt
-    import realtime.parsesdm as ps
 
     sc, sr = sdmreader.read_metadata(filename)
     print
@@ -64,21 +65,19 @@ def read():
     print [(ss, sc[ss]['source']) for ss in sc.keys()]
     print
     print 'Example pipeline for first scan:'
-    state = ps.get_metadata(workdir + filename, scans[0], chans=chans, spw=spw)    
-    rt.set_pipeline(state, nthread=nthread, nsegments=nsegments, gainfile=workdir + gainfile, bpfile=workdir + bpfile, dmarr=dmarr, dtarr=dtarr, timesub=timesub, candsfile=workdir + candsfile, noisefile=workdir + noisefile, sigma_image1=sigma_image1, flagmode=flagmode, flagantsol=flagantsol, searchtype=searchtype, uvres=uvres, npix=npix)
+    state = ps.get_metadata(os.path.join(workdir, filename), scans[0], chans=rtparams.chans, spw=rtparams.spw)    
+    rt.set_pipeline(state, nthread=rtparams.nthread, nsegments=rtparams.nsegments, gainfile=os.path.join(workdir, rtparams.gainfile), bpfile=os.path.join(workdir, rtparams.bpfile), dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, candsfile=os.path.join(workdir, rtparams.candsfile), noisefile=os.path.join(workdir, rtparams.noisefile), sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix)
 
 def search():
     """ Search for transients in all target scans and segments
     """
-    import realtime.RT as rt
-    import realtime.parsesdm as ps
 
     # queue jobs
     for scan in scans:
         scanind = scans.index(scan)
         print 'Getting metadata for %s, scan %d' % (filename, scan)
-        state = ps.get_metadata(workdir + filename, scan, chans=chans, spw=spw)
-        rt.set_pipeline(state, nthread=nthread, nsegments=nsegments, gainfile=workdir + gainfile, bpfile=workdir + bpfile, dmarr=dmarr, dtarr=dtarr, timesub=timesub, candsfile=workdir + candsfile, noisefile=workdir + noisefile, sigma_image1=sigma_image1, flagmode=flagmode, flagantsol=flagantsol, searchtype=searchtype, uvres=uvres, npix=npix)
+        state = ps.get_metadata(os.path.join(workdir, filename), scan, chans=rtparams.chans, spw=rtparams.spw)
+        rt.set_pipeline(state, nthread=rtparams.nthread, nsegments=rtparams.nsegments, gainfile=os.path.join(workdir, rtparams.gainfile), bpfile=os.path.join(workdir, rtparams.bpfile), dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, candsfile=os.path.join(workdir, rtparams.candsfile), noisefile=os.path.join(workdir, rtparams.noisefile), sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix)
         print 'Sending %d segments to queue' % (state['nsegments'])
         for segment in range(state['nsegments']):
             q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600)
@@ -89,8 +88,7 @@ def calibrate():
     #flags = ["mode='unflag'", "mode='shadow'", "mode='clip' clipzeros=True", "mode='rflag' freqdevscale=4 timedevscale=5", "mode='extend' growaround=True growtime=60 growfreq=40 extendpols=True", "mode='quack' quackinterval=20", "mode='summary'"]
     #"mode='manual' antenna='ea11,ea19'", 
 
-    import calpipe
-    cp = calpipe.pipe(workdir + filename)
+    cp = calpipe.pipe(os.path.join(workdir, filename))
     cp.run()
 
 def calimg():
@@ -98,23 +96,18 @@ def calimg():
     Intended to test calibration quality.
     """
 
-    import realtime.RT as rt
-    import realtime.parsesdm as ps
-
     timescale = 1.  # average to this timescale (sec)
 
     for scan in scans:
-        state = ps.get_metadata(workdir + filename, scan, chans=chans, spw=spw)
+        state = ps.get_metadata(os.path.join(workdir, filename), scan, chans=rtparams.chans, spw=rtparams.spw)
         read_downsample = int(timescale/state['inttime'])
-        rt.set_pipeline(state, nthread=1, nsegments=0, gainfile=workdir + gainfile, bpfile=workdir + bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', sigma_image1=sigma_image1, flagmode=flagmode, flagantsol=flagantsol, searchtype=searchtype, uvres=uvres, npix=npix, read_downsample=read_downsample)
+        rt.set_pipeline(state, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix, read_downsample=read_downsample)
         q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600)  # image middle segment
 
 def cleanup(fileroot, scans):
     """ Cleanup up noise and cands files.
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
-
-    import realtime.parsecands as pc
 
     # merge cands files
     for scan in scans:
@@ -146,8 +139,6 @@ def plot_cands(fileroot, scans, candsfile, noisefile):
     default mode is to make cand and noise summary plots
     """
 
-    import realtime.parsecands as pc
-
     pkllist = []
     for scan in scans:
         pkllist.append('cands_' + fileroot + '_sc' + str(scan) + '.pkl')
@@ -162,8 +153,6 @@ def plot_pulsar(fileroot, scans):
     """
     Assumes 3 or 4 input pulsar scans (centered then offset pointings).
     """
-
-    import realtime.parsecands as pc
 
     pkllist = []
     for scan in scans:
@@ -188,7 +177,6 @@ if __name__ == '__main__':
 
     # connect
     with Connection():
-
         if mode == 'read':
             read()
 
@@ -206,6 +194,7 @@ if __name__ == '__main__':
             calimg()
 
         elif mode == 'cleanup':
+#            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
             cleanup(fileroot, scans)
 
         elif mode == 'plot_cands':
