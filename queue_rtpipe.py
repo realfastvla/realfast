@@ -16,9 +16,9 @@ parser.add_argument("filename", help="filename with full path")
 parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default=0)
 parser.add_argument("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
 parser.add_argument("--mode", help="'read', 'search', 'calibrate'", default='read')
-parser.add_argument("--rtparamfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
+parser.add_argument("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
-args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.rtparamfile
+args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile
 
 # get working directory and filename separately
 workdir, filename = os.path.split(os.path.abspath(filename))

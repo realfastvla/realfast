@@ -8,7 +8,6 @@ print "RQ..."
 from rq import Queue, Connection
 print "rtpipe..."
 import rtpipe.RT as rt
-import rtpipe.parsesdm as ps
 import sdmreader
 print "OS, etc."
 from subprocess import call
@@ -24,7 +23,8 @@ parser = argparse.ArgumentParser()
 parser.add_argument("partialname", help="String to match to SDM file name")
 parser.add_argument("--intent", help="Intent to filter scans", default='')
 parser.add_argument("--source", help="Source name to filter scans", default='')
-args = parser.parse_args(); partialname = args.partialname; intent = args.intent; source = args.source
+parser.add_argument("--paramfile", help="File (python-like syntax) that defines pipeline parameters", default='')
+args = parser.parse_args(); partialname = args.partialname; intent = args.intent; source = args.source; paramfile = args.paramfile
 
 """
 This job should run "all the time" in the background on a control
@@ -109,7 +109,7 @@ def calibrate(sdmfile, fileroot, q):
 
     return job
 
-def search(sdmfile, scan, q, depends_on=None):
+def search(sdmfile, scan, paramfile, q, depends_on=None):
     """ Submit transient search pipeline to queue for a given scan.
     Enqueued with an optional dependency (e.g., based on calibration job).
     """
@@ -117,16 +117,10 @@ def search(sdmfile, scan, q, depends_on=None):
     # move into working directory
     workdir = string.join(sdmfile.rstrip('/').split('/')[:-1], '/') + '/'
 
-    try:
-        import rtparams
-    except ImportError:
-        print 'No rtparams.py found'
-
     # queue jobs
     joblist = []
-    print 'Getting metadata for %s, scan %d' % (sdmfile, scan)
-    state = ps.get_metadata(sdmfile, scan, chans=rtparams.chans, spw=rtparams.spw)
-    rt.set_pipeline(state, nsegments=rtparams.nsegments, dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix, gainfile=workdir + rtparams.gainfile, bpfile=workdir + rtparams.bpfile)
+    print 'Setting up pipeline for %s, scan %d' % (sdmfile, scan)
+    state = rt.set_pipeline(sdmfile, scan, paramfile=paramfile)
     print 'Sending %d segments to queue' % (state['nsegments'])
 #    for segment in range(state['nsegments']):
     for segment in [25]:
@@ -191,7 +185,7 @@ class newSDM(pyinotify.ProcessEvent):
                 # joblist, which needs to be monitored for return
                 # value (number of candidates).
 
-                joblist = search(SDM_file, scan, self.q, caljob)   # submit jobs with dependency on caljob completion
+                joblist = search(SDM_file, scan, paramfile, self.q, caljob)   # submit jobs with dependency on caljob completion
                 joblist_all += joblist
                 
         # - - - - - - - - - - - - - - - -
