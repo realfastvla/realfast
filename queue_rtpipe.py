@@ -18,17 +18,10 @@ parser.add_argument("--sources", help="sources to search. comma-delimited source
 parser.add_argument("--mode", help="'read', 'search', 'calibrate'", default='read')
 parser.add_argument("--rtparamfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
-args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode
+args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.rtparamfile
 
 # get working directory and filename separately
 workdir, filename = os.path.split(os.path.abspath(filename))
-
-# set up pipeline parameters
-try:
-    rtparams = rt.Params(args.rtparamfile)
-except ImportError:
-    print 'No parameters found at %s' % (args.rtparamfile)
-
 os.chdir(workdir)
 
 # if no scans defined, set by mode context
@@ -65,8 +58,7 @@ def read():
     print [(ss, sc[ss]['source']) for ss in sc.keys()]
     print
     print 'Example pipeline for first scan:'
-    state = ps.get_metadata(os.path.join(workdir, filename), scans[0], chans=rtparams.chans, spw=rtparams.spw)    
-    rt.set_pipeline(state, nthread=rtparams.nthread, nsegments=rtparams.nsegments, gainfile=os.path.join(workdir, rtparams.gainfile), bpfile=os.path.join(workdir, rtparams.bpfile), dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, candsfile=os.path.join(workdir, rtparams.candsfile), noisefile=os.path.join(workdir, rtparams.noisefile), sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix)
+    state = rt.set_pipeline(os.path.join(workdir, filename), scans[0], paramfile=paramfile)
 
 def search():
     """ Search for transients in all target scans and segments
@@ -76,8 +68,7 @@ def search():
     for scan in scans:
         scanind = scans.index(scan)
         print 'Getting metadata for %s, scan %d' % (filename, scan)
-        state = ps.get_metadata(os.path.join(workdir, filename), scan, chans=rtparams.chans, spw=rtparams.spw)
-        rt.set_pipeline(state, nthread=rtparams.nthread, nsegments=rtparams.nsegments, gainfile=os.path.join(workdir, rtparams.gainfile), bpfile=os.path.join(workdir, rtparams.bpfile), dmarr=rtparams.dmarr, dtarr=rtparams.dtarr, timesub=rtparams.timesub, candsfile=os.path.join(workdir, rtparams.candsfile), noisefile=os.path.join(workdir, rtparams.noisefile), sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix)
+        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile)
         print 'Sending %d segments to queue' % (state['nsegments'])
         for segment in range(state['nsegments']):
             q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600)
@@ -99,9 +90,9 @@ def calimg():
     timescale = 1.  # average to this timescale (sec)
 
     for scan in scans:
-        state = ps.get_metadata(os.path.join(workdir, filename), scan, chans=rtparams.chans, spw=rtparams.spw)
+        state = ps.get_metadata(os.path.join(workdir, filename), scan)
         read_downsample = int(timescale/state['inttime'])
-        rt.set_pipeline(state, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', sigma_image1=rtparams.sigma_image1, flagmode=rtparams.flagmode, flagantsol=rtparams.flagantsol, searchtype=rtparams.searchtype, uvres=rtparams.uvres, npix=rtparams.npix, read_downsample=read_downsample)
+        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample)
         q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600)  # image middle segment
 
 def cleanup(fileroot, scans):
