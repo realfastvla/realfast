@@ -22,7 +22,6 @@ args = parser.parse_args(); filename = args.filename; scans = args.scans; source
 
 # get working directory and filename separately
 workdir, filename = os.path.split(os.path.abspath(filename))
-os.chdir(workdir)
 
 # if no scans defined, set by mode context
 if scans != 0:
