@@ -18,7 +18,8 @@ parser.add_argument("--sources", help="sources to search. comma-delimited source
 parser.add_argument("--mode", help="'read', 'search', 'calibrate'", default='read')
 parser.add_argument("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
-args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile
+parser.add_argument("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
+args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot
 
 # get working directory and filename separately
 workdir, filename = os.path.split(os.path.abspath(filename))
@@ -42,8 +43,6 @@ else:
     else:
         if mode == 'search':
             scans = [sc for sc in meta[0].keys() if 'TARGET' in meta[0][sc]['intent']]   # get all target fields
-        elif mode == 'calibrate':
-            scans = [sc for sc in meta[0].keys() if 'CAL' in meta[0][sc]['intent']]   # get all cal fields
         else:
             scans = [sc for sc in meta[0].keys()]  # get all scans
 
@@ -59,27 +58,27 @@ def read():
     print 'Example pipeline for first scan:'
     state = rt.set_pipeline(os.path.join(workdir, filename), scans[0], paramfile=paramfile)
 
-def search():
+def search(fileroot=fileroot):
     """ Search for transients in all target scans and segments
     """
 
     # queue jobs
     for scan in scans:
         scanind = scans.index(scan)
-        print 'Getting metadata for %s, scan %d' % (filename, scan)
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile)
+        print 'Setting up pipeline for %s, scan %d' % (filename, scan)
+        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, fileroot=fileroot)
         print 'Sending %d segments to queue' % (state['nsegments'])
         for segment in range(state['nsegments']):
             q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600)
 
-def calibrate():
+def calibrate(fileroot=fileroot):
     """ Run calibration pipeline
     """
     #flags = ["mode='unflag'", "mode='shadow'", "mode='clip' clipzeros=True", "mode='rflag' freqdevscale=4 timedevscale=5", "mode='extend' growaround=True growtime=60 growfreq=40 extendpols=True", "mode='quack' quackinterval=20", "mode='summary'"]
     #"mode='manual' antenna='ea11,ea19'", 
 
-    cp = calpipe.pipe(os.path.join(workdir, filename))
-    cp.run()
+    pipe = cp.pipe(os.path.join(workdir, filename), fileroot)
+    q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600)
 
 def calimg():
     """ Search of a small segment of data without dedispersion.
@@ -176,8 +175,8 @@ if __name__ == '__main__':
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
-            calibrate()
-            calimg()
+            calibrate(fileroot)
+#            calimg()
 
         elif mode == 'calimg':
             q = Queue(qpriority)

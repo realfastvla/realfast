@@ -1,6 +1,4 @@
 # defines basic parameters needed for a rtpipe job
-gainfile = '14A-425_14sep03.g2'
-bpfile = '14A-425_14sep03.b1'
 nsegments = 50
 nthread = 16
 timesub = 'mean'
@@ -14,3 +12,5 @@ spw = [0,1]
 chans = range(6,122)+range(134,250)
 uvres = 0   # imaging parameters. set res=size=0 to define from uv coords
 npix = 0
+savenoise = False
+savecands = False
