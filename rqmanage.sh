@@ -16,7 +16,8 @@ if [ "$1" = 'start' ]; then
     for nodename in ${@:2}; do
 	echo 'Starting '$nworkers' rqworkers on '$nodename
 	for i in $(seq 1 $nworkers); do
-	    echo "ssh $nodename screen -d -m rqworker -c $rqsettings"
+	    echo "ssh $nodename screen -d -m rqworker --config $rqsettings"
+	    echo "ssh $nodename screen -d -m rqworker joblists --config $rqsettings"
 	    ssh $nodename screen -d -m rqworker -c $rqsettings
 	done
     done

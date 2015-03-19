@@ -73,12 +73,12 @@ def search(depends_on=''):
             joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))
     return joblist
 
-def calibrate():
+def calibrate(depends_on=''):
     """ Run calibration pipeline
     """
 
     pipe = cp.pipe(os.path.join(workdir, filename), fileroot)
-    job = q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600)
+    job = q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600, depends_on=depends_on)
     return job
 
 def calimg(depends_on=''):
@@ -152,12 +152,16 @@ def plot_cands():
 
     pkllist = []
     for scan in scans:
-        pkllist.append('cands_' + fileroot + '_sc' + str(scan) + '.pkl')
+        pklfile = 'cands_' + fileroot + '_sc' + str(scan) + '.pkl'
+        if os.path.exists(pklfile):
+            pkllist.append(pklfile)
     pc.plot_cands(pkllist)
     
     pkllist = []
     for scan in scans:
-        pkllist.append('noise_' + fileroot + '_sc' + str(scan) + '.pkl')
+        pklfile = 'noise_' + fileroot + '_sc' + str(scan) + '.pkl'
+        if os.path.exists(pklfile):
+            pkllist.append(pklfile)
     pc.plot_noise(pkllist)
 
 def plot_pulsar():
@@ -171,6 +175,16 @@ def plot_pulsar():
 
     pc.plot_psrrates(pkllist, outname='plot_' + fileroot + '_psrrates.png')
 
+def joblistwait(joblist):
+    """ Function listens to jobs in joblist. Completes only when all jobs have is_finished status=True.
+    """
+
+    while len(joblist):
+        for job in joblist:
+            if job.is_finished:
+                joblist.remove(job)
+                print 'Removed job %s', str(job)
+        time.sleep(1)
 
 ###############
 # Job Control #
@@ -202,13 +216,17 @@ if __name__ == '__main__':
 
         elif mode == 'all':
             q = Queue('high')
-            watchjob = q.enqueue_call(func=watch, timeout=24*3600, result_ttl=24*3600)
-            caljob = calibrate(depends_on=watchjob)
+            # watch function has no use case at the moment. aoc case does not wait. cbe case needs better watch function (i.e., for complete sdm)
+#            watchjob = q.enqueue_call(func=watch, timeout=24*3600, result_ttl=24*3600)
+            caljob = calibrate(depends_on='')  # can be set to enqueue when data arrives
             q = Queue('low')
-            searchjoblist = search(depends_on=caljob)
+            searchjoblist = search(depends_on=caljob)  # enqueued when calibration finished
+            # need to manage job list manually. special queue for this, plus new joblistwait function.
+            q = Queue('jobslists')
+            joblistwaitjob = q.enqueue_call(func=joblistwait, timeout=24*3600, result_ttl=24*3600)  # enqueued
             q = Queue('high')
-#            cleanjob = q.enqueue_call(func=cleanup, args=(joblist,), timeout=24*3600, result_ttl=24*3600, depends_on=searchjoblist)  # not yet possible in rq
-#            plotjob = q.enqueue_call(func=plot_cands, args=(job,) timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)
+            cleanjob = q.enqueue_call(func=cleanup, timeout=24*3600, result_ttl=24*3600, depends_on=joblistwaitjob)  # enqueued when joblist finishes
+            plotjob = q.enqueue_call(func=plot_cands, args=(job,) timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
         elif mode == 'calimg':
             q = Queue(qpriority)
