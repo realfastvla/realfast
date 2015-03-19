@@ -58,10 +58,11 @@ def read():
     print 'Example pipeline for first scan:'
     state = rt.set_pipeline(os.path.join(workdir, filename), scans[0], paramfile=paramfile)
 
-def search(fileroot=fileroot):
+def search(depends_on=''):
     """ Search for transients in all target scans and segments
     """
 
+    joblist = []
     # queue jobs
     for scan in scans:
         scanind = scans.index(scan)
@@ -69,31 +70,52 @@ def search(fileroot=fileroot):
         state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, fileroot=fileroot)
         print 'Sending %d segments to queue' % (state['nsegments'])
         for segment in range(state['nsegments']):
-            q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600)
+            joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))
+    return joblist
 
-def calibrate(fileroot=fileroot):
+def calibrate():
     """ Run calibration pipeline
     """
-    #flags = ["mode='unflag'", "mode='shadow'", "mode='clip' clipzeros=True", "mode='rflag' freqdevscale=4 timedevscale=5", "mode='extend' growaround=True growtime=60 growfreq=40 extendpols=True", "mode='quack' quackinterval=20", "mode='summary'"]
-    #"mode='manual' antenna='ea11,ea19'", 
 
     pipe = cp.pipe(os.path.join(workdir, filename), fileroot)
-    q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600)
+    job = q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600)
+    return job
 
-def calimg():
+def calimg(depends_on=''):
     """ Search of a small segment of data without dedispersion.
     Intended to test calibration quality.
     """
 
     timescale = 1.  # average to this timescale (sec)
-
+    joblist = []
     for scan in scans:
         state = ps.get_metadata(os.path.join(workdir, filename), scan)
         read_downsample = int(timescale/state['inttime'])
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample)
-        q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600)  # image middle segment
+        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
+        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
+    return joblist
 
-def cleanup(fileroot, scans):
+def watch():
+    """ Watch a directory for a new file with subname in its name.
+    Meant to be real-time queue trigger
+    """
+
+    filelist0 = os.listdir(os.path.abspath(workdir))
+    while 1:
+        filelist = os.listdir(os.path.abspath(workdir))
+        newfiles = [ff for ff in filelist if ff not in filelist0]
+        matchfiles = filter(lambda newfile: filename in newfile, newfiles)
+        if len(matchfiles):
+            if len(matchfiles) > 1:
+                print 'More than one match!', matchfiles
+            else:
+                break
+
+        filelist0 = filelist
+        time.sleep(1)
+    return matchfiles[0]
+
+def cleanup():
     """ Cleanup up noise and cands files.
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
@@ -121,7 +143,7 @@ def cleanup(fileroot, scans):
             for cc in pkllist:
                 os.remove(cc)
 
-def plot_cands(fileroot, scans, candsfile, noisefile):
+def plot_cands():
     """
     Make summary plots.
     pkllist gives list of cand pkl files for visualization.
@@ -138,7 +160,7 @@ def plot_cands(fileroot, scans, candsfile, noisefile):
         pkllist.append('noise_' + fileroot + '_sc' + str(scan) + '.pkl')
     pc.plot_noise(pkllist)
 
-def plot_pulsar(fileroot, scans):
+def plot_pulsar():
     """
     Assumes 3 or 4 input pulsar scans (centered then offset pointings).
     """
@@ -150,9 +172,9 @@ def plot_pulsar(fileroot, scans):
     pc.plot_psrrates(pkllist, outname='plot_' + fileroot + '_psrrates.png')
 
 
-###########
+###############
 # Job Control #
-###########
+###############
 
 if __name__ == '__main__':
 
@@ -175,8 +197,18 @@ if __name__ == '__main__':
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
-            calibrate(fileroot)
+            calibrate()
 #            calimg()
+
+        elif mode == 'all':
+            q = Queue('high')
+            watchjob = q.enqueue_call(func=watch, timeout=24*3600, result_ttl=24*3600)
+            caljob = calibrate(depends_on=watchjob)
+            q = Queue('low')
+            searchjoblist = search(depends_on=caljob)
+            q = Queue('high')
+#            cleanjob = q.enqueue_call(func=cleanup, args=(joblist,), timeout=24*3600, result_ttl=24*3600, depends_on=searchjoblist)  # not yet possible in rq
+#            plotjob = q.enqueue_call(func=plot_cands, args=(job,) timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)
 
         elif mode == 'calimg':
             q = Queue(qpriority)
@@ -184,10 +216,10 @@ if __name__ == '__main__':
 
         elif mode == 'cleanup':
 #            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            cleanup(fileroot, scans)
+            cleanup()
 
         elif mode == 'plot_cands':
-            plot_cands(fileroot, scans, candsfile, noisefile)
+            plot_cands()
 
         elif mode == 'plot_pulsar':
-            plot_pulsar(fileroot, scans)
+            plot_pulsar()
