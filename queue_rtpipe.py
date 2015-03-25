@@ -226,7 +226,7 @@ if __name__ == '__main__':
             joblistwaitjob = q.enqueue_call(func=joblistwait, timeout=24*3600, result_ttl=24*3600)  # enqueued
             q = Queue('high')
             cleanjob = q.enqueue_call(func=cleanup, timeout=24*3600, result_ttl=24*3600, depends_on=joblistwaitjob)  # enqueued when joblist finishes
-            plotjob = q.enqueue_call(func=plot_cands, args=(job,) timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+            plotjob = q.enqueue_call(func=plot_cands, args=(job,), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
         elif mode == 'calimg':
             q = Queue(qpriority)

@@ -6,7 +6,7 @@ from rq import Queue, Connection
 import os, glob, time, argparse, pickle, string
 
 parser = argparse.ArgumentParser()
-parser.add_argument("mode", help="'clear', 'failed', 'restart'")
+parser.add_argument("mode", help="'clear', 'failed', 'resubmit'")
 args = parser.parse_args(); mode = args.mode
 
 if __name__ == '__main__':
@@ -32,5 +32,10 @@ if __name__ == '__main__':
                 print 'Failure %d' % i
                 print q.jobs[i].exc_info
 
-        elif mode == 'restart':
-            raise NotImplementedError
+        elif mode == 'resubmit':
+            q = Queue('failed')
+            joblist = q.jobs
+            print 'Resubmitting %d jobs to resubmit' % len(joblist)
+            q = Queue('low')
+            for job in joblist:
+                q.enqueue_job(job)
