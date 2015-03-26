@@ -19,6 +19,8 @@ if __name__ == '__main__':
             q.empty()
             q = Queue('low')
             q.empty()
+            q = Queue('joblists')
+            q.empty()
             q = Queue('failed')
             q.empty()
             q = Queue('default')

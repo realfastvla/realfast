@@ -4,12 +4,9 @@
 # each job is independent but shares file system. one worker per node.
 
 from rq import Queue, Connection
-import os, glob, time, argparse, pickle, string
+import os, argparse
 import sdmreader
-import rtpipe.RT as rt
-import rtpipe.parsesdm as ps
-import rtpipe.parsecands as pc
-import rtpipe.calpipe as cp
+import queue_funcs as qf
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
@@ -20,6 +17,8 @@ parser.add_argument("--paramfile", help="parameters for rtpipe using python-like
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
 args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot
+
+redishost = os.uname()[1]
 
 # get working directory and filename separately
 workdir, filename = os.path.split(os.path.abspath(filename))
@@ -46,146 +45,6 @@ else:
         else:
             scans = [sc for sc in meta[0].keys()]  # get all scans
 
-def read():
-    """ Simple parse and return metadata for pipeline for first scan
-    """
-
-    sc, sr = sdmreader.read_metadata(filename)
-    print
-    print 'Scans, Target names:'
-    print [(ss, sc[ss]['source']) for ss in sc.keys()]
-    print
-    print 'Example pipeline for first scan:'
-    state = rt.set_pipeline(os.path.join(workdir, filename), scans[0], paramfile=paramfile)
-
-def search(depends_on=''):
-    """ Search for transients in all target scans and segments
-    """
-
-    joblist = []
-    # queue jobs
-    for scan in scans:
-        scanind = scans.index(scan)
-        print 'Setting up pipeline for %s, scan %d' % (filename, scan)
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, fileroot=fileroot)
-        print 'Sending %d segments to queue' % (state['nsegments'])
-        for segment in range(state['nsegments']):
-            joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))
-    return joblist
-
-def calibrate(depends_on=''):
-    """ Run calibration pipeline
-    """
-
-    pipe = cp.pipe(os.path.join(workdir, filename), fileroot)
-    job = q.enqueue_call(pipe.run, timeout=24*3600, result_ttl=24*3600, depends_on=depends_on)
-    return job
-
-def calimg(depends_on=''):
-    """ Search of a small segment of data without dedispersion.
-    Intended to test calibration quality.
-    """
-
-    timescale = 1.  # average to this timescale (sec)
-    joblist = []
-    for scan in scans:
-        state = ps.get_metadata(os.path.join(workdir, filename), scan)
-        read_downsample = int(timescale/state['inttime'])
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
-        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
-    return joblist
-
-def watch():
-    """ Watch a directory for a new file with subname in its name.
-    Meant to be real-time queue trigger
-    """
-
-    filelist0 = os.listdir(os.path.abspath(workdir))
-    while 1:
-        filelist = os.listdir(os.path.abspath(workdir))
-        newfiles = [ff for ff in filelist if ff not in filelist0]
-        matchfiles = filter(lambda newfile: filename in newfile, newfiles)
-        if len(matchfiles):
-            if len(matchfiles) > 1:
-                print 'More than one match!', matchfiles
-            else:
-                break
-
-        filelist0 = filelist
-        time.sleep(1)
-    return matchfiles[0]
-
-def cleanup():
-    """ Cleanup up noise and cands files.
-    Finds all segments in each scan and merges them into single cand/noise file per scan.
-    """
-
-    # merge cands files
-    for scan in scans:
-        try:
-            pkllist = glob.glob('cands_' + fileroot + '_sc' + str(scan) + 'seg*.pkl')
-            pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
-        except AssertionError:
-            print 'No cands files found for scan %d' % scan
-
-        if os.path.exists('cands_' + fileroot + '_sc' + str(scan) + '.pkl'):
-            for cc in pkllist:
-                os.remove(cc)
-
-        # merge noise files
-        try:
-            pkllist = glob.glob('noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl')
-            pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
-        except AssertionError:
-            print 'No noise files found for scan %d' % scan
-
-        if os.path.exists('noise_' + fileroot + '_sc' + str(scan) + '.pkl'):
-            for cc in pkllist:
-                os.remove(cc)
-
-def plot_cands():
-    """
-    Make summary plots.
-    pkllist gives list of cand pkl files for visualization.
-    default mode is to make cand and noise summary plots
-    """
-
-    pkllist = []
-    for scan in scans:
-        pklfile = 'cands_' + fileroot + '_sc' + str(scan) + '.pkl'
-        if os.path.exists(pklfile):
-            pkllist.append(pklfile)
-    pc.plot_cands(pkllist)
-    
-    pkllist = []
-    for scan in scans:
-        pklfile = 'noise_' + fileroot + '_sc' + str(scan) + '.pkl'
-        if os.path.exists(pklfile):
-            pkllist.append(pklfile)
-    pc.plot_noise(pkllist)
-
-def plot_pulsar():
-    """
-    Assumes 3 or 4 input pulsar scans (centered then offset pointings).
-    """
-
-    pkllist = []
-    for scan in scans:
-        pkllist.append('cands_' + fileroot + '_sc' + str(scan) + '.pkl')
-
-    pc.plot_psrrates(pkllist, outname='plot_' + fileroot + '_psrrates.png')
-
-def joblistwait(joblist):
-    """ Function listens to jobs in joblist. Completes only when all jobs have is_finished status=True.
-    """
-
-    while len(joblist):
-        for job in joblist:
-            if job.is_finished:
-                joblist.remove(job)
-                print 'Removed job %s', str(job)
-        time.sleep(1)
-
 ###############
 # Job Control #
 ###############
@@ -193,7 +52,7 @@ def joblistwait(joblist):
 if __name__ == '__main__':
 
     # define queue
-    defaultqpriority = {'search': 'low', 'calibrate': 'high', 'calimg': 'high'}
+    defaultqpriority = {'read': 'high','search': 'low', 'calibrate': 'high', 'calimg': 'high', 'cleanup': 'high', 'plot_cands': 'high', 'plot_pulsar': 'high'}
     if mode in defaultqpriority.keys():
         if args.queue in ['high', 'low']:
             qpriority = args.queue
@@ -203,41 +62,45 @@ if __name__ == '__main__':
     # connect
     with Connection():
         if mode == 'read':
-            read()
+            q = Queue(qpriority, async=False)  # run locally
+            readjob = q.enqueue_call(func=qf.read, args=(workdir, filename, paramfile), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'search':
-            q = Queue(qpriority)
-            search()
+            searchjobids = qf.search(qpriority, workdir, filename, paramfile, fileroot, scans)
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
-            calibrate()
-#            calimg()
+            caljob = q.enqueue_call(func=qf.calibrate, args=(workdir, filename, fileroot), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'all':
             q = Queue('high')
-            # watch function has no use case at the moment. aoc case does not wait. cbe case needs better watch function (i.e., for complete sdm)
-#            watchjob = q.enqueue_call(func=watch, timeout=24*3600, result_ttl=24*3600)
-            caljob = calibrate(depends_on='')  # can be set to enqueue when data arrives
+#            watchjob = q.enqueue_call(func=qf.watch, args=(workdir, filename), timeout=24*3600, result_ttl=24*3600)            # watch function not ready, since it prematurely triggers on data while being written
+            caljob = q.enqueue_call(func=qf.calibrate, args=(workdir, filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
             q = Queue('low')
-            searchjoblist = search(depends_on=caljob)  # enqueued when calibration finished
-            # need to manage job list manually. special queue for this, plus new joblistwait function.
-            q = Queue('jobslists')
-            joblistwaitjob = q.enqueue_call(func=joblistwait, timeout=24*3600, result_ttl=24*3600)  # enqueued
+#            searchjobids = qf.search(q.name, workdir, filename, paramfile, fileroot, scans, depends_on=caljob, redishost)
+            searchjob = q.enqueue_call(func=qf.search, args=(q.name, workdir, filename, paramfile, fileroot, scans, redishost), depends_on=caljob, timeout=24*3600, result_ttl=24*3600)
+#            searchjobids = [job.id for job in searchjoblist]
+
+#            q = Queue('joblists')        # need to manage job list manually. special queue for this, plus new joblistwait function.
+#            waitjob = q.enqueue_call(func=qf.joblistwait, args=('low', searchjobids, redishost), timeout=24*3600, result_ttl=24*3600)
+
             q = Queue('high')
-            cleanjob = q.enqueue_call(func=cleanup, timeout=24*3600, result_ttl=24*3600, depends_on=joblistwaitjob)  # enqueued when joblist finishes
-            plotjob = q.enqueue_call(func=plot_cands, args=(job,), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=searchjob)  # enqueued when joblist finishes
+#            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=waitjob)  # enqueued when joblist finishes
+            plotjob = q.enqueue_call(func=qf.plot_cands, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
         elif mode == 'calimg':
             q = Queue(qpriority)
-            calimg()
+            
 
         elif mode == 'cleanup':
-#            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            cleanup()
+            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'plot_cands':
-            plot_cands()
+            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
+            plotjob = q.enqueue_call(func=qf.plot_cands, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'plot_pulsar':
-            plot_pulsar()
+            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
+            plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
