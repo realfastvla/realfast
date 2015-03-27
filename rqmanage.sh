@@ -15,11 +15,10 @@ if [ "$1" = 'start' ]; then
     nworkers=1
     for nodename in ${@:2}; do
 	echo 'Starting '$nworkers' rqworkers on '$nodename
-	for i in $(seq 1 $nworkers); do
-	    echo "ssh $nodename screen -d -m rqworker --config $rqsettings"
-	    ssh $nodename screen -d -m rqworker --config $rqsettings
-	    echo "ssh $nodename screen -d -m rqworker joblists --config $rqsettings"
-	    ssh $nodename screen -d -m rqworker joblists --config $rqsettings
+#	for i in $(seq 1 $nworkers); do
+#	for name in joblists cleanup plot cal search ; do
+	for name in default ; do
+	    ssh $nodename screen -d -m -S $name rqworker $name --config $rqsettings
 	done
     done
 fi

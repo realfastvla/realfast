@@ -4,7 +4,7 @@
 # each job is independent but shares file system. one worker per node.
 
 from rq import Queue, Connection
-import os, argparse
+import os, argparse, time
 import sdmreader
 import queue_funcs as qf
 
@@ -40,7 +40,7 @@ else:
             else:
                 print 'No scans found for source %s' % source
     else:
-        if mode == 'search':
+        if (mode == 'search') or (mode == 'all'):
             scans = [sc for sc in meta[0].keys() if 'TARGET' in meta[0][sc]['intent']]   # get all target fields
         else:
             scans = [sc for sc in meta[0].keys()]  # get all scans
@@ -73,34 +73,41 @@ if __name__ == '__main__':
             caljob = q.enqueue_call(func=qf.calibrate, args=(workdir, filename, fileroot), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'all':
-            q = Queue('high')
 #            watchjob = q.enqueue_call(func=qf.watch, args=(workdir, filename), timeout=24*3600, result_ttl=24*3600)            # watch function not ready, since it prematurely triggers on data while being written
+            q = Queue()
             caljob = q.enqueue_call(func=qf.calibrate, args=(workdir, filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
-            q = Queue('low')
-#            searchjobids = qf.search(q.name, workdir, filename, paramfile, fileroot, scans, depends_on=caljob, redishost)
+            
+#            searchjobids = qf.search('search', workdir, filename, paramfile, fileroot, scans, depends_on=caljob, redishost)
             searchjob = q.enqueue_call(func=qf.search, args=(q.name, workdir, filename, paramfile, fileroot, scans, redishost), depends_on=caljob, timeout=24*3600, result_ttl=24*3600)
-#            searchjobids = [job.id for job in searchjoblist]
 
-#            q = Queue('joblists')        # need to manage job list manually. special queue for this, plus new joblistwait function.
-#            waitjob = q.enqueue_call(func=qf.joblistwait, args=('low', searchjobids, redishost), timeout=24*3600, result_ttl=24*3600)
+            # need to manage job list manually. special queue for this, plus new joblistwait function.
+            print 'waiting on searchjob.',
+            while 1:
+                if searchjob.is_finished:
+                    print 'searchjob finished!'
+                    print searchjob.result
+                    break
+                else:
+                    print '.',
+                    time.sleep(1)
+# alt can use new queue to manage it. race condition problems here...
+#            q = Queue('joblists')   # is there a way to do this without forcing following depends_on queues to be 'joblists'?
+#            waitjob = q.enqueue_call(func=qf.joblistwait, args=('default', searchjob.result, redishost), timeout=24*3600, result_ttl=24*3600)
 
-            q = Queue('high')
-            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=searchjob)  # enqueued when joblist finishes
-#            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=waitjob)  # enqueued when joblist finishes
-            plotjob = q.enqueue_call(func=qf.plot_cands, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)#, depends_on=waitjob)  # enqueued when joblist finishes
+            plotjob = q.enqueue_call(func=qf.plot_cands, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
         elif mode == 'calimg':
             q = Queue(qpriority)
             
-
         elif mode == 'cleanup':
             q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            cleanjob = q.enqueue_call(func=qf.cleanup, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'plot_cands':
             q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=qf.plot_cands, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+            plotjob = q.enqueue_call(func=qf.plot_cands, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'plot_pulsar':
             q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+            plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)

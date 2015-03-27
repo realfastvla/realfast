@@ -6,7 +6,7 @@ import sdmreader
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
-import rtpipe.parsecal as pc
+import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
 
@@ -35,10 +35,18 @@ def search(qname, workdir, filename, paramfile, fileroot, scans, redishost='loca
             print 'Setting up pipeline for %s, scan %d' % (filename, scan)
             state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), fileroot=fileroot)
             print 'Sending %d segments to queue' % (state['nsegments'])
-#        for segment in range(state['nsegments']):
-            for segment in [0]:
-                joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
-    return joblist
+            for segment in range(state['nsegments']):
+                joblist.append(q.enqueue_call(func=rt.pipelinetest, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
+
+    # # only finished when all jobs finish
+    # while len(joblist):
+    #     for job in joblist:
+    #         if job.is_finished:
+    #             joblist.remove(job)
+    #             print 'Removed a job. %d remain.' % len(joblist)
+    #     time.sleep(5)
+
+    return [job.id for job in joblist]
 
 def calibrate(workdir, filename, fileroot):
     """ Run calibration pipeline
@@ -81,7 +89,7 @@ def watch(workdir, filename):
         time.sleep(1)
     return matchfiles[0]
 
-def cleanup(fileroot, scans):
+def cleanup(workdir, fileroot, scans):
     """ Cleanup up noise and cands files.
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
@@ -89,27 +97,27 @@ def cleanup(fileroot, scans):
     # merge cands files
     for scan in scans:
         try:
-            pkllist = glob.glob('cands_' + fileroot + '_sc' + str(scan) + 'seg*.pkl')
+            pkllist = glob.glob(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
             pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
         except AssertionError:
             print 'No cands files found for scan %d' % scan
 
-        if os.path.exists('cands_' + fileroot + '_sc' + str(scan) + '.pkl'):
+        if os.path.exists(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')):
             for cc in pkllist:
                 os.remove(cc)
 
         # merge noise files
         try:
-            pkllist = glob.glob('noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl')
+            pkllist = glob.glob(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
             pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
         except AssertionError:
             print 'No noise files found for scan %d' % scan
 
-        if os.path.exists('noise_' + fileroot + '_sc' + str(scan) + '.pkl'):
+        if os.path.exists(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')):
             for cc in pkllist:
                 os.remove(cc)
 
-def plot_cands(fileroot, scans):
+def plot_cands(workdir, fileroot, scans):
     """
     Make summary plots.
     pkllist gives list of cand pkl files for visualization.
@@ -118,14 +126,14 @@ def plot_cands(fileroot, scans):
 
     pkllist = []
     for scan in scans:
-        pklfile = 'cands_' + fileroot + '_sc' + str(scan) + '.pkl'
+        pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
     pc.plot_cands(pkllist)
     
     pkllist = []
     for scan in scans:
-        pklfile = 'noise_' + fileroot + '_sc' + str(scan) + '.pkl'
+        pklfile = os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
     pc.plot_noise(pkllist)
@@ -137,7 +145,7 @@ def plot_pulsar(fileroot, scans):
 
     pkllist = []
     for scan in scans:
-        pkllist.append('cands_' + fileroot + '_sc' + str(scan) + '.pkl')
+        pkllist.append(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl'))
 
     pc.plot_psrrates(pkllist, outname='plot_' + fileroot + '_psrrates.png')
 
@@ -155,5 +163,5 @@ def joblistwait(qname, jobids, redishost='localhost'):
                 job = q.fetch_job(jobid)
                 if job.is_finished:
                     jobids.remove(jobid)
-                    print 'Removed jobid %s' % jobid
+                    print 'Removed jobid %s. %d remain.' % (jobid, len(jobids))
                 time.sleep(5)
