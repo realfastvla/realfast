@@ -36,15 +36,7 @@ def search(qname, workdir, filename, paramfile, fileroot, scans, redishost='loca
             state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), fileroot=fileroot)
             print 'Sending %d segments to queue' % (state['nsegments'])
             for segment in range(state['nsegments']):
-                joblist.append(q.enqueue_call(func=rt.pipelinetest, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
-
-    # # only finished when all jobs finish
-    # while len(joblist):
-    #     for job in joblist:
-    #         if job.is_finished:
-    #             joblist.remove(job)
-    #             print 'Removed a job. %d remain.' % len(joblist)
-    #     time.sleep(5)
+                joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
 
     return [job.id for job in joblist]
 
@@ -163,5 +155,7 @@ def joblistwait(qname, jobids, redishost='localhost'):
                 job = q.fetch_job(jobid)
                 if job.is_finished:
                     jobids.remove(jobid)
-                    print 'Removed jobid %s. %d remain.' % (jobid, len(jobids))
-                time.sleep(5)
+                    print 'Jobid %s finished. %d remain.' % (jobid, len(jobids))
+                else:
+                    print '.',
+                    time.sleep(5)

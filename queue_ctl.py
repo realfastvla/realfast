@@ -46,6 +46,7 @@ if __name__ == '__main__':
             q = Queue('failed')
             joblist = q.jobs
             print 'Resubmitting %d jobs to resubmit' % len(joblist)
-            q = Queue('low')
+            q.empty()
+            q = Queue('default')
             for job in joblist:
                 q.enqueue_job(job)
