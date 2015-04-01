@@ -12,11 +12,12 @@ parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
 parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default=0)
 parser.add_argument("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
-parser.add_argument("--mode", help="'read', 'search', 'calibrate'", default='read')
+parser.add_argument("--mode", help="'read', 'search', 'calibrate', 'all'", default='read')
 parser.add_argument("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
-args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot
+parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
+args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum)
 
 redishost = os.uname()[1]
 
@@ -53,12 +54,14 @@ if __name__ == '__main__':
 
     # define queue
 #    defaultqpriority = {'read': 'high','search': 'low', 'calibrate': 'high', 'calimg': 'high', 'cleanup': 'high', 'plot_cands': 'high', 'plot_pulsar': 'high'}
-    defaultqpriority = {'read': 'default','search': 'default', 'calibrate': 'default', 'calimg': 'default', 'cleanup': 'default', 'plot_cands': 'default', 'plot_pulsar': 'default'}
+    defaultqpriority = {}
     if mode in defaultqpriority.keys():
         if args.queue:
             qpriority = args.queue
         else:
             qpriority = defaultqpriority[mode]
+    else:
+        qpriority = 'default'
 
     # connect
     with Connection():
@@ -77,12 +80,20 @@ if __name__ == '__main__':
             q = Queue(qpriority)
             
         elif mode == 'cleanup':
-            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
+            q = Queue(qpriority)
             cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
-        elif mode == 'plot_cands':
-            q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=qf.plot_cands, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+        elif mode == 'plot_summary':
+            q = Queue(qpriority)
+            plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+
+        elif mode == 'show_cands':
+            q = Queue(qpriority, async=False)
+            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
+
+        elif mode == 'plot_cand':
+            q = Queue(qpriority)
+            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'plot_pulsar':
             q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
@@ -97,8 +108,16 @@ if __name__ == '__main__':
             searchjob = q.enqueue_call(func=qf.search, args=(q.name, workdir, filename, paramfile, fileroot, scans, redishost), depends_on=caljob, timeout=24*3600, result_ttl=24*3600)
 
 # alt can use new queue to manage it. race condition problems here with multiple datasets queued...
-            waitjob = q.enqueue_call(func=qf.joblistwait, args=(q.name, searchjob.result, redishost), timeout=24*3600, result_ttl=24*3600, depends_on=searchjob)
+            print 'waiting on searchjob...'
+            while 1:
+                if searchjob.is_finished:
+                    print 'moving on...'
+                    break
+                else:
+                    print '.',
+                    time.sleep(5)
+            waitjob = q.enqueue_call(func=qf.joblistwait, args=(q.name, searchjob.result, redishost), timeout=24*3600, result_ttl=24*3600)#, depends_on=searchjob)
 
             cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=waitjob)  # enqueued when joblist finishes
 
-            plotjob = q.enqueue_call(func=qf.plot_cands, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+            plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished

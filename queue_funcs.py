@@ -109,9 +109,8 @@ def cleanup(workdir, fileroot, scans):
             for cc in pkllist:
                 os.remove(cc)
 
-def plot_cands(workdir, fileroot, scans):
-    """
-    Make summary plots.
+def plot_summary(workdir, fileroot, scans):
+    """ Make summary plots.
     pkllist gives list of cand pkl files for visualization.
     default mode is to make cand and noise summary plots
     """
@@ -121,7 +120,7 @@ def plot_cands(workdir, fileroot, scans):
         pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
-    pc.plot_cands(pkllist)
+    pc.plot_summary(pkllist)
     
     pkllist = []
     for scan in scans:
@@ -129,6 +128,18 @@ def plot_cands(workdir, fileroot, scans):
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
     pc.plot_noise(pkllist)
+
+def plot_cand(workdir, fileroot, scans, candnum=-1):
+    """ Visualize a candidate
+    """
+
+    pkllist = []
+    for scan in scans:
+        pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
+        if os.path.exists(pklfile):
+            pkllist.append(pklfile)
+
+    pc.plot_cand(pkllist, candnum=candnum)
 
 def plot_pulsar(fileroot, scans):
     """
