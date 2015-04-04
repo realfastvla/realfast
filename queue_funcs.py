@@ -22,23 +22,32 @@ def read(workdir, filename, paramfile):
     print 'Example pipeline:'
     state = rt.set_pipeline(os.path.join(workdir, filename), sc.popitem()[0], paramfile=os.path.join(workdir, paramfile))
 
-def search(qname, workdir, filename, paramfile, fileroot, scans, redishost='localhost'):
+def search(qname, workdir, filename, paramfile, fileroot, scans, redishost='localhost', depends_on=''):
     """ Search for transients in all target scans and segments
     """
 
-    joblist = []
-    # queue jobs
+    # enqueue jobs
+    states = []
+    print 'Setting up pipelines for %s, scans %s...' % (filename, scans)
+    for scan in scans:
+        scanind = scans.index(scan)
+        states.append(rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), fileroot=fileroot))
+
+    # submit to queue
+    njobs = sum([states[i]['nsegments'] for i in range(len(states))])
+    print 'Enqueuing %d jobs...' % (njobs)
     with Connection(Redis(redishost)):
         q = Queue(qname)
-        for scan in scans:
-            scanind = scans.index(scan)
-            print 'Setting up pipeline for %s, scan %d' % (filename, scan)
-            state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), fileroot=fileroot)
-            print 'Sending %d segments to queue' % (state['nsegments'])
-            for segment in range(state['nsegments']):
-                joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, segment), timeout=24*3600, result_ttl=24*3600))
 
-    return [job.id for job in joblist]
+        # enqueue all but one
+        for i in range(len(states)-1):
+            for segment in range(states[i]['nsegments']):
+                job = q.enqueue_call(func=rt.pipeline, args=(states[i], segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+
+        # use second to last job as dependency for last job
+        lastjob = q.enqueue_call(func=rt.pipeline, args=(states[-1], segment), depends_on=job, timeout=24*3600, result_ttl=24*3600)
+
+    return lastjob
 
 def calibrate(workdir, filename, fileroot):
     """ Run calibration pipeline

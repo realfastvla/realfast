@@ -100,24 +100,9 @@ if __name__ == '__main__':
             plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'all':
-#            watchjob = q.enqueue_call(func=qf.watch, args=(workdir, filename), timeout=24*3600, result_ttl=24*3600)            # watch function not ready, since it prematurely triggers on data while being written
             q = Queue('default')
+#            watchjob = q.enqueue_call(func=qf.watch, args=(workdir, filename), timeout=24*3600, result_ttl=24*3600)            # watch function not ready, since it prematurely triggers on data while being written
             caljob = q.enqueue_call(func=qf.calibrate, args=(workdir, filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
-            
-#            searchjobids = qf.search('search', workdir, filename, paramfile, fileroot, scans, depends_on=caljob, redishost)
-            searchjob = q.enqueue_call(func=qf.search, args=(q.name, workdir, filename, paramfile, fileroot, scans, redishost), depends_on=caljob, timeout=24*3600, result_ttl=24*3600)
-
-# alt can use new queue to manage it. race condition problems here with multiple datasets queued...
-            print 'waiting on searchjob...'
-            while 1:
-                if searchjob.is_finished:
-                    print 'moving on...'
-                    break
-                else:
-                    print '.',
-                    time.sleep(5)
-            waitjob = q.enqueue_call(func=qf.joblistwait, args=(q.name, searchjob.result, redishost), timeout=24*3600, result_ttl=24*3600)#, depends_on=searchjob)
-
-            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=waitjob)  # enqueued when joblist finishes
-
+            lastsearchjob = qf.search(q.name, workdir, filename, paramfile, fileroot, scans, redishost, caljob)
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
             plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
