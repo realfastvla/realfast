@@ -99,7 +99,7 @@ def cleanup(workdir, fileroot, scans):
     for scan in scans:
         try:
             pkllist = glob.glob(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
-            pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
+            pc.merge_segments(pkllist, fileroot + '_sc' + str(scan))
         except AssertionError:
             print 'No cands files found for scan %d' % scan
 
@@ -110,7 +110,7 @@ def cleanup(workdir, fileroot, scans):
         # merge noise files
         try:
             pkllist = glob.glob(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
-            pc.merge_pkl(pkllist, fileroot + '_sc' + str(scan))
+            pc.merge_segments(pkllist, fileroot + '_sc' + str(scan))
         except AssertionError:
             print 'No noise files found for scan %d' % scan
 
