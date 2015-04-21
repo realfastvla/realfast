@@ -37,22 +37,26 @@ def search(qname, workdir, filename, paramfile, fileroot, sources='', scans='', 
         for segment in range(state['nsegments']):
             stateseg.append( (state, segment) )
     njobs = len(stateseg)
-    print 'Enqueuing %d jobs...' % (njobs)
 
-    # submit to queue
-    with Connection(Redis(redishost)):
-        q = Queue(qname)
+    if njobs:
+        print 'Enqueuing %d jobs...' % (njobs)
 
-        # enqueue all but one
-        for i in range(njobs-1):
-            state, segment = stateseg[i]
-            job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+        # submit to queue
+        with Connection(Redis(redishost)):
+            q = Queue(qname)
 
-        # use second to last job as dependency for last job
-        state, segment = stateseg[-1]
-        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, timeout=24*3600, result_ttl=24*3600)
+            # enqueue all but one
+            for i in range(njobs-1):
+                state, segment = stateseg[i]
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
 
-    return lastjob
+            # use second to last job as dependency for last job
+            state, segment = stateseg[-1]
+            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, timeout=24*3600, result_ttl=24*3600)
+        return lastjob
+    else:
+        print 'No jobs to enqueue'
+        return
 
 def calibrate(workdir, filename, fileroot):
     """ Run calibration pipeline
