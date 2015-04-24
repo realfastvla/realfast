@@ -14,7 +14,7 @@ parser.add_argument("--mode", help="'read', 'search', 'calibrate', 'all'", defau
 parser.add_argument("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 parser.add_argument("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
 parser.add_argument("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
-parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default=0)
+parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default='')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
 args = parser.parse_args(); filename = args.filename; scans = args.scans; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum)
@@ -35,6 +35,8 @@ if __name__ == '__main__':
     else:
         qpriority = 'default'
 
+    scans = qf.getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
+
     # connect
     with Connection():
         if mode == 'read':
@@ -47,7 +49,7 @@ if __name__ == '__main__':
             searchjobids = qf.search(qpriority, workdir, filename, paramfile, fileroot, sources=sources, scans=scans, depends_on=filejob)  # default TARGET intent
 
         elif mode == 'search':
-            searchjobids = qf.search(qpriority, workdir, filename, paramfile, fileroot, sources=sources, scans=scans)  # default TARGET intent
+            searchjobids = qf.search(qpriority, workdir, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
@@ -55,23 +57,23 @@ if __name__ == '__main__':
             
         elif mode == 'cleanup':
             q = Queue(qpriority)
-            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent            
+            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent
 
         elif mode == 'plot_summary':
             q = Queue(qpriority)
-            plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent            
+            plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent
 
         elif mode == 'show_cands':
             q = Queue(qpriority, async=False)
-            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent            
+            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent
 
         elif mode == 'plot_cand':
             q = Queue(qpriority)
-            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, sources, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent            
+            plotjob = q.enqueue_call(func=qf.plot_cand, args=(workdir, fileroot, sources, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent 
 
         elif mode == 'plot_pulsar':
             q = Queue(qpriority)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent            
+            plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent
 
         elif mode == 'all':
             q = Queue('default')
@@ -80,3 +82,5 @@ if __name__ == '__main__':
             lastsearchjob = qf.search(q.name, workdir, filename, paramfile, fileroot, sources=sources, scans=scans, redishost=redishost, depends_on=caljob)
             cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
             plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, sources, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+        else:
+            print 'mode %s not recognized.' % mode

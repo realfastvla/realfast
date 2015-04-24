@@ -26,8 +26,6 @@ def search(qname, workdir, filename, paramfile, fileroot, sources='', scans='', 
     """ Search for transients in all target scans and segments
     """
 
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET')   # default searches target scans
-
     # enqueue jobs
     stateseg = []
     print 'Setting up pipelines for %s, scans %s...' % (filename, scans)
@@ -69,8 +67,6 @@ def calimg(workdir, filename, paramfile, sources='', scans=''):
     """ Search of a small segment of data without dedispersion.
     Intended to test calibration quality.
     """
-
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='CALI')   # default is to search calibration scans
 
     timescale = 1.  # average to this timescale (sec)
     joblist = []
@@ -129,8 +125,6 @@ def cleanup(workdir, fileroot, sources='', scans=''):
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
 
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
-
     # merge cands files
     for scan in scans:
         try:
@@ -160,8 +154,6 @@ def plot_summary(workdir, fileroot, sources='', scans=''):
     default mode is to make cand and noise summary plots
     """
 
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET') # default is to plot targets scans
-
     pkllist = []
     for scan in scans:
         pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
@@ -180,8 +172,6 @@ def plot_cand(workdir, fileroot, sources='', scans='', candnum=-1):
     """ Visualize a candidate
     """
 
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET')   # default is to plot targets scans
-
     pkllist = []
     for scan in scans:
         pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
@@ -194,8 +184,6 @@ def plot_pulsar(fileroot, sources='', scans=''):
     """
     Assumes 3 or 4 input pulsar scans (centered then offset pointings).
     """
-
-    scans = getscans(workdir, filename, sources=sources, scans=scans, intent='TARGET')   # default is to plot targets scans
 
     pkllist = []
     for scan in scans:
