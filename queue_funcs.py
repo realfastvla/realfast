@@ -10,19 +10,19 @@ import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
 
-def read(workdir, filename, paramfile):
+def read(filename, paramfile):
     """ Simple parse and return metadata for pipeline for first scan
     """
 
-    sc, sr = sdmreader.read_metadata(os.path.join(workdir, filename))
+    sc, sr = sdmreader.read_metadata(filename)
     print
     print 'Scans, Target names:'
     print [(ss, sc[ss]['source']) for ss in sc]
     print
     print 'Example pipeline:'
-    state = rt.set_pipeline(os.path.join(workdir, filename), sc.popitem()[0], paramfile=os.path.join(workdir, paramfile))
+    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile)
 
-def search(qname, workdir, filename, paramfile, fileroot, sources='', scans='', redishost='localhost', depends_on=None):
+def search(qname, filename, paramfile, fileroot, scans=[], redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
     """
 
@@ -31,7 +31,7 @@ def search(qname, workdir, filename, paramfile, fileroot, sources='', scans='', 
     print 'Setting up pipelines for %s, scans %s...' % (filename, scans)
     for scan in scans:
         scanind = scans.index(scan)
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), fileroot=fileroot)
+        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot)
         for segment in range(state['nsegments']):
             stateseg.append( (state, segment) )
     njobs = len(stateseg)
@@ -56,14 +56,14 @@ def search(qname, workdir, filename, paramfile, fileroot, sources='', scans='', 
         print 'No jobs to enqueue'
         return
 
-def calibrate(workdir, filename, fileroot):
+def calibrate(filename, fileroot):
     """ Run calibration pipeline
     """
 
-    pipe = cp.pipe(os.path.join(workdir, filename), fileroot)
+    pipe = cp.pipe(filename, fileroot)
     pipe.run()
 
-def calimg(workdir, filename, paramfile, sources='', scans=''):
+def calimg(filename, paramfile, scans=[]):
     """ Search of a small segment of data without dedispersion.
     Intended to test calibration quality.
     """
@@ -71,56 +71,82 @@ def calimg(workdir, filename, paramfile, sources='', scans=''):
     timescale = 1.  # average to this timescale (sec)
     joblist = []
     for scan in scans:
-        state = ps.get_metadata(os.path.join(workdir, filename), scan)
+        state = ps.get_metadata(filename, scan)
         read_downsample = int(timescale/state['inttime'])
-        state = rt.set_pipeline(os.path.join(workdir, filename), scan, paramfile=os.path.join(workdir, paramfile), nthread=1, nsegments=0, gainfile=os.path.join(workdir, gainfile), bpfile=os.path.join(workdir, bpfile), dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
+        state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
     return joblist
 
-def waitfor(workdir, filename):
-    """ Wait for a new file with subname in workdir.
+def lookforfile(lookdir, subname, changesonly=False):
+    """ Look for and return a file with subname in lookdir.
+    changesonly means it will wait for changes. default looks only once.
     """
 
-    filelist0 = os.listdir(os.path.abspath(workdir))
-    print 'Waiting for %s.' % filename,
-    while 1:
-        filelist = os.listdir(os.path.abspath(workdir))
-        newfiles = filter(lambda ff: ff not in filelist0, filelist)
-        matchfiles = filter(lambda newfile: filename in newfile, newfiles)
-        if len(matchfiles):
-            if len(matchfiles) > 1:
-                print 'More than one match! Using first.', matchfiles
+    print 'Looking for %s in %s.' % (subname, lookdir)
+
+    filelist0 = os.listdir(os.path.abspath(lookdir))
+    if changesonly:
+        while 1:
+            filelist = os.listdir(os.path.abspath(lookdir))
+            newfiles = filter(lambda ff: ff not in filelist0, filelist)
+            matchfiles = filter(lambda ff: subname in ff, newfiles)
+            if len(matchfiles):
                 break
             else:
-                break
-        else:
-            print '.',
+                print '.',
+                filelist0 = filelist
+                time.sleep(1)
+    else:
+        matchfiles = filter(lambda ff: subname in ff, filelist0)
 
-        filelist0 = filelist
-        time.sleep(1)
-    return matchfiles[0]
+    if len(matchfiles) == 0:
+        print 'No file found.'
+        fullname = ''
+    elif len(matchfiles) == 1:
+        fullname = os.path.join(lookdir, matchfiles[0])
+    elif len(matchfiles) > 1:
+        print 'More than one match!', matchfiles,
+        fullname = os.path.join(lookdir, matchfiles[0])
 
-def lookfor(workdir, filename):
-    """ Look for and return a file in workdir.
+    print 'Returning %s.' % fullname
+    return fullname
+
+def waitforsdm(filename, timeout=300):
+    """ Monitors filename (an SDM) to see when it is finished writing.
+    timeout is time in seconds to wait from first detection of file.
+    Intended for use on CBE.
     """
 
-    print 'Looking for %s.' % filename,
+    time_filestart = 0
     while 1:
-        matchfiles = filter(lambda ff: filename in ff, os.listdir(os.path.abspath(workdir)))
+        try:
+            sc,sr = sdmreader.read_metadata(filename)
+        except RuntimeError:
+            print 'File %s not found.' % filename
+        except IOError:
+            print 'File %s does not have Antenna.xml yet...' % filename
+            time.sleep(2)
+            continue
+        else:
+            bdflocs = [sc[ss]['bdfstr'] for ss in sc]
+            if not time_filestart:
+                print 'File %s exists. Waiting for it to complete writing.' % filename
+                time_filestart = time.time()
 
-        if len(matchfiles):
-            if len(matchfiles) > 1:
-                print 'More than one match! Using first.', matchfiles
-                break
+        # if any bdfstr are not set, then file not finished
+        if None in bdflocs:
+            if time.time() - time_filestart < timeout:
+                print 'bdfs not all written yet. Waiting...'
+                time.sleep(2)
+                continue
             else:
+                print 'Timeout exceeded. Exiting...'
                 break
         else:
-            print '.'
+            print 'All bdfs written. Continuing.'
+            break
 
-        time.sleep(1)
-    return matchfiles[0]
-
-def cleanup(workdir, fileroot, sources='', scans=''):
+def cleanup(workdir, fileroot, scans=[]):
     """ Cleanup up noise and cands files.
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
@@ -148,7 +174,7 @@ def cleanup(workdir, fileroot, sources='', scans=''):
             for cc in pkllist:
                 os.remove(cc)
 
-def plot_summary(workdir, fileroot, sources='', scans=''):
+def plot_summary(workdir, fileroot, scans=[]):
     """ Make summary plots.
     pkllist gives list of cand pkl files for visualization.
     default mode is to make cand and noise summary plots
@@ -168,7 +194,7 @@ def plot_summary(workdir, fileroot, sources='', scans=''):
             pkllist.append(pklfile)
     pc.plot_noise(pkllist)
 
-def plot_cand(workdir, fileroot, sources='', scans='', candnum=-1):
+def plot_cand(workdir, fileroot, scans=[], candnum=-1):
     """ Visualize a candidate
     """
 
@@ -180,7 +206,7 @@ def plot_cand(workdir, fileroot, sources='', scans='', candnum=-1):
 
     pc.plot_cand(pkllist, candnum=candnum)
 
-def plot_pulsar(fileroot, sources='', scans=''):
+def plot_pulsar(workdir, fileroot, scans=[]):
     """
     Assumes 3 or 4 input pulsar scans (centered then offset pointings).
     """
@@ -189,7 +215,8 @@ def plot_pulsar(fileroot, sources='', scans=''):
     for scan in scans:
         pkllist.append(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl'))
 
-    pc.plot_psrrates(pkllist, outname='plot_' + fileroot + '_psrrates.png')
+    print 'Pulsar plotting for pkllist:', pkllist
+    pc.plot_psrrates(pkllist, outname=os.path.join(workdir, 'plot_' + fileroot + '_psrrates.png'))
 
 def joblistwait(qname, jobids, redishost='localhost'):
     """ Function listens to jobs of jobids on q. Completes only when all jobs have is_finished status=True.
@@ -209,7 +236,7 @@ def joblistwait(qname, jobids, redishost='localhost'):
                     print '.',
                     time.sleep(5)
 
-def getscans(workdir, filename, scans='', sources='', intent=''):
+def getscans(filename, scans='', sources='', intent=''):
     """ Get scan list as ints.
     First tries to parse scans, then sources, then intent.
     """
@@ -218,7 +245,7 @@ def getscans(workdir, filename, scans='', sources='', intent=''):
     if scans:
         scans = [int(i) for i in scans.split(',')]
     elif sources:
-        meta = sdmreader.read_metadata(os.path.join(workdir, filename))
+        meta = sdmreader.read_metadata(filename)
 
         # if source list provided, parse it then append all scans to single list
         sources = [i for i in sources.split(',')]
@@ -231,7 +258,7 @@ def getscans(workdir, filename, scans='', sources='', intent=''):
             else:
                 print 'No scans found for source %s' % source
     elif intent:
-        meta = sdmreader.read_metadata(os.path.join(workdir, filename))
+        meta = sdmreader.read_metadata(filename)
         scans = filter(lambda sc: intent in meta[0][sc]['intent'], meta[0].keys())
 #        scans = [sc for sc in meta[0].keys() if intent in meta[0][sc]['intent']]   # get all target fields
     else:
