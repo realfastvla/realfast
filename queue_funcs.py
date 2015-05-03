@@ -1,7 +1,7 @@
 """ Functions imported by queue system.
 """
 
-import os, glob, time
+import os, glob, time, shutil, subprocess
 import sdmreader
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
@@ -145,6 +145,49 @@ def waitforsdm(filename, timeout=300):
         else:
             print 'All bdfs written. Continuing.'
             break
+
+def sdmascal(filename, calscans='', bdfdir='/lustre/evla/wcbe/data/bunker'):
+    """ Takes incomplete SDM (on CBE) and creates one corrected for use in calibration.
+    optional calscans is casa-like string to select scans
+    """
+
+    if not calscans:
+        calscanlist = getscans(filename, intent='CALI')   # get calibration scans
+        calscans = ','.join([str(sc) for sc in calscanlist])   # put into CASA-like selection string
+
+    # make new Main.xml for relevant scans
+    if ( os.path.exists(os.path.join(filename, 'Main_cal.xml')) and os.path.exists(os.path.join(filename, 'ASDMBinary_cal')) ):
+        print 'Found existing cal xml and data. Moving in...'
+        shutil.copyfile(os.path.join(filename, 'Main.xml'), os.path.join(filename, 'Main_orig.xml'))   # put new Main.xml in
+        shutil.move(os.path.join(filename, 'Main_cal.xml'), os.path.join(filename, 'Main.xml'))   # put new Main.xml in
+        shutil.move(os.path.join(filename, 'ASDMBinary_cal'), os.path.join(filename, 'ASDMBinary'))
+    else:
+        shutil.copyfile(os.path.join(filename, 'Main.xml'), os.path.join(filename, 'Main_orig.xml'))   # put new Main.xml in
+        subprocess.call(['choose_SDM_scans.pl', filename, os.path.join(filename, 'Main_cal.xml'), calscans])  #  modify Main.xml
+        shutil.move(os.path.join(filename, 'Main_cal.xml'), os.path.join(filename, 'Main.xml'))   # put new Main.xml in
+
+        if not os.path.exists(os.path.join(filename, 'ASDMBinary')):
+            os.makedirs(os.path.join(filename, 'ASDMBinary'))
+
+        sc,sr = sdmreader.read_metadata(filename)
+        for calscan in calscanlist:
+            bdfstr = sc[calscan]['bdfstr'].split('/')[-1]
+            bdffile = glob.glob(os.path.join(bdfdir, bdfstr))[0]
+            bdffiledest = os.path.join(filename, 'ASDMBinary', os.path.split(bdffile)[1])
+            if not os.path.exists(bdffiledest):
+                print 'Copying bdf in for calscan %d.' % calscan
+                shutil.copyfile(bdffile, bdffiledest)
+            else:
+                print 'bdf in for calscan %d already in place.' % calscan            
+
+def sdmasorig(filename):
+    """ Take sdm for calibration and restore it.
+    keeps ASDMBinary around, just in case
+    """
+
+    shutil.move(os.path.join(filename, 'Main.xml'), os.path.join(filename, 'Main_cal.xml'))
+    shutil.move(os.path.join(filename, 'Main_orig.xml'), os.path.join(filename, 'Main.xml'))
+    shutil.move(os.path.join(filename, 'ASDMBinary'), os.path.join(filename, 'ASDMBinary_cal'))
 
 def cleanup(workdir, fileroot, scans=[]):
     """ Cleanup up noise and cands files.
