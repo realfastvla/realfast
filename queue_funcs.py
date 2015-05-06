@@ -10,7 +10,7 @@ import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
 
-def read(filename, paramfile):
+def read(filename, paramfile=''):
     """ Simple parse and return metadata for pipeline for first scan
     """
 
@@ -76,6 +76,69 @@ def calimg(filename, paramfile, scans=[]):
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
     return joblist
+
+def lookalldaemon(lookdir, subname, workdir, paramfile, fileroot, qname='default', redishost='localhost', newonly=True):
+    """ Function to look at lookdir for subname. 
+    Each file found is started through entire calibration/search/visualization pipeline.
+    Uses gevent to package up queue submission and allow daemonization of file wait.
+    """
+
+    import gevent
+
+    print 'Looking for %s in %s.' % (subname, lookdir)
+
+    filelist0 = os.listdir(os.path.abspath(lookdir))
+    joblist = []
+    try:
+        while 1:
+            filelist = os.listdir(os.path.abspath(lookdir))
+            if newonly:
+                newfiles = filter(lambda ff: ff not in filelist0, filelist)
+                matchfiles = filter(lambda ff: subname in ff, newfiles)
+            else:
+                matchfiles = filter(lambda ff: subname in ff, filelist)
+
+            for match in matchfiles:
+                filename = os.path.join(lookdir, match)
+#                job = gevent.spawn(test, qname, redishost, 'got ' + match)
+                job = gevent.spawn(runall, filename, workdir, paramfile, fileroot, qname, redishost)
+                job.run()
+                joblist.append(job)
+
+            filelist0 = filelist
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print 'Breaking out. Total of %d jobs spawned.' % len(joblist)
+#        gevent.joinall(joblist)
+
+def runall(filename, workdir, paramfile, fileroot, qname='default', redishost='localhost'):
+    """ Runs all major steps on qname
+    """
+
+    with Connection(Redis(redishost)):
+        q = Queue(qname, async=False)
+
+        sdmjob = q.enqueue_call(func=waitforsdm, args=(filename,), timeout=24*3600, result_ttl=24*3600)
+
+        # copy to working area and make cal-able
+        newfileloc = os.path.join(workdir, os.path.split(filename)[1])
+        if not os.path.exists(newfileloc):
+            shutil.copytree(filename, newfileloc)  # copy file in
+        else:
+            print 'File %s already in %s. Using that one...' % (newfileloc, workdir)
+        filename = newfileloc
+        sdmcaljob = q.enqueue_call(func=sdmascal, args=(filename,), timeout=24*3600, result_ttl=24*3600)   # make emtpy sdm workable as cal sdm
+        caljob = q.enqueue_call(func=calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
+        sdmorigjob = q.enqueue_call(func=sdmasorig, args=(filename,), timeout=24*3600, result_ttl=24*3600, depends_on=caljob)   # make emtpy sdm workable to search
+
+        # add a step to fill bdfpkls?
+
+        # start non-blocking part
+#        q = Queue(qname)
+#        scans = getscans(filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
+#        lastsearchjob = search(q.name, filename, paramfile, fileroot, scans=scans, redishost=redishost, depends_on=sdmorigjob)
+#        cleanjob = q.enqueue_call(func=cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
+#        plotjob = q.enqueue_call(func=plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.

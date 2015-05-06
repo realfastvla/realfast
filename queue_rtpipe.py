@@ -22,7 +22,8 @@ args = parser.parse_args(); filename = args.filename; scans = args.scans; source
 # Define names, paths
 redishost = os.uname()[1]
 filename = os.path.abspath(filename)
-paramfile = os.path.abspath(paramfile)
+if paramfile:
+    paramfile = os.path.abspath(paramfile)
 bdfdir = '/lustre/evla/wcbe/data/bunker'
 sdmdir = '/home/mchammer/evla/mcaf/workspace/'
 workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
@@ -47,11 +48,6 @@ if __name__ == '__main__':
         if mode == 'read':
             q = Queue(qpriority, async=False)  # run locally
             readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile), timeout=24*3600, result_ttl=24*3600)
-
-        elif mode == 'looksearch':
-            q = Queue(qpriority)
-            filejob = q.enqueue_call(func=qf.lookforfile, args=(sdmdir, filename), timeout=24*3600, result_ttl=24*3600)
-            searchjobids = qf.search(qpriority, filename, paramfile, fileroot, scans=scans, depends_on=filejob)  # default TARGET intent
 
         elif mode == 'search':
             searchjobids = qf.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
@@ -80,34 +76,10 @@ if __name__ == '__main__':
             q = Queue(qpriority, async=False)    # ultimately need this to be on queue and depende_on search
             plotjob = q.enqueue_call(func=qf.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent
 
-        elif mode == 'lookall':
+        elif mode == 'lookalldaemon':
             # this mode looks for file that includes filename, checks that it is completed sdm, then runs 'all'
-
-            q = Queue(qpriority, async=False)  # this will block
             subname = os.path.split(filename)[1]
-            filejob = q.enqueue_call(func=qf.lookforfile, args=(sdmdir, subname), timeout=24*3600, result_ttl=24*3600)
-            filename = filejob.result
-            sdmjob = q.enqueue_call(func=qf.waitforsdm, args=(filename,), timeout=24*3600, result_ttl=24*3600)
-
-            # copy to working area and make cal-able
-            newfileloc = os.path.join(workdir, os.path.split(filename)[1])
-            if not os.path.exists(newfileloc):
-                shutil.copytree(filename, newfileloc)  # copy file in
-            else:
-                print 'File %s already in %s. Using that one...' % (newfileloc, workdir)
-            filename = newfileloc
-            sdmcaljob = q.enqueue_call(func=qf.sdmascal, args=(filename,), timeout=24*3600, result_ttl=24*3600)   # make emtpy sdm workable as cal sdm
-            caljob = q.enqueue_call(func=qf.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
-            sdmorigjob = q.enqueue_call(func=qf.sdmasorig, args=(filename,), timeout=24*3600, result_ttl=24*3600, depends_on=caljob)   # make emtpy sdm workable to search
-
-            # add a step to fill bdfpkls?
-
-            # start non-blocking part
-            q = Queue(qpriority)
-            scans = qf.getscans(filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
-            lastsearchjob = qf.search(q.name, filename, paramfile, fileroot, scans=scans, redishost=redishost, depends_on=sdmorigjob)
-            cleanjob = q.enqueue_call(func=qf.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
-            plotjob = q.enqueue_call(func=qf.plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
+            qf.lookalldaemon(sdmdir, subname, workdir, paramfile, fileroot, qpriority, redishost, newonly=False)
 
         elif mode == 'all':
             q = Queue('default')
