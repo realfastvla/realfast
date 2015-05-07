@@ -89,6 +89,7 @@ def lookalldaemon(lookdir, subname, workdir, paramfile, fileroot, qname='default
 
     filelist0 = os.listdir(os.path.abspath(lookdir))
     joblist = []
+    completedlist = []
     try:
         while 1:
             filelist = os.listdir(os.path.abspath(lookdir))
@@ -97,13 +98,14 @@ def lookalldaemon(lookdir, subname, workdir, paramfile, fileroot, qname='default
                 matchfiles = filter(lambda ff: subname in ff, newfiles)
             else:
                 matchfiles = filter(lambda ff: subname in ff, filelist)
+            matchfilestodo = filter(lambda ff: ff not in completedlist, matchfiles)   # remove files already completed
 
-            for match in matchfiles:
-                filename = os.path.join(lookdir, match)
-#                job = gevent.spawn(test, qname, redishost, 'got ' + match)
-                job = gevent.spawn(runall, filename, workdir, paramfile, fileroot, qname, redishost)
+            for filename in matchfilestodo:
+                fullfilename = os.path.join(lookdir, filename)
+                job = gevent.spawn(runall, fullfilename, workdir, paramfile, fileroot, qname, redishost)
                 job.run()
                 joblist.append(job)
+                completedlist.append(filename)
 
             filelist0 = filelist
             time.sleep(1)
