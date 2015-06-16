@@ -20,7 +20,7 @@ def read(filename, paramfile=''):
     print [(ss, sc[ss]['source']) for ss in sc]
     print
     print 'Example pipeline:'
-    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile)
+    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, nologfile=True)
 
 def search(qname, filename, paramfile, fileroot, scans=[], redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
