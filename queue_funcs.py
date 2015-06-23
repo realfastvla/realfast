@@ -32,7 +32,8 @@ def search(qname, filename, paramfile, fileroot, scans=[], redishost='localhost'
     for scan in scans:
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot)
-        for segment in range(state['nsegments']):
+#        for segment in range(state['nsegments']):
+        for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead
             stateseg.append( (state, segment) )
     njobs = len(stateseg)
 
@@ -374,3 +375,7 @@ def getscans(filename, scans='', sources='', intent=''):
         raise BaseException
 
     return scans
+
+def grouprange(start, size, step):
+    arr = range(start,start+size)
+    return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
