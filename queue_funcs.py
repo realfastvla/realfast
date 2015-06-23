@@ -10,7 +10,7 @@ import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
 
-def read(filename, paramfile=''):
+def read(filename, paramfile='', fileroot=''):
     """ Simple parse and return metadata for pipeline for first scan
     """
 
@@ -20,7 +20,7 @@ def read(filename, paramfile=''):
     print [(ss, sc[ss]['source']) for ss in sc]
     print
     print 'Example pipeline:'
-    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, nologfile=True)
+    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
 def search(qname, filename, paramfile, fileroot, scans=[], redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments

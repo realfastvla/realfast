@@ -47,7 +47,7 @@ if __name__ == '__main__':
     with Connection():
         if mode == 'read':
             q = Queue(qpriority, async=False)  # run locally
-            readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile), timeout=24*3600, result_ttl=24*3600)
+            readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile, fileroot), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'search':
             searchjobids = qf.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
