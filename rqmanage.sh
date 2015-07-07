@@ -9,7 +9,7 @@ if [ "$host" == 'cbe-master' ]; then export rqsettings='rqsettings_cbe'; fi
 # start redis
 if [ "$1" = 'start' ]; then
     echo 'Starting redis server'
-    redis-server ~claw/code/redis-stable/redis.conf
+    redis-server ~claw/code/realfast/redis.conf
 
 # start rqworkers
     nworkers=1
