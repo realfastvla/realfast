@@ -25,7 +25,8 @@ filename = os.path.abspath(filename)
 if paramfile:
     paramfile = os.path.abspath(paramfile)
 bdfdir = '/lustre/evla/wcbe/data/bunker'
-sdmdir = '/home/mchammer/evla/mcaf/workspace/'
+sdmdir = '/home/mchammer/evla/mcaf/workspace'
+telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
 
 # Job Control
