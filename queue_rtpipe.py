@@ -51,7 +51,12 @@ if __name__ == '__main__':
             readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile, fileroot), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'search':
-            searchjobids = qf.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
+            q = Queue(qpriority)
+            lastjob = qf.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
+
+        elif mode == 'rtsearch':
+            q = Queue(qpriority)
+            lastjob = qf.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
 
         elif mode == 'calibrate':
             q = Queue(qpriority)

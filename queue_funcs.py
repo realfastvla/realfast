@@ -22,17 +22,53 @@ def read(filename, paramfile='', fileroot=''):
     print 'Example pipeline:'
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def search(qname, filename, paramfile, fileroot, scans=[], redishost='localhost', depends_on=None):
+def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[], redishost='localhost', depends_on=None):
+    """ Move data, find telcal file, then search.
+    Built assuming it is run for real-time processing on CBE.
+    """
+
+    # first copy data to working area
+    fname = os.path.split(filename)[1]
+    newfileloc = os.path.join(workdir, fname)
+    if not os.path.exists(newfileloc):
+        print 'Copying %s into %s' % (fname, workdir)
+        shutil.copytree(filename, newfileloc)  # copy file in
+    else:
+        print 'File %s already in %s. Using that one...' % (fname, workdir)
+    filename = newfileloc
+
+    # search for associated telcal file
+    year = str(time.localtime()[0])
+    month = '%02d' % time.localtime()[1]
+    telcaldir2 = os.path.join(telcaldir, year, month)
+    print 'Looking for telcalfile in %s' % telcaldir2
+    telcalfile = [ff for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
+
+    # if not in latest directory, walk through whole structure
+    if not len(telcalfile):  
+        print 'No telcal in latest directory. Searching whole telcalfile tree.'
+        telcaldir2 = [root for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
+        if len(telcaldir2):
+            telcalfile = os.path.join(telcaldir2[0], fname+'.GN')
+            print 'Found telcal file at %s' % telcalfile
+        else:
+            telcalfile = ''
+            print 'No telcal file found in %s' % telcaldir
+
+    if telcalfile:
+        joblist = search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=None)
+
+def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
     """
 
     # enqueue jobs
     stateseg = []
     print 'Setting up pipelines for %s, scans %s...' % (filename, scans)
+
     for scan in scans:
         scanind = scans.index(scan)
-        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot)
-#        for segment in range(state['nsegments']):
+        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True)
         for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead
             stateseg.append( (state, segment) )
     njobs = len(stateseg)
