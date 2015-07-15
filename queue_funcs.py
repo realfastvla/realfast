@@ -310,14 +310,18 @@ def cleanup(workdir, fileroot, scans=[]):
 
         # merge noise files
         try:
-            pkllist = glob.glob(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
-            pc.merge_segments(pkllist)
+            pkllist2 = glob.glob(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
+            pc.merge_segments(pkllist2)
         except AssertionError:
             print 'No noise files found for scan %d' % scan
 
         if os.path.exists(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')):
-            for cc in pkllist:
+            for cc in pkllist2:
                 os.remove(cc)
+
+        if len(pkllist) != len(pkllist2):
+            print 'Uh oh. noise and cands pkl lists not identical. Missing pkl?'
+            print pkllist, pkllist2
 
 def plot_summary(workdir, fileroot, scans=[]):
     """ Make summary plots.
