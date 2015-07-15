@@ -14,21 +14,21 @@ if [ "$1" = 'start' ]; then
 # start rqworkers
     nworkers=1
     for nodename in ${@:2}; do
-	echo 'Starting '$nworkers' rqworkers on '$nodename
+	echo 'Starting '$nworkers' rq workers on '$nodename
 #	for i in $(seq 1 $nworkers); do
 #	for name in joblists cleanup plot cal search ; do
 	for name in default ; do
-	    ssh $nodename screen -d -m -S $name rqworker $name --config $rqsettings
+	    ssh $nodename screen -d -m -S $name rq worker $name --config $rqsettings
 	done
     done
 fi
 
 if [ "$1" = 'stop' ]; then
 # kill rqworkers
-    for nodename in ${@:2}; do
-	echo 'Stopping rqworkers on '$nodename
-	ssh $nodename pkill rqworker 2> /dev/null
-    done
+#    for nodename in ${@:2}; do
+#	echo 'Stopping rq workers on '$nodename
+#	ssh $nodename pkill rqworker 2> /dev/null
+#    done
 
 # stop server
     echo 'Stopping redis server'
