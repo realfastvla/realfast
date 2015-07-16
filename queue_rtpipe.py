@@ -5,7 +5,7 @@
 
 from rq import Queue, Connection
 import os, argparse, time, shutil
-import sdmreader
+import sdmreader, monitor
 import queue_funcs as qf
 
 parser = argparse.ArgumentParser()
@@ -24,7 +24,8 @@ redishost = os.uname()[1]
 filename = os.path.abspath(filename)
 if paramfile:
     paramfile = os.path.abspath(paramfile)
-bdfdir = '/lustre/evla/wcbe/data/bunker'
+
+bdfdir = '/lustre/evla/wcbe/data/realfast' # '/lustre/evla/wcbe/data/bunker'
 sdmdir = '/home/mchammer/evla/mcaf/workspace'
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
@@ -48,7 +49,7 @@ if __name__ == '__main__':
     with Connection():
         if mode == 'read':
             q = Queue(qpriority, async=False)  # run locally
-            readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile, fileroot), timeout=24*3600, result_ttl=24*3600)
+            readjob = q.enqueue_call(func=qf.read, args=(filename, paramfile, fileroot, bdfdir), timeout=24*3600, result_ttl=24*3600)
 
         elif mode == 'search':
             q = Queue(qpriority)
@@ -57,6 +58,7 @@ if __name__ == '__main__':
         elif mode == 'rtsearch':
             q = Queue(qpriority)
             lastjob = qf.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
+            q.enqueue_call(func=monitor.addmonitorjob, lastjob.id)
 
         elif mode == 'calibrate':
             q = Queue(qpriority)

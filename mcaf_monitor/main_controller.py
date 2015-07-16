@@ -77,7 +77,7 @@ class FRBController(object):
             logging.info("Received saught %s: %s" % (self.trigger_mode,compString))
             #logging.info("Received trigger intent")
             # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', os.path.basename(config.sdmLocation), '--scans', str(config.scan), '--paramfile', '~claw/code/vlart/rtparams.py']
+            job = ['queue_rtpipe.py', os.path.basename(config.sdmLocation), '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', '~realfast/code/realfast/rtparams.py']
             logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
             if not opt.listen:
                 logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))

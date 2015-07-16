@@ -10,11 +10,11 @@ import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
 
-def read(filename, paramfile='', fileroot=''):
+def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Simple parse and return metadata for pipeline for first scan
     """
 
-    sc, sr = sdmreader.read_metadata(filename)
+    sc, sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     print
     print 'Scans, Target names:'
     print [(ss, sc[ss]['source']) for ss in sc]
@@ -22,13 +22,13 @@ def read(filename, paramfile='', fileroot=''):
     print 'Example pipeline:'
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[], redishost='localhost', depends_on=None):
+def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[], redishost='localhost', depends_on=None, bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Move data, find telcal file, then search.
     Built assuming it is run for real-time processing on CBE.
     """
 
     # first copy data to working area
-    fname = os.path.split(filename)[1]
+    fname = os.path.basename(filename)
     newfileloc = os.path.join(workdir, fname)
     if not os.path.exists(newfileloc):
         print 'Copying %s into %s' % (fname, workdir)
@@ -56,7 +56,11 @@ def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[],
             print 'No telcal file found in %s' % telcaldir
 
     if telcalfile:
-        joblist = search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=None)
+        lastjob = search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=None)
+    else:
+        print 'No calibration available. No job submitted.'
+
+    return lastjob
 
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
@@ -83,11 +87,11 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
             # enqueue all but one
             for i in range(njobs-1):
                 state, segment = stateseg[i]
-                job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=6*3600, result_ttl=24*3600)
 
             # use second to last job as dependency for last job
             state, segment = stateseg[-1]
-            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, timeout=24*3600, result_ttl=24*3600)
+            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=6*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
         return lastjob
     else:
         print 'No jobs to enqueue'
@@ -248,7 +252,7 @@ def waitforsdm(filename, timeout=300):
             print 'All bdfs written. Continuing.'
             break
 
-def sdmascal(filename, calscans='', bdfdir='/lustre/evla/wcbe/data/bunker'):
+def sdmascal(filename, calscans='', bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Takes incomplete SDM (on CBE) and creates one corrected for use in calibration.
     optional calscans is casa-like string to select scans
     """
@@ -271,7 +275,7 @@ def sdmascal(filename, calscans='', bdfdir='/lustre/evla/wcbe/data/bunker'):
         if not os.path.exists(os.path.join(filename, 'ASDMBinary')):
             os.makedirs(os.path.join(filename, 'ASDMBinary'))
 
-        sc,sr = sdmreader.read_metadata(filename)
+        sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
         for calscan in calscanlist:
             bdfstr = sc[calscan]['bdfstr'].split('/')[-1]
             bdffile = glob.glob(os.path.join(bdfdir, bdfstr))[0]
@@ -385,7 +389,7 @@ def joblistwait(qname, jobids, redishost='localhost'):
                     print '.',
                     time.sleep(5)
 
-def getscans(filename, scans='', sources='', intent=''):
+def getscans(filename, scans='', sources='', intent='', bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Get scan list as ints.
     First tries to parse scans, then sources, then intent.
     """
@@ -394,7 +398,7 @@ def getscans(filename, scans='', sources='', intent=''):
     if scans:
         scans = [int(i) for i in scans.split(',')]
     elif sources:
-        meta = sdmreader.read_metadata(filename)
+        meta = sdmreader.read_metadata(filename, bdfdir=bdfdir)
 
         # if source list provided, parse it then append all scans to single list
         sources = [i for i in sources.split(',')]
@@ -407,7 +411,7 @@ def getscans(filename, scans='', sources='', intent=''):
             else:
                 print 'No scans found for source %s' % source
     elif intent:
-        meta = sdmreader.read_metadata(filename)
+        meta = sdmreader.read_metadata(filename, bdfdir=bdfdir)
         scans = filter(lambda sc: intent in meta[0][sc]['intent'], meta[0].keys())
 #        scans = [sc for sc in meta[0].keys() if intent in meta[0][sc]['intent']]   # get all target fields
     else:
