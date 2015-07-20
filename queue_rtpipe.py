@@ -5,7 +5,7 @@
 
 from rq import Queue, Connection
 import os, argparse, time, shutil
-import sdmreader, monitor
+import sdmreader, queue_monitor
 import queue_funcs as qf
 
 parser = argparse.ArgumentParser()
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         elif mode == 'rtsearch':
             q = Queue(qpriority)
             lastjob = qf.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
-            q.enqueue_call(func=monitor.addmonitorjob, lastjob.id)
+            q.enqueue_call(func=queue_monitor.addjob, (lastjob.id,))
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
