@@ -4,6 +4,7 @@ from rq.registry import FinishedJobRegistry
 import time, pickle
 import sdmreader
 
+conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 
@@ -11,7 +12,7 @@ def monitor(qname='default'):
     """ Blocking loop that prints the jobs currently being tracked.
     """
 
-    q = Queue(qname, connection=conn)
+    q = Queue(qname, connection=conn0)
 
     while 1:
         jobids = conn.scan()[1]
@@ -80,7 +81,6 @@ def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
     """
 
-    conn0 = Redis(db=0)
     q = Queue(qname, connection=conn0)
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
 
