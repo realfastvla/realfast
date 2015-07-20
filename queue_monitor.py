@@ -1,10 +1,8 @@
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time
+import time, pickle
 import sdmreader
-from rtpipe.parsecands import count_candidates
-import rtpipe.RT as rt
 
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
@@ -86,5 +84,23 @@ def getfinishedjobs(qname='default'):
     q = Queue(qname, connection=conn0)
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
 
+def count_candidates(mergefile):
+    """ Parses merged cands file and returns dict of (scan, candcount).
+    """
+    with open(candsfile, 'rb') as pkl:
+        d = pickle.load(pkl)
+        cands = pickle.load(pkl)
+    if len(cands) == 0:
+        print 'No cands found from %s.' % candsfile
+        return (n.array([]), n.array([]))
+
+    d = {}
+    scans = [kk[0] for kk in cands.keys()]
+    for scan in n.unique(scans):
+        d[scan] = len(n.where(scan == scans)[0])
+
+    return d
+
 if __name__ == '__main__':
     monitor()
+

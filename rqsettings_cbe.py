@@ -1,4 +1,4 @@
-REDIS_HOST = 'cbe-master'
+REDIS_HOST = 'cbe-node-01'
 REDIS_PORT = 6379
-#QUEUES = ['high', 'low']
+QUEUES = ['default']
 
