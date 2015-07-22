@@ -58,7 +58,7 @@ if __name__ == '__main__':
         elif mode == 'rtsearch':
             q = Queue(qpriority)
             lastjob = utils.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
-            q.enqueue_call(func=queue_monitor.addjob, (lastjob.id,))
+            q.enqueue_call(func=queue_monitor.addjob, args=(lastjob.id,))
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
