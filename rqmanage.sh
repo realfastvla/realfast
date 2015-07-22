@@ -3,8 +3,6 @@
 
 # set rq parameter file
 export host=`hostname`
-if [ "$host" == 'gygax' ]; then export rqsettings='rqsettings_aoc'; fi
-if [ "$host" == 'cbe-master' ]; then export rqsettings='rqsettings_cbe'; fi
 
 # start redis
 if [ "$1" = 'start' ]; then
@@ -18,7 +16,7 @@ if [ "$1" = 'start' ]; then
 #	for i in $(seq 1 $nworkers); do
 #	for name in joblists cleanup plot cal search ; do
 	for name in default ; do
-	    ssh $nodename screen -d -m -S $name rq worker $name --config $rqsettings
+	    ssh $nodename screen -d -m -S $name rq worker $name -u $host
 	done
     done
 fi
