@@ -3,20 +3,24 @@ from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
 import time, pickle
 import sdmreader
+import click
 
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 
+@click.command()
 def monitor(qname='default'):
     """ Blocking loop that prints the jobs currently being tracked.
     """
 
     q = Queue(qname, connection=conn0)
 
+    jobids0 = []
     while 1:
         jobids = conn.scan()[1]
-        print 'Tracking jobs: %s' % str(jobids)
+        if jobids0 != jobids:
+            print 'Tracking jobs: %s' % str(jobids)
 
         for jobid in jobids:
             job = q.fetch_job(jobid)
