@@ -105,6 +105,13 @@ def count_candidates(mergefile):
 
     return d
 
-if __name__ == '__main__':
-    monitor()
+def failed():
+    """ Quick dump of trace for all failed jobs
+    """
 
+    q = Queue('failed', connection=conn0)
+    print 'Failed queue:'
+    print q.jobs
+    for i in range(len(q.jobs)):
+        print 'Failure %d' % i
+        print q.jobs[i].exc_info

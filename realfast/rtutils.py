@@ -327,7 +327,7 @@ def cleanup(workdir, fileroot, scans=[]):
             print 'Uh oh. noise and cands pkl lists not identical. Missing pkl?'
             print pkllist, pkllist2
 
-def plot_summary(workdir, fileroot, scans=[]):
+def plot_summary(workdir, fileroot, scans=[], remove=[]):
     """ Make summary plots.
     pkllist gives list of cand pkl files for visualization.
     default mode is to make cand and noise summary plots
@@ -338,14 +338,14 @@ def plot_summary(workdir, fileroot, scans=[]):
         pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
-    pc.plot_summary(pkllist)
+    pc.plot_summary(pkllist, remove=remove)
     
     pkllist = []
     for scan in scans:
         pklfile = os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
-    pc.plot_noise(pkllist)
+    pc.plot_noise(pkllist, remove=remove)
 
 def plot_cand(workdir, fileroot, scans=[], candnum=-1):
     """ Visualize a candidate
