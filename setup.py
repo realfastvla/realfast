@@ -16,6 +16,6 @@ setup(
         [console_scripts]
         queue_monitor=queue_monitor:monitor
         rqinfo_monitor=rqinfo_monitor:monitor
-        mcaf_monitor=mcaf_monitor
+        mcaf_monitor=realfast.mcaf_monitor
     ''',
 )

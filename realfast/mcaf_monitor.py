@@ -13,7 +13,7 @@ import os
 import logging
 import asyncore
 import subprocess
-import mcaf_library as mcaf
+import realfast.mcaf_library as mcaf
 from optparse import OptionParser
 
 cmdline = OptionParser()
@@ -77,7 +77,7 @@ class FRBController(object):
             logging.info("Received saught %s: %s" % (self.trigger_mode,compString))
             #logging.info("Received trigger intent")
             # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', os.path.basename(config.sdmLocation), '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
+            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
             logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
             if not opt.listen:
                 logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
