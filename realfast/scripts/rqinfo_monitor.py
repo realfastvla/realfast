@@ -6,6 +6,7 @@ def monitor():
     """
 
     output0 = ['']
+    print 'Monitoring rqinfo...'
     while 1:
         try:
             output = subprocess.check_output(['rq', 'info']).split('\n\n')

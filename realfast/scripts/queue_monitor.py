@@ -10,10 +10,12 @@ conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 
 @click.command()
-def monitor(qname='default'):
+@click.option('--qname', default='default', help='Name of queue to monitor')
+def monitor(qname):
     """ Blocking loop that prints the jobs currently being tracked.
     """
 
+    print 'Monitoring queue %s...' % qname
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
