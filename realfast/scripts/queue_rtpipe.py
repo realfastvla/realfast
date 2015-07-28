@@ -7,6 +7,7 @@ from rq import Queue, Connection
 import os, argparse, time, shutil
 import sdmreader, queue_monitor
 from realfast import rtutils
+from realffast.scripts import queue_monitor
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
@@ -42,10 +43,6 @@ if __name__ == '__main__':
     else:
         qpriority = 'default'
 
-    # if look/wait in mode, don't get scans yet
-    if not any(filter(lambda mm: mm in mode, ['look', 'wait'])):
-        scans = rtutils.getscans(filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
-
     # connect
     with Connection():
         if mode == 'read':
@@ -59,7 +56,8 @@ if __name__ == '__main__':
         elif mode == 'rtsearch':
             q = Queue(qpriority)
             lastjob = rtutils.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
-            q.enqueue_call(func=queue_monitor.addjob, args=(lastjob.id,))
+            if lastjob:
+                q.enqueue_call(func=queue_monitor.addjob, args=(lastjob.id,))
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
@@ -83,19 +81,7 @@ if __name__ == '__main__':
 
         elif mode == 'plot_pulsar':
             q = Queue(qpriority, async=False)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=rtutils.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent
+            plotjob = q.enqueue_call(func=rtutils.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent        
 
-        elif mode == 'lookalldaemon':
-            # this mode looks for file that includes filename, checks that it is completed sdm, then runs 'all'
-            subname = os.path.split(filename)[1]
-            rtutils.lookalldaemon(sdmdir, subname, workdir, paramfile, fileroot, qpriority, redishost, newonly=False)
-
-        elif mode == 'all':
-            q = Queue('default')
-#            waitjob = q.enqueue_call(func=rtutils.lookforfile, args=(sdmdir, filename, True), timeout=24*3600, result_ttl=24*3600)            # watch function not ready, since it prematurely triggers on data while being written
-            caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
-            lastsearchjob = rtutils.search(q.name, filename, paramfile, fileroot, scans=scans, redishost=redishost, depends_on=caljob)
-            cleanjob = q.enqueue_call(func=rtutils.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
-            plotjob = q.enqueue_call(func=rtutils.plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
         else:
             print 'mode %s not recognized.' % mode

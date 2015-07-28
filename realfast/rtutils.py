@@ -59,6 +59,7 @@ def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[],
         lastjob = search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=None)
     else:
         print 'No calibration available. No job submitted.'
+        lastjob = ''
 
     return lastjob
 
