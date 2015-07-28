@@ -7,7 +7,7 @@ from rq import Queue, Connection
 import os, argparse, time, shutil
 import sdmreader, queue_monitor
 from realfast import rtutils
-from realffast.scripts import queue_monitor
+from realfast.scripts import queue_monitor
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
