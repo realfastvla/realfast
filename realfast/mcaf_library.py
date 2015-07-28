@@ -120,7 +120,9 @@ class MCAST_Config(object):
     def intentString(self):
         return self.sdminfo.scanIntents
 
-
+    @property
+    def obsComplete(self):
+        return self.sdminfo.finalMessage
 
 
 

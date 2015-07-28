@@ -44,18 +44,47 @@ class FRBController(object):
 
         # !!! Wrapper here to deal with potential subscans?
 
-        if self.trigger_value in compString:
-            logging.info("Received saught %s: %s" % (self.trigger_mode,compString))
-            #logging.info("Received trigger intent")
-            # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
-            logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
-            if not listen:
-                logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
-                subprocess.call(job)
+        # Check if MCAST message is simply telling us the obs is finished
+        if config.obsComplete:
+            logging.info("Received finalMessage=True; This observation has completed.")
+        
+        # Check if this is one of the scans we're seeking.
+        elif self.trigger_value in compString:
+            logging.info("Received sought %s: %s" % (self.trigger_mode,compString))
+
+            #!!! THE IF STATEMENT BELOW NEEDS TO BE REMOVED ONCE WE HAVE
+            #!!! THE REALFAST INTENT IN PLACE. Its current purpose is
+            #!!! for if we're using trigger_mode="project", but we
+            #!!! currently want to only trigger off of targets, not
+            #!!! the cal scans which will not be running in fast
+            #!!! mode. In the future we will not include the
+            #!!! "realfast" intent for cal scans/non-fast-dump-mode
+            #!!! scans. From Sarah's 27July2015 notes:
+            #!!!
+            #!!! Add "trigger only on target intent even if user asks
+            #!!! for trigger on project". This will be a placeholder
+            #!!! for a future catch of some kind of "realfast" intent;
+            #!!! i.e. when that special intent starts to exist, we
+            #!!! will always necessarily only want to run realfast
+            #!!! processing if the realfast intent is on. We should
+            #!!! also have some catch to make sure that cals are
+            #!!! always run in slow mode even if the realfast intents
+            #!!! are run in fast mode. Maybe read intents and if cal
+            #!!! and realfast intents are in the same scan, we should
+            #!!! do a big "GRRR" kind of print-out?
+            if 'TARGET' in config.intentString:
+                if verbose:
+                    logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
+
+                # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
+                job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
+                logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
+                if not listen:
+                    logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
+                    subprocess.call(job)
         else:
-            logging.info("Received %s: %s" % (self.trigger_mode,compString)) 
-            logging.info("Its BDF is in %s\n" % (config.bdfLocation)) 
+            logging.info("Received %s: %s" % (self.trigger_mode,compString))
+            logging.info("Its BDF is in %s\n" % (config.bdfLocation))
 
 @click.command()
 @click.option('--progname', default=progname_default, help='Program name used to trigger action')
