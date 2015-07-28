@@ -52,7 +52,7 @@ class FRBController(object):
         
         # Check if this is one of the scans we're seeking.
         elif self.trigger_value in compString:
-            logging.info("Received sought %s: %s" % (self.trigger_mode,compString))
+            logging.info("Received sought %s: %s" % (self.trigger_mode, compString))
 
             #!!! THE IF STATEMENT BELOW NEEDS TO BE REMOVED ONCE WE HAVE
             #!!! THE REALFAST INTENT IN PLACE. Its current purpose is
@@ -75,8 +75,7 @@ class FRBController(object):
             #!!! and realfast intents are in the same scan, we should
             #!!! do a big "GRRR" kind of print-out?
             if 'TARGET' in config.intentString:
-                if self.verbose:
-                    logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
+                logging.debug("Found target in intent %s; will process this scan with realfast." % (config.intentString))
 
                 # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
                 job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
@@ -111,7 +110,7 @@ def monitor(progname, trigger_mode, trigger_value, listen, verbose):
         logging.info('Running in listen-only mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController(trigger_mode=trigger_mode,trigger_value=trigger_value,listen=listen,verbose=verbose)
+    controller = FRBController(trigger_mode=trigger_mode, trigger_value=trigger_value, listen=listen, verbose=verbose)
     sdminfo_client = mcaf.SdminfoClient(controller)
     try:
         asyncore.loop()
