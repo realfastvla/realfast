@@ -20,14 +20,13 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
         
 mode_default = "intent"
 value_default= "realfast"
-listen_default = True
 progname_default = "main_controller"
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=listen_default, mode="project"):
+    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=True, mode="project"):
         # Mode can be project, intent
         self.trigger_mode = trigger_mode
         self.trigger_value = trigger_value
@@ -60,10 +59,10 @@ class FRBController(object):
 
 @click.command()
 @click.option('--progname', default=progname_default, help='Program name used to trigger action')
-@click.option('--trigger_mode', '-m', default=mode_default, help="Trigger on what field? (modes currently accpeted: intent, project). [DEFAULT: intent]")
-@click.option('--trigger_value', '-t', default=value_default, help="Triggers if trigger field contains this string. [DEFAULT: realfast]")
-@click.option('--listen', '-l', default=listen_default, help="Only listen to multicast, don't launch anything", is_flag=True )
-@click.option('--verbose', '-v', default=False, help="More verbose output", is_flag=True)
+@click.option('--trigger_mode', '-m', default=mode_default, help="Trigger on what field? (modes currently accpeted: intent, project). [DEFAULT: %s]" % mode_default)
+@click.option('--trigger_value', '-t', default=value_default, help="Triggers if trigger field contains this string. [DEFAULT: %s]" % value_default)
+@click.option('--listen', '-l', help="Only listen to multicast, don't launch anything", is_flag=True)
+@click.option('--verbose', '-v', help="More verbose output", is_flag=True)
 def monitor(progname, trigger_mode, trigger_value, listen, verbose):
     """ Monitor of mcaf observation files. Blocking function.
     """

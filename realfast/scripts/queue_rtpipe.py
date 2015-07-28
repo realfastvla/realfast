@@ -54,10 +54,16 @@ if __name__ == '__main__':
             lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
         elif mode == 'rtsearch':
+            """ Real-time search on cbe. First copies sdm into workdir, then looks for telcalfile (optionally waiting with timeout), then queues jobs.
+            """
             q = Queue(qpriority)
-            lastjob = rtutils.rtsearch(qpriority, filename, workdir, paramfile, fileroot, telcaldir, scans=scans)  # default TARGET intent
-            if lastjob:
+            rtutils.copysdm(filename, workdir)
+            telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+            if telcalfile:
+                lastjob = rtutils.search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=depends_on)
                 q.enqueue_call(func=queue_monitor.addjob, args=(lastjob.id,))
+            else:
+                print 'No calibration available. No job submitted.'
 
         elif mode == 'calibrate':
             q = Queue(qpriority)

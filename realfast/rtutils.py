@@ -22,9 +22,8 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
     print 'Example pipeline:'
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[], redishost='localhost', depends_on=None, bdfdir='/lustre/evla/wcbe/data/realfast'):
-    """ Move data, find telcal file, then search.
-    Built assuming it is run for real-time processing on CBE.
+def copysdm(filename, workdir):
+    """ Copies sdm from filename (full path) to workdir
     """
 
     # first copy data to working area
@@ -37,31 +36,48 @@ def rtsearch(qname, filename, workdir, paramfile, fileroot, telcaldir, scans=[],
         print 'File %s already in %s. Using that one...' % (fname, workdir)
     filename = newfileloc
 
+def gettelcalfile(telcaldir, filename, timeout=0):
+    """ Looks for telcal file with name filename.GN in typical telcal directories
+    Searches recent directory first, then tries tree search.
+    If none found and timeout=0, returns empty string. Else will block for timeout seconds.
+    """
+
+    fname = os.path.basename(filename)
+    time_filestart = time.time()
+
     # search for associated telcal file
     year = str(time.localtime()[0])
     month = '%02d' % time.localtime()[1]
     telcaldir2 = os.path.join(telcaldir, year, month)
-    print 'Looking for telcalfile in %s' % telcaldir2
-    telcalfile = [ff for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
 
-    # if not in latest directory, walk through whole structure
-    if not len(telcalfile):  
-        print 'No telcal in latest directory. Searching whole telcalfile tree.'
-        telcaldir2 = [root for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
-        if len(telcaldir2):
-            telcalfile = os.path.join(telcaldir2[0], fname+'.GN')
-            print 'Found telcal file at %s' % telcalfile
+    while 1:
+        print 'Looking for telcalfile in %s' % telcaldir2
+        telcalfile = [ff for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
+
+        # if not in latest directory, walk through whole structure
+        if not len(telcalfile):  
+            print 'No telcal in latest directory. Searching whole telcalfile tree.'
+            telcaldir2 = [root for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
+            if len(telcaldir2):
+                telcalfile = os.path.join(telcaldir2[0], fname+'.GN')
+                print 'Found telcal file at %s' % telcalfile
+            else:
+                telcalfile = ''
+                print 'No telcal file found in %s' % telcaldir
+
+        # if waiting, but no file found, check timeout
+        if timeout and not telcalfile:
+            if time.time() - time_filestart < timeout:  # don't beak yet
+                time.sleep(2)
+                continue
+            else:   # reached timeout
+                print 'Timeout waiting for telcalfile'
+                break
         else:
-            telcalfile = ''
-            print 'No telcal file found in %s' % telcaldir
+            print 'Not waiting for telcalfile'
+            break
 
-    if telcalfile:
-        lastjob = search(qname, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost', depends_on=None)
-    else:
-        print 'No calibration available. No job submitted.'
-        lastjob = ''
-
-    return lastjob
+    return telcalfile
 
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
@@ -118,71 +134,6 @@ def calimg(filename, paramfile, scans=[]):
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
     return joblist
-
-def lookalldaemon(lookdir, subname, workdir, paramfile, fileroot, qname='default', redishost='localhost', newonly=True):
-    """ Function to look at lookdir for subname. 
-    Each file found is started through entire calibration/search/visualization pipeline.
-    Uses gevent to package up queue submission and allow daemonization of file wait.
-    """
-
-    import gevent
-
-    print 'Looking for %s in %s.' % (subname, lookdir)
-
-    filelist0 = os.listdir(os.path.abspath(lookdir))
-    joblist = []
-    completedlist = []
-    try:
-        while 1:
-            filelist = os.listdir(os.path.abspath(lookdir))
-            if newonly:
-                newfiles = filter(lambda ff: ff not in filelist0, filelist)
-                matchfiles = filter(lambda ff: subname in ff, newfiles)
-            else:
-                matchfiles = filter(lambda ff: subname in ff, filelist)
-            matchfilestodo = filter(lambda ff: ff not in completedlist, matchfiles)   # remove files already completed
-
-            for filename in matchfilestodo:
-                fullfilename = os.path.join(lookdir, filename)
-                job = gevent.spawn(runall, fullfilename, workdir, paramfile, fileroot, qname, redishost)
-                job.run()
-                joblist.append(job)
-                completedlist.append(filename)
-
-            filelist0 = filelist
-            time.sleep(1)
-    except KeyboardInterrupt:
-        print 'Breaking out. Total of %d jobs spawned.' % len(joblist)
-#        gevent.joinall(joblist)
-
-def runall(filename, workdir, paramfile, fileroot, qname='default', redishost='localhost'):
-    """ Runs all major steps on qname
-    """
-
-    with Connection(Redis(redishost)):
-        q = Queue(qname, async=False)
-
-        sdmjob = q.enqueue_call(func=waitforsdm, args=(filename,), timeout=24*3600, result_ttl=24*3600)
-
-        # copy to working area and make cal-able
-        newfileloc = os.path.join(workdir, os.path.split(filename)[1])
-        if not os.path.exists(newfileloc):
-            shutil.copytree(filename, newfileloc)  # copy file in
-        else:
-            print 'File %s already in %s. Using that one...' % (newfileloc, workdir)
-        filename = newfileloc
-        sdmcaljob = q.enqueue_call(func=sdmascal, args=(filename,), timeout=24*3600, result_ttl=24*3600)   # make emtpy sdm workable as cal sdm
-        caljob = q.enqueue_call(func=calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)   # can be set to enqueue when data arrives
-        sdmorigjob = q.enqueue_call(func=sdmasorig, args=(filename,), timeout=24*3600, result_ttl=24*3600, depends_on=caljob)   # make emtpy sdm workable to search
-
-        # add a step to fill bdfpkls?
-
-        # start non-blocking part
-#        q = Queue(qname)
-#        scans = getscans(filename, sources=sources, scans=scans, intent='TARGET')  # default cleans up target scans
-#        lastsearchjob = search(q.name, filename, paramfile, fileroot, scans=scans, redishost=redishost, depends_on=sdmorigjob)
-#        cleanjob = q.enqueue_call(func=cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=lastsearchjob)  # enqueued when joblist finishes
-#        plotjob = q.enqueue_call(func=plot_summary, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600, depends_on=cleanjob)   # enqueued when cleanup finished
 
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.
@@ -371,24 +322,6 @@ def plot_pulsar(workdir, fileroot, scans=[]):
 
     print 'Pulsar plotting for pkllist:', pkllist
     pc.plot_psrrates(pkllist, outname=os.path.join(workdir, 'plot_' + fileroot + '_psrrates.png'))
-
-def joblistwait(qname, jobids, redishost='localhost'):
-    """ Function listens to jobs of jobids on q. Completes only when all jobs have is_finished status=True.
-    """
-
-    print 'Monitoring %d jobs on queue %s' % (len(jobids), qname)
-    with Connection(Redis(redishost)):
-        q = Queue(qname)
-
-        while len(jobids):
-            for jobid in jobids:
-                job = q.fetch_job(jobid)
-                if job.is_finished:
-                    jobids.remove(jobid)
-                    print 'Jobid %s finished. %d remain.' % (jobid, len(jobids))
-                else:
-                    print '.',
-                    time.sleep(5)
 
 def getscans(filename, scans='', sources='', intent='', bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Get scan list as ints.
