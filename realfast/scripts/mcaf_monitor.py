@@ -20,7 +20,7 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
         
 mode_default = "intent"
 value_default= "realfast"
-progname_default = "main_controller"
+progname_default = "mcaf_monitor"
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
@@ -88,7 +88,7 @@ class FRBController(object):
             logging.info("Its BDF is in %s\n" % (config.bdfLocation))
 
 @click.command()
-@click.option('--progname', default=progname_default, help='Program name used to trigger action')
+@click.option('--progname', default=progname_default, help='Name of current program')
 @click.option('--trigger_mode', '-m', default=mode_default, help="Trigger on what field? (modes currently accpeted: intent, project). [DEFAULT: %s]" % mode_default)
 @click.option('--trigger_value', '-t', default=value_default, help="Triggers if trigger field contains this string. [DEFAULT: %s]" % value_default)
 @click.option('--listen', '-l', help="Only listen to multicast, don't launch anything", is_flag=True)
