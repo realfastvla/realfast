@@ -52,20 +52,24 @@ def gettelcalfile(telcaldir, filename, timeout=0):
 
     while 1:
         print 'Looking for telcalfile in %s' % telcaldir2
-        telcalfile = [ff for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
+        telcalfile = [os.path.join(telcaldir2, ff) for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
 
         # if not in latest directory, walk through whole structure
-        if not len(telcalfile):  
-            print 'No telcal in latest directory. Searching whole telcalfile tree.'
-            telcaldir2 = [root for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
-            if len(telcaldir2):
-                telcalfile = os.path.join(telcaldir2[0], fname+'.GN')
-                print 'Found telcal file at %s' % telcalfile
-            else:
-                telcalfile = ''
-                print 'No telcal file found in %s' % telcaldir
+        if not len(telcalfile):
+            print 'No telcal in newest directory. Searching whole telcalfile tree.'
+            telcalfile = [os.path.join(root, fname+'.GN') for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
+
+        assert isinstance(telcalfile, list)
+
+        # make into string (emtpy or otherwise)
+        if len(telcalfile):
+            telcalfile = telcalfile[0]
+            print 'found telcal file at %s' % telcalfile
         else:
-            telcalfile = os.path.join(telcaldir2, telcalfile[0])
+            telcalfile = ''
+            print 'no telcal file found in %s' % telcaldir
+
+        assert isinstance(telcalfile, str)
 
         # if waiting, but no file found, check timeout
         if timeout and not telcalfile:
@@ -90,6 +94,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
     print 'Setting up pipelines for %s, scans %s...' % (filename, scans)
 
     for scan in scans:
+        assert isinstance(scan, int)
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True)
         for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead
@@ -111,6 +116,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
             # use second to last job as dependency for last job
             state, segment = stateseg[-1]
             lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=6*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
+        print 'Jobs enqueued. Returning last job with id %s.' % lastjob.id
         return lastjob
     else:
         print 'No jobs to enqueue'
