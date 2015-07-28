@@ -20,17 +20,18 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
         
 mode_default = "intent"
 value_default= "realfast"
-progname_default = "main_controller"
+progname_default = "mcaf_monitor"
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=True, mode="project"):
+    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=True, verbose=False):
         # Mode can be project, intent
         self.trigger_mode = trigger_mode
         self.trigger_value = trigger_value
-        self.dotrigger = False
+        self.listen = listen
+        self.verbose = verbose
 
     def add_sdminfo(self,sdminfo):
         config = mcaf.MCAST_Config(sdminfo=sdminfo)
@@ -73,13 +74,13 @@ class FRBController(object):
             #!!! and realfast intents are in the same scan, we should
             #!!! do a big "GRRR" kind of print-out?
             if 'TARGET' in config.intentString:
-                if verbose:
+                if self.verbose:
                     logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
 
                 # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
                 job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
                 logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
-                if not listen:
+                if not self.listen:
                     logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
                     subprocess.call(job)
         else:
@@ -87,7 +88,7 @@ class FRBController(object):
             logging.info("Its BDF is in %s\n" % (config.bdfLocation))
 
 @click.command()
-@click.option('--progname', default=progname_default, help='Program name used to trigger action')
+@click.option('--progname', default=progname_default, help='Name of current program')
 @click.option('--trigger_mode', '-m', default=mode_default, help="Trigger on what field? (modes currently accpeted: intent, project). [DEFAULT: %s]" % mode_default)
 @click.option('--trigger_value', '-t', default=value_default, help="Triggers if trigger field contains this string. [DEFAULT: %s]" % value_default)
 @click.option('--listen', '-l', help="Only listen to multicast, don't launch anything", is_flag=True)
@@ -103,13 +104,13 @@ def monitor(progname, trigger_mode, trigger_value, listen, verbose):
     if verbose:
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        logging.debug('Running in verbose mod')
+        logging.debug('Running in verbose mode')
 
     if listen:
         logging.info('Running in listen-only mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController()
+    controller = FRBController(trigger_mode=trigger_mode,trigger_value=trigger_value,listen=listen,verbose=verbose)
     sdminfo_client = mcaf.SdminfoClient(controller)
     try:
         asyncore.loop()

@@ -64,6 +64,8 @@ def gettelcalfile(telcaldir, filename, timeout=0):
             else:
                 telcalfile = ''
                 print 'No telcal file found in %s' % telcaldir
+        else:
+            telcalfile = os.path.join(telcaldir2, telcalfile[0])
 
         # if waiting, but no file found, check timeout
         if timeout and not telcalfile:
