@@ -109,7 +109,7 @@ def monitor(progname, trigger_mode, trigger_value, listen, verbose):
         logging.info('Running in listen-only mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController()
+    controller = FRBController(trigger_mode=trigger_mode,trigger_value=trigger_value)
     sdminfo_client = mcaf.SdminfoClient(controller)
     try:
         asyncore.loop()
