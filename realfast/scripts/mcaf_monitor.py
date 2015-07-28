@@ -103,7 +103,7 @@ def monitor(progname, trigger_mode, trigger_value, listen, verbose):
     if verbose:
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        logging.debug('Running in verbose mod')
+        logging.debug('Running in verbose mode')
 
     if listen:
         logging.info('Running in listen-only mode')
