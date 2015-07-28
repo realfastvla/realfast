@@ -21,6 +21,7 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
 mode_default = "intent"
 value_default= "realfast"
 progname_default = "mcaf_monitor"
+confloc = os.listdir(os.path.join(os.path.split(os.path.split(mcaf.__file__)[0])[0], 'conf'))   # install system puts conf files here. used by queue_rtpipe.py
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
@@ -78,7 +79,7 @@ class FRBController(object):
                     logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
 
                 # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-                job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
+                job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
                 logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
                 if not self.listen:
                     logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))

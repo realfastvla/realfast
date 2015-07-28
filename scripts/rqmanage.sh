@@ -7,7 +7,7 @@ export host=`hostname`
 # start redis
 if [ "$1" = 'start' ]; then
     echo 'Starting redis server'
-    redis-server ~claw/code/realfast/redis.conf
+    redis-server ~claw/code/realfast/conf/redis_${host}.conf  # **fix**
 
 # start rqworkers
     nworkers=1
@@ -16,7 +16,7 @@ if [ "$1" = 'start' ]; then
 #	for i in $(seq 1 $nworkers); do
 #	for name in joblists cleanup plot cal search ; do
 	for name in default ; do
-	    ssh $nodename screen -d -m -S $name rq worker $name -u $host
+	    ssh $nodename screen -d -m -S $name rq worker $name -u redis://$host
 	done
     done
 fi
