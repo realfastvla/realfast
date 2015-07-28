@@ -26,11 +26,12 @@ class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=True, mode="project"):
+    def __init__(self, trigger_mode=mode_default, trigger_value=value_default, listen=True, verbose=False):
         # Mode can be project, intent
         self.trigger_mode = trigger_mode
         self.trigger_value = trigger_value
-        self.dotrigger = False
+        self.listen = listen
+        self.verbose = verbose
 
     def add_sdminfo(self,sdminfo):
         config = mcaf.MCAST_Config(sdminfo=sdminfo)
@@ -73,13 +74,13 @@ class FRBController(object):
             #!!! and realfast intents are in the same scan, we should
             #!!! do a big "GRRR" kind of print-out?
             if 'TARGET' in config.intentString:
-                if verbose:
+                if self.verbose:
                     logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
 
                 # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
                 job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
                 logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
-                if not listen:
+                if not self.listen:
                     logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
                     subprocess.call(job)
         else:
@@ -109,7 +110,7 @@ def monitor(progname, trigger_mode, trigger_value, listen, verbose):
         logging.info('Running in listen-only mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController(trigger_mode=trigger_mode,trigger_value=trigger_value)
+    controller = FRBController(trigger_mode=trigger_mode,trigger_value=trigger_value,listen=listen,verbose=verbose)
     sdminfo_client = mcaf.SdminfoClient(controller)
     try:
         asyncore.loop()
