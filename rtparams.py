@@ -11,7 +11,8 @@ searchtype = 'image1'    # search algorithm: 'image1' is single image snr thresh
 sigma_image1 = 7.0
 uvres = 0   # imaging parameters. set res=size=0 to define from uv coords
 npix = 0
-npix_max = 1024
+npix_max = 1728
 uvoversample = 1
 savenoise = False
 savecands = False
+memory_limit = 20  # in GB

@@ -56,12 +56,20 @@ if __name__ == '__main__':
         elif mode == 'rtsearch':
             """ Real-time search on cbe. First copies sdm into workdir, then looks for telcalfile (optionally waiting with timeout), then queues jobs.
             """
-            q = Queue(qpriority)
-            rtutils.copysdm(filename, workdir)
+
+            # copy data into place
+            rtutils.rsyncsdm(filename, workdir)
+            filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+
+            assert 'mchammer' not in filename  # be sure we are not working with pure version
+
+            # find telcalfile (use timeout to wait for it to be written)
             telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+
+            # submit search job and add tail job to monitoring queue
             if telcalfile:
                 lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost')
-                q.enqueue_call(func=queue_monitor.addjob, args=(lastjob.id,))
+                queue_monitor.addjob(lastjob.id)
             else:
                 print 'No calibration available. No job submitted.'
 

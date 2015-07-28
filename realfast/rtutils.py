@@ -22,6 +22,12 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
     print 'Example pipeline:'
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
+def rsyncsdm(filename, workdir):
+    """ Uses subprocess.call to call rsync for filename into workdir.
+    """
+
+    subprocess.call(["rsync", "-av", filename, workdir])
+
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
     """
