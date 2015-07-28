@@ -75,16 +75,28 @@ class FRBController(object):
 
         if self.trigger_value in compString:
             logging.info("Received saught %s: %s" % (self.trigger_mode,compString))
-            #logging.info("Received trigger intent")
-            # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
-            logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
-            if not opt.listen:
-                logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
-                subprocess.call(job)
+
+            #!!! THIS IF STATEMENT NEEDS TO BE REMOVED ONCE WE HAVE
+            #!!! THE REALFAST INTENT IN PLACE. Its current purpose is
+            #!!! for if we're using trigger_mode="project", but we
+            #!!! currently want to only trigger off of targets, not
+            #!!! the cal scans which will not be running in fast
+            #!!! mode. In the future we will not include the
+            #!!! "realfast" intent for cal scans/non-fast-dump-mode
+            #!!! scans.
+            if 'TARGET' in config.intentString:
+                if opt.verbose:
+                    logging.info("Found target in intent %s; will process this scan with realfast." % (config.intentString))
+
+                # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
+                job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', 'rtparams.py']
+                logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
+                if not opt.listen:
+                    logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
+                    subprocess.call(job)
         else:
-            logging.info("Received %s: %s" % (self.trigger_mode,compString)) 
-            logging.info("Its BDF is in %s\n" % (config.bdfLocation)) 
+            logging.info("Received %s: %s" % (self.trigger_mode,compString))
+            logging.info("Its BDF is in %s\n" % (config.bdfLocation))
 
 if __name__ == '__main__':
     # This starts the receiving/handling loop
