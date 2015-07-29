@@ -5,7 +5,7 @@
 
 from rq import Queue, Connection
 import os, argparse, time, shutil
-import sdmreader, queue_monitor
+import sdmreader
 from realfast import rtutils, queue_monitor
 
 parser = argparse.ArgumentParser()
