@@ -1,7 +1,7 @@
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle
+import time, pickle, sys
 import sdmreader
 import click
 
@@ -21,6 +21,7 @@ def monitor(qname):
     jobids0 = []
     while 1:
         jobids = conn.scan()[1]
+
         if jobids0 != jobids:
             print 'Tracking jobs: %s' % str(jobids)
 
@@ -69,6 +70,7 @@ def monitor(qname):
                 removejob(jobid)
 
         # timeout tests? cleaning up jobs?
+        sys.stdout.flush()
         time.sleep(1)
 
 def addjob(jobid):
