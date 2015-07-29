@@ -54,7 +54,7 @@ class FRBController(object):
 @click.command()
 @click.option('--intent', '-i', default='', help="Intent to trigger on")
 @click.option('--project', '-p', default='', help="Project name to trigger on")
-@click.option('--listen', '-l', help="Only listen to multicast, don't launch anything", is_flag=True)
+@click.option('--listen/--do', '-l', help="Only listen to multicast or actually do work?", default=True)
 @click.option('--verbose', '-v', help="More verbose output", is_flag=True)
 def monitor(intent, project, listen, verbose):
     """ Monitor of mcaf observation files. 
@@ -72,7 +72,9 @@ def monitor(intent, project, listen, verbose):
         logging.debug('Running in verbose mode')
 
     if listen:
-        logging.info('Running in listen-only mode')
+        logging.info('Running in listen mode')
+    else:
+        logging.info('Running in do mode')
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose)
