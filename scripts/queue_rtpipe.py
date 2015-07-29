@@ -21,7 +21,6 @@ parser.add_argument("--remove", help="List of times to remove plot_summary visua
 args = parser.parse_args(); filename = args.filename; scans = [int(sc) for sc in args.scans.split(',')]; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove
 
 # Define names, paths
-redishost = os.uname()[1]
 filename = os.path.abspath(filename)
 if paramfile:
     paramfile = os.path.abspath(paramfile)
@@ -67,7 +66,7 @@ if __name__ == '__main__':
 
             # submit search job and add tail job to monitoring queue
             if telcalfile:
-                lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost='localhost')
+                lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost=redishost)
                 queue_monitor.addjob(lastjob.id)
             else:
                 print 'No calibration available. No job submitted.'

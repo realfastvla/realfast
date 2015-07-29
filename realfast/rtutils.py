@@ -22,75 +22,6 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
     print 'Example pipeline:'
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def rsyncsdm(filename, workdir):
-    """ Uses subprocess.call to call rsync for filename into workdir.
-    """
-
-    subprocess.call(["rsync", "-av", filename, workdir])
-
-def copysdm(filename, workdir):
-    """ Copies sdm from filename (full path) to workdir
-    """
-
-    # first copy data to working area
-    fname = os.path.basename(filename)
-    newfileloc = os.path.join(workdir, fname)
-    if not os.path.exists(newfileloc):
-        print 'Copying %s into %s' % (fname, workdir)
-        shutil.copytree(filename, newfileloc)  # copy file in
-    else:
-        print 'File %s already in %s. Using that one...' % (fname, workdir)
-    filename = newfileloc
-
-def gettelcalfile(telcaldir, filename, timeout=0):
-    """ Looks for telcal file with name filename.GN in typical telcal directories
-    Searches recent directory first, then tries tree search.
-    If none found and timeout=0, returns empty string. Else will block for timeout seconds.
-    """
-
-    fname = os.path.basename(filename)
-    time_filestart = time.time()
-
-    # search for associated telcal file
-    year = str(time.localtime()[0])
-    month = '%02d' % time.localtime()[1]
-    telcaldir2 = os.path.join(telcaldir, year, month)
-
-    while 1:
-        print 'Looking for telcalfile in %s' % telcaldir2
-        telcalfile = [os.path.join(telcaldir2, ff) for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
-
-        # if not in latest directory, walk through whole structure
-        if not len(telcalfile):
-            print 'No telcal in newest directory. Searching whole telcalfile tree.'
-            telcalfile = [os.path.join(root, fname+'.GN') for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
-
-        assert isinstance(telcalfile, list)
-
-        # make into string (emtpy or otherwise)
-        if len(telcalfile):
-            telcalfile = telcalfile[0]
-            print 'found telcal file at %s' % telcalfile
-        else:
-            telcalfile = ''
-            print 'no telcal file found in %s' % telcaldir
-
-        assert isinstance(telcalfile, str)
-
-        # if waiting, but no file found, check timeout
-        if timeout and not telcalfile:
-            if time.time() - time_filestart < timeout:  # don't beak yet
-                time.sleep(2)
-                continue
-            else:   # reached timeout
-                print 'Timeout waiting for telcalfile'
-                break
-        else:
-            print 'Not waiting for telcalfile'
-            break
-
-    return telcalfile
-
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None):
     """ Search for transients in all target scans and segments
     """
@@ -148,6 +79,75 @@ def calimg(filename, paramfile, scans=[]):
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
         joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
     return joblist
+
+def gettelcalfile(telcaldir, filename, timeout=0):
+    """ Looks for telcal file with name filename.GN in typical telcal directories
+    Searches recent directory first, then tries tree search.
+    If none found and timeout=0, returns empty string. Else will block for timeout seconds.
+    """
+
+    fname = os.path.basename(filename)
+    time_filestart = time.time()
+
+    # search for associated telcal file
+    year = str(time.localtime()[0])
+    month = '%02d' % time.localtime()[1]
+    telcaldir2 = os.path.join(telcaldir, year, month)
+
+    while 1:
+        print 'Looking for telcalfile in %s' % telcaldir2
+        telcalfile = [os.path.join(telcaldir2, ff) for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
+
+        # if not in latest directory, walk through whole structure
+        if not len(telcalfile):
+            print 'No telcal in newest directory. Searching whole telcalfile tree.'
+            telcalfile = [os.path.join(root, fname+'.GN') for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
+
+        assert isinstance(telcalfile, list)
+
+        # make into string (emtpy or otherwise)
+        if len(telcalfile):
+            telcalfile = telcalfile[0]
+            print 'found telcal file at %s' % telcalfile
+        else:
+            telcalfile = ''
+            print 'no telcal file found in %s' % telcaldir
+
+        assert isinstance(telcalfile, str)
+
+        # if waiting, but no file found, check timeout
+        if timeout and not telcalfile:
+            if time.time() - time_filestart < timeout:  # don't beak yet
+                time.sleep(2)
+                continue
+            else:   # reached timeout
+                print 'Timeout waiting for telcalfile'
+                break
+        else:
+            print 'Not waiting for telcalfile'
+            break
+
+    return telcalfile
+
+def rsyncsdm(filename, workdir):
+    """ Uses subprocess.call to call rsync for filename into workdir.
+    """
+
+    subprocess.call(["rsync", "-av", filename, workdir])
+
+def copysdm(filename, workdir):
+    """ Copies sdm from filename (full path) to workdir
+    """
+
+    # first copy data to working area
+    fname = os.path.basename(filename)
+    newfileloc = os.path.join(workdir, fname)
+    if not os.path.exists(newfileloc):
+        print 'Copying %s into %s' % (fname, workdir)
+        shutil.copytree(filename, newfileloc)  # copy file in
+    else:
+        print 'File %s already in %s. Using that one...' % (fname, workdir)
+    filename = newfileloc
 
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.

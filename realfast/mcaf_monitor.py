@@ -14,11 +14,16 @@ import os
 import logging
 import asyncore
 import subprocess
-import realfast.mcaf_library as mcaf
 import click
+import realfast.mcaf_library as mcaf
+from realfast import queue_monitor
 
+# set up
 logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 confloc = os.path.join(os.path.split(os.path.split(mcaf.__file__)[0])[0], 'conf')   # install system puts conf files here. used by queue_rtpipe.py
+telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
+workdir = os.getcwd()     # assuming we start in workdir
+redishost = os.uname()[1]  # assuming we start on redis host
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
@@ -41,15 +46,28 @@ class FRBController(object):
             logging.info("Received finalMessage=True; This observation has completed.")
 
         elif self.intent in config.intentString and self.project in config.projectID:
-            logging.info("Received sought intent %s and project %s" % (self.intent, self.project))
+            logging.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
             logging.debug("BDF is in %s\n" % (config.bdfLocation))
 
-            # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
-            logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
+            # If we're not in listening mode, prepare data and submit to queue system
+#            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
             if not self.listen:
-                logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
-                subprocess.call(job)
+                logging.info("Submitting scan %d..." % (config.scan))
+
+                # 1) copy data into place
+                rtutils.rsyncsdm(config.sdmLocation, workdir)
+                filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+                assert 'mchammer' not in filename  # be sure we are not working with pure version
+
+                # 2) find telcalfile (use timeout to wait for it to be written)
+                telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+
+                # 3) submit search job and add tail job to monitoring queue
+                if telcalfile:
+                    lastjob = rtutils.search('default', filename, os.path.join(confloc, 'rtpipe_cbe.conf'), '', [int(config.scan)], telcalfile=telcalfile, redishost=redishost)
+                    queue_monitor.addjob(lastjob.id)
+                else:
+                    print 'No calibration available. No job submitted.'
 
 @click.command()
 @click.option('--intent', '-i', default='', help="Intent to trigger on")

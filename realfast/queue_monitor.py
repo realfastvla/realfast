@@ -4,6 +4,7 @@ from rq.registry import FinishedJobRegistry
 import time, pickle, sys
 import sdmreader
 import click
+from realfast import rtutils
 
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
@@ -11,11 +12,13 @@ timeout = 600   # seconds to wait for BDF to finish writing (after final pipelin
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
-def monitor(qname):
-    """ Blocking loop that prints the jobs currently being tracked.
+@click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
+def monitor(qname, triggered):
+    """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
+    Can optionally be set to do triggered data recording (archiving).
     """
 
-    print 'Monitoring queue %s...' % qname
+    print 'Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered])
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
@@ -56,20 +59,28 @@ def monitor(qname):
                                 time.sleep(1)
                         
                         # do "end of SB" processing
-                        # aggregate cands/noise files and make plots
-                        status = subprocess.call(["queue_rtpipe.py", d['filename'], '--mode', 'cleanup'])
-                        if status:
+                        # 1) aggregate cands/noise files
+                        rtutils.cleanup(d['workdir'], d['fileroot'], sc.keys())
+
+                        # 2) if triggered recording, get scans with detections, else save all.
+                        if triggered:  
                             goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
-                            status = subprocess.call(["queue_rtpipe.py", d['filename'], '--mode', 'plot_summary'])
+                        else:
+                            goodscans = sc.keys()
 
-                            # scan/chop SDM. 'goodscans' defines scans to archive.
+                        # 3) scan/chop SDM. 'goodscans' defines scans to archive.
 
-                            # copy new SDM and good BDFs to archive locations (new stuff)
+                        # 4) copy new SDM and good BDFs to archive locations (new stuff)
 
-                # remove from db
+                        # 5) finally plot candidates
+                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+
+                        # 6) do some clean up of cands/noise files
+
+                # job is finished, so remove from db
                 removejob(jobid)
 
-        # timeout tests? cleaning up jobs?
+        # timeout tests?
         sys.stdout.flush()
         time.sleep(1)
 
