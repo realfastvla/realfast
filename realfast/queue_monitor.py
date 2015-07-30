@@ -1,7 +1,7 @@
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle, sys
+import time, pickle, sys, logging
 import sdmreader
 import click
 from realfast import rtutils
@@ -9,6 +9,7 @@ from realfast import rtutils
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
+logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
@@ -18,7 +19,7 @@ def monitor(qname, triggered):
     Can optionally be set to do triggered data recording (archiving).
     """
 
-    print 'Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered])
+    logging.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
@@ -26,14 +27,14 @@ def monitor(qname, triggered):
         jobids = conn.scan()[1]
 
         if jobids0 != jobids:
-            print 'Tracking jobs: %s' % str(jobids)
+            logging.info('Tracking jobs: %s' % str(jobids))
 
         for jobid in jobids:
             job = q.fetch_job(jobid)
 
             # if job is finished, check whether it is final scan of this sdm
             if job.is_finished:
-                print 'Job %s finished.' % str(jobid)
+                logging.info('Job %s finished.' % str(jobid))
                 # todo: check that all other segmentss are also finished? baseline assumption is that all segments finish before this one.
 #                finishedjobs = getfinishedjobs(qname)
 
@@ -42,18 +43,18 @@ def monitor(qname, triggered):
                     d, segments = job.args
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
-                        print 'This job processed last scan of %s.' % d['filename']
+                        logging.info('This job processed last scan of %s.' % d['filename'])
                         # todo: check that other scans are in finishedjobs. baseline assumption is that last scan finishes last
 
                         # check that BDFs are actually written (perhaps superfluous)
                         now = time.time()
-                        print 'Waiting for all BDF to be written for %s.' % d['filename']
+                        logging.info('Waiting for all BDF to be written for %s.' % d['filename'])
                         while 1:
                             if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                                print 'All BDF written for %s.' % d['filename']
+                                logging.info('All BDF written for %s.' % d['filename'])
                                 break
                             elif time.time() - now > timeout:
-                                print 'Timeout while waiting for BDFs in %s.' % d['filename']
+                                logging.info('Timeout while waiting for BDFs in %s.' % d['filename'])
                                 break
                             else:
                                 time.sleep(1)
@@ -121,8 +122,7 @@ def failed():
     """
 
     q = Queue('failed', connection=conn0)
-    print 'Failed queue:'
-    print q.jobs
+    logging.info('Failed queue: %s' % q.jobs)
     for i in range(len(q.jobs)):
-        print 'Failure %d' % i
-        print q.jobs[i].exc_info
+        logging.info('Failure %d' % i)
+        logging.info('%s' % q.jobs[i].exc_info)
