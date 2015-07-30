@@ -31,7 +31,7 @@ def monitor(qname, triggered, archive):
         if jobids0 != jobids:
             logging.info('Tracking jobs: %s' % str(jobids))
             sys.stdout.flush()
-            jobids0 = jobsids
+            jobids0 = jobids
 
         for jobid in jobids:
             job = q.fetch_job(jobid)
