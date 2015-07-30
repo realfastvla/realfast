@@ -13,26 +13,30 @@ import datetime
 import os
 import logging
 import asyncore
-import subprocess
-import realfast.mcaf_library as mcaf
 import click
+from realfast import queue_monitor, rtutils, mcaf_library
 
+# set up
 logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
-confloc = os.path.join(os.path.split(os.path.split(mcaf.__file__)[0])[0], 'conf')   # install system puts conf files here. used by queue_rtpipe.py
+rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(mcaf_library.__file__)[0])[0], 'conf'), 'rtpipe_cbe.conf') # install system puts conf files here. used by queue_rtpipe.py
+telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
+workdir = os.getcwd()     # assuming we start in workdir
+redishost = os.uname()[1]  # assuming we start on redis host
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, intent='', project='', listen=True, verbose=False):
+    def __init__(self, intent='', project='', listen=True, verbose=False, rtparams=''):
         # Mode can be project, intent
         self.intent = intent
         self.project = project
         self.listen = listen
         self.verbose = verbose
+        self.rtparams = rtparams
 
     def add_sdminfo(self, sdminfo):
-        config = mcaf.MCAST_Config(sdminfo=sdminfo)
+        config = mcaf_library.MCAST_Config(sdminfo=sdminfo)
 
         # !!! Wrapper here to deal with potential subscans?
 
@@ -41,22 +45,40 @@ class FRBController(object):
             logging.info("Received finalMessage=True; This observation has completed.")
 
         elif self.intent in config.intentString and self.project in config.projectID:
-            logging.info("Received sought intent %s and project %s" % (self.intent, self.project))
+            logging.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
             logging.debug("BDF is in %s\n" % (config.bdfLocation))
 
-            # If we're not in listening mode, submit the pipeline for this scan as a queue submission.
-            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
-            logging.info("Ready to submit scan %d as job %s" % (config.scan, ' '.join(job)))
+            # If we're not in listening mode, prepare data and submit to queue system
             if not self.listen:
-                logging.info("Submitting scan %d as job %s" % (config.scan, ' '.join(job)))
-                subprocess.call(job)
+                filename = config.sdmLocation.rstrip('/')
+                scan = int(config.scan)
+                logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
+
+                assert len(filename) and isinstance(filename, str)
+
+                # 1) copy data into place
+                rtutils.rsyncsdm(filename, workdir)
+                filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+                assert 'mchammer' not in filename  # be sure we are not working with pure version
+
+                # 2) find telcalfile (use timeout to wait for it to be written)
+                telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+
+                # 3) submit search job and add tail job to monitoring queue
+                if telcalfile:
+                    logging.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost))
+                    lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost)
+                    queue_monitor.addjob(lastjob.id)
+                else:
+                    logging.info('No calibration available. No job submitted.')
 
 @click.command()
-@click.option('--intent', '-i', default='', help="Intent to trigger on")
-@click.option('--project', '-p', default='', help="Project name to trigger on")
-@click.option('--listen/--do', '-l', help="Only listen to multicast or actually do work?", default=True)
-@click.option('--verbose', '-v', help="More verbose output", is_flag=True)
-def monitor(intent, project, listen, verbose):
+@click.option('--intent', '-i', default='', help='Intent to trigger on')
+@click.option('--project', '-p', default='', help='Project name to trigger on')
+@click.option('--listen/--do', '-l', help='Only listen to multicast or actually do work?', default=True)
+@click.option('--verbose', '-v', help='More verbose output', is_flag=True)
+@click.option('--rtparams', help='Parameter file for rtpipe. Default is rtpipe_cbe_conf.', default=rtparams_default)
+def monitor(intent, project, listen, verbose, rtparams):
     """ Monitor of mcaf observation files. 
     Scans that match intent and project are searched (unless --listen).
     Blocking function.
@@ -77,8 +99,8 @@ def monitor(intent, project, listen, verbose):
         logging.info('Running in do mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose)
-    sdminfo_client = mcaf.SdminfoClient(controller)
+    controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose, rtparams=rtparams)
+    sdminfo_client = mcaf_library.SdminfoClient(controller)
     try:
         asyncore.loop()
     except KeyboardInterrupt:

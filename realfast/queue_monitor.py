@@ -1,23 +1,26 @@
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle, sys
+import time, pickle, sys, logging
 import sdmreader
 import click
-import numpy as n
 import shutil
+from realfast import rtutils
 
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
+logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
-def monitor(qname):
-    """ Blocking loop that prints the jobs currently being tracked.
+@click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
+def monitor(qname, triggered):
+    """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
+    Can optionally be set to do triggered data recording (archiving).
     """
 
-    print 'Monitoring queue %s...' % qname
+    logging.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
@@ -25,67 +28,77 @@ def monitor(qname):
         jobids = conn.scan()[1]
 
         if jobids0 != jobids:
-            print 'Tracking jobs: %s' % str(jobids)
+            logging.info('Tracking jobs: %s' % str(jobids))
 
         for jobid in jobids:
             job = q.fetch_job(jobid)
 
             # if job is finished, check whether it is final scan of this sdm
             if job.is_finished:
-                print 'Job %s finished.' % str(jobid)
+                logging.info('Job %s finished.' % str(jobid))
                 #!!! todo: check that all other segmentss are also finished? baseline assumption is that all segments finish before this one.
 #                finishedjobs = getfinishedjobs(qname)
 
                 # is this the last scan of sdm?
                 if 'RT.pipeline' in job.func_name:
+                    logging.info('Got RT.pipeline job.')
                     d, segments = job.args
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
-                        print 'This job processed last scan of %s.' % d['filename']
+                        logging.info('This job processed last scan of %s.' % d['filename'])
                         #!!! todo: check that other scans are in finishedjobs. baseline assumption is that last scan finishes last
 
                         # check that BDFs are actually written (perhaps superfluous)
                         now = time.time()
-                        print 'Waiting for all BDFs to be written for %s.' % d['filename']
+                        logging.info('Waiting for all BDF to be written for %s.' % d['filename'])
                         while 1:
                             if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                                print 'All BDFs written for %s.' % d['filename']
+                                logging.info('All BDF written for %s.' % d['filename'])
                                 break
                             elif time.time() - now > timeout:
-                                print 'Timeout while waiting for BDFs in %s.' % d['filename']
+                                logging.info('Timeout while waiting for BDFs in %s.' % d['filename'])
                                 break
                             else:
                                 time.sleep(1)
                         
                         # do "end of SB" processing
-                        # aggregate cands/noise files and make plots
-                        status = subprocess.call(["queue_rtpipe.py", d['filename'], '--mode', 'cleanup'])
-                        if status:
+                        # 1) aggregate cands/noise files
+                        rtutils.cleanup(d['workdir'], d['fileroot'], sc.keys())
+
+                        # 2) if triggered recording, get scans with detections, else save all.
+                        if triggered:  
                             goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
-                            status = subprocess.call(["queue_rtpipe.py", d['filename'], '--mode', 'plot_summary'])
+                            goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
+                            goodscans.sort()
+                        else:
+                            goodscans = sc.keys()
 
-                            #!!! if trig_arch:
-                            # Get a sorted list of good scans, then convert it to a comma-delimited string to pass to choose_SDM_scans.pl
-                            scanlist = goodscans.keys()
-                            scanlist.sort() 
-                            scanstring = ','.join(str(s) for s in scanlist)
+                        # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                        scanstring = ','.join(str(s) for s in goodscans.keys())
+                        sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                        subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
 
-                            # Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                            sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
+                        # 4) copy new SDM and good BDFs to archive locations
+                        copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d.['filename']))
 
-                            # NOW ARCHIVE EDITED SDM.
-                            copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d.['filename']))
+                        #!!! Need to add a line here to clean up: remove SDM and edited SDM
 
-                            #!!! Need to add a line here to clean up: remove SDM and edited SDM
-
-                            #!!! Now archive the relevant BDFs for that SDM. Delete (or tag for deletion) the undesired BDFs.
+                        #!!! Now archive the relevant BDFs for that SDM. Delete (or tag for deletion) the undesired BDFs.
  
+                        # 5) finally plot candidates
+                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
 
-                # remove from db
+                        # 6) do some clean up of cands/noise files
+
+                    else:
+                        logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
+                else:
+                    logging.info('This is some other job: %s' % job.func_name)
+
+                # job is finished, so remove from db
                 removejob(jobid)
 
-        # timeout tests? cleaning up jobs?
+        # timeout tests?
         sys.stdout.flush()
         time.sleep(1)
 
@@ -114,16 +127,8 @@ def count_candidates(mergefile):
     with open(candsfile, 'rb') as pkl:
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
-    if len(cands) == 0:
-        print 'No cands found from %s.' % candsfile
-        return (n.array([]), n.array([]))
 
-    d = {}
-    scans = [kk[0] for kk in cands.keys()]
-    for scan in n.unique(scans):
-        d[scan] = len(n.where(scan == scans)[0])
-
-    return d
+    return list(set([kk[0] for kk in cands.keys()]))    
 
 def copyDirectory(src, dest):
     try:
@@ -141,8 +146,7 @@ def failed():
     """
 
     q = Queue('failed', connection=conn0)
-    print 'Failed queue:'
-    print q.jobs
+    logging.info('Failed queue: %s' % q.jobs)
     for i in range(len(q.jobs)):
-        print 'Failure %d' % i
-        print q.jobs[i].exc_info
+        logging.info('Failure %d' % i)
+        logging.info('%s' % q.jobs[i].exc_info)
