@@ -78,7 +78,7 @@ class FRBController(object):
 @click.option('--listen/--do', '-l', help='Only listen to multicast or actually do work?', default=True)
 @click.option('--verbose', '-v', help='More verbose output', is_flag=True)
 @click.option('--rtparams', help='Parameter file for rtpipe. Default is rtpipe_cbe_conf.', default=rtparams_default)
-def monitor(intent, project, listen, verbose):
+def monitor(intent, project, listen, verbose, rtparams):
     """ Monitor of mcaf observation files. 
     Scans that match intent and project are searched (unless --listen).
     Blocking function.
