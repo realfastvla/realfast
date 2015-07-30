@@ -68,14 +68,14 @@ def monitor(qname):
                             # Get a sorted list of good scans, then convert it to a comma-delimited string to pass to choose_SDM_scans.pl
                             scanlist = goodscans.keys()
                             scanlist.sort() 
-                            scanstring = ','.join(str(sc) for sc in scanlist)
+                            scanstring = ','.join(str(s) for s in scanlist)
 
                             # Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                             sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            subprocess.call(['sdm_chop-n-serve.pl',d['filename'],d['workdir'],scanstring])
+                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
 
                             # NOW ARCHIVE EDITED SDM.
-                            copyDirectory(os.path.join(d['workdir'],os.path.basename(d['filename']),"_edited"),os.path.join(sdmArchdir,d.['filename']))
+                            copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d.['filename']))
 
                             #!!! Need to add a line here to clean up: remove SDM and edited SDM
 
