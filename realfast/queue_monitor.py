@@ -69,12 +69,11 @@ def monitor(qname, triggered):
                         if triggered:  
                             goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                             goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
-                            goodscans.sort()
                         else:
                             goodscans = sc.keys()
 
                         # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                        scanstring = ','.join(str(s) for s in goodscans.keys())
+                        scanstring = ','.join(str(s) for s in sorted(goodscans.keys()))
                         sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
                         subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
 
