@@ -99,7 +99,7 @@ def gettelcalfile(telcaldir, filename, timeout=0):
     while 1:
         logging.info('Looking for telcalfile in %s' % telcaldir2)
         telcalfile = [os.path.join(telcaldir2, ff) for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
-
+        
         # if not in latest directory, walk through whole structure
         if not len(telcalfile):
             logging.info('No telcal in newest directory. Searching whole telcalfile tree.')

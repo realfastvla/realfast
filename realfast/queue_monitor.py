@@ -109,13 +109,9 @@ def count_candidates(mergefile):
     with open(candsfile, 'rb') as pkl:
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
-    if len(cands) == 0:
-        print 'No cands found from %s.' % candsfile
-        return (n.array([]), n.array([]))
 
-    d = {}
     scans = [kk[0] for kk in cands.keys()]
-    for scan in n.unique(scans):
+    for scan in list(set(scans)):   # unique scans
         d[scan] = len(n.where(scan == scans)[0])
 
     return d

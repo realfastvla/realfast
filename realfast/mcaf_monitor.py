@@ -49,12 +49,11 @@ class FRBController(object):
 
             # If we're not in listening mode, prepare data and submit to queue system
             if not self.listen:
-                logging.info(type(config.sdmLocation))
-                filename = config.sdmLocation
+                filename = config.sdmLocation.rstrip('/')
                 scan = int(config.scan)
                 logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
 
-                assert len(filename) and isinstance(str, )
+                assert len(filename) and isinstance(filename, str)
 
                 # 1) copy data into place
                 rtutils.rsyncsdm(filename, workdir)
