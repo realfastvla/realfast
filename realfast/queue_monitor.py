@@ -72,7 +72,6 @@ def monitor(qname, triggered, archive):
                         if triggered:  
                             goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                             goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
-                            goodscans.sort()
                         else:
                             goodscans = sc.keys()
 
