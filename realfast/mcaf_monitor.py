@@ -49,9 +49,12 @@ class FRBController(object):
 
             # If we're not in listening mode, prepare data and submit to queue system
             if not self.listen:
+                logging.info(type(config.sdmLocation))
                 filename = config.sdmLocation
-                scan = config.scan
+                scan = int(config.scan)
                 logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
+
+                assert len(filename) and isinstance(str, )
 
                 # 1) copy data into place
                 rtutils.rsyncsdm(filename, workdir)
@@ -63,7 +66,7 @@ class FRBController(object):
 
                 # 3) submit search job and add tail job to monitoring queue
                 if telcalfile:
-                    lastjob = rtutils.search('default', filename, os.path.join(confloc, 'rtpipe_cbe.conf'), '', [int(scan)], telcalfile=telcalfile, redishost=redishost)
+                    lastjob = rtutils.search('default', filename, os.path.join(confloc, 'rtpipe_cbe.conf'), '', [scan], telcalfile=telcalfile, redishost=redishost)
                     queue_monitor.addjob(lastjob.id)
                 else:
                     logging.info('No calibration available. No job submitted.')

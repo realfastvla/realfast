@@ -108,18 +108,22 @@ def gettelcalfile(telcaldir, filename, timeout=0):
         assert isinstance(telcalfile, list)
 
         # make into string (emtpy or otherwise)
-        if len(telcalfile):
+        if len(telcalfile) == 1:
             telcalfile = telcalfile[0]
-            logging.info('found telcal file at %s' % telcalfile)
+            logging.info('Found telcal file at %s' % telcalfile)
+        elif len(telcalfile) > 1:
+            telcalfile = ''
+            logging.info('Found multiple telcalfiles %s' % telcalfile)
         else:
             telcalfile = ''
-            logging.info('no telcal file found in %s' % telcaldir)
+            logging.info('No telcal file found in %s' % telcaldir)
 
         assert isinstance(telcalfile, str)
 
         # if waiting, but no file found, check timeout
         if timeout and not telcalfile:
             if time.time() - time_filestart < timeout:  # don't beak yet
+                logging.info('Waiting for telcalfile...')
                 time.sleep(2)
                 continue
             else:   # reached timeout
