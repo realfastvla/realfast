@@ -51,7 +51,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
                     state, segment = stateseg[i]
                     job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=6*3600, result_ttl=24*3600)
             else:
-                job = None
+                job = depends_on
 
             # use second to last job as dependency for last job
             state, segment = stateseg[-1]

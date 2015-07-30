@@ -78,7 +78,7 @@ def monitor(qname, triggered):
                         subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
 
                         # 4) copy new SDM and good BDFs to archive locations
-                        copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d.['filename']))
+                        copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d['filename']))
 
                         #!!! Need to add a line here to clean up: remove SDM and edited SDM
 
