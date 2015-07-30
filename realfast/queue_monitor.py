@@ -40,6 +40,7 @@ def monitor(qname, triggered):
 
                 # is this the last scan of sdm?
                 if 'RT.pipeline' in job.func_name:
+                    logging.info('Got RT.pipeline job.')
                     d, segments = job.args
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
@@ -79,6 +80,10 @@ def monitor(qname, triggered):
                         rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
 
                         # 6) do some clean up of cands/noise files
+                    else:
+                        logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
+                else:
+                    logging.info('This is some other job: %s' % job.func_name)
 
                 # job is finished, so remove from db
                 removejob(jobid)
