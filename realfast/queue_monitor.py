@@ -15,7 +15,8 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
 @click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
-def monitor(qname, triggered):
+@click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
+def monitor(qname, triggered, archive):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -29,6 +30,8 @@ def monitor(qname, triggered):
 
         if jobids0 != jobids:
             logging.info('Tracking jobs: %s' % str(jobids))
+            sys.stdout.flush()
+            jobids0 = jobsids
 
         for jobid in jobids:
             job = q.fetch_job(jobid)
@@ -41,7 +44,7 @@ def monitor(qname, triggered):
 
                 # is this the last scan of sdm?
                 if 'RT.pipeline' in job.func_name:
-                    logging.info('Got RT.pipeline job.')
+                    logging.debug('Finished job is RT.pipeline job.')
                     d, segments = job.args
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
@@ -73,22 +76,25 @@ def monitor(qname, triggered):
                         else:
                             goodscans = sc.keys()
 
+                        scanstring = ','.join(str(s) for s in goodscans)
+                        logging.info('Found good scans: %s' % scanstring)
+
                         # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                        scanstring = ','.join(str(s) for s in goodscans.keys())
-                        sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                        subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
+                        if archive:
+                            sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])
 
-                        # 4) copy new SDM and good BDFs to archive locations
-                        copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d['filename']))
+                            # 4) copy new SDM and good BDFs to archive locations
+                            copyDirectory(os.path.join(d['workdir'], os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d['filename']))
 
-                        #!!! Need to add a line here to clean up: remove SDM and edited SDM
+                            #!!! Need to add a line here to clean up: remove SDM and edited SDM
 
-                        #!!! Now archive the relevant BDFs for that SDM. Delete (or tag for deletion) the undesired BDFs.
+                            #!!! Now archive the relevant BDFs for that SDM. Delete (or tag for deletion) the undesired BDFs.
  
                         # 5) finally plot candidates
                         rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
 
-                        # 6) do some clean up of cands/noise files
+                        # 6) organize cands/noise files?
 
                     else:
                         logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
@@ -100,7 +106,7 @@ def monitor(qname, triggered):
 
         # timeout tests?
         sys.stdout.flush()
-        time.sleep(1)
+        time.sleep(2)
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
