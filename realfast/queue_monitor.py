@@ -4,6 +4,8 @@ from rq.registry import FinishedJobRegistry
 import time, pickle, sys
 import sdmreader
 import click
+import numpy as n
+import shutil
 
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
@@ -31,7 +33,7 @@ def monitor(qname):
             # if job is finished, check whether it is final scan of this sdm
             if job.is_finished:
                 print 'Job %s finished.' % str(jobid)
-                # todo: check that all other segmentss are also finished? baseline assumption is that all segments finish before this one.
+                #!!! todo: check that all other segmentss are also finished? baseline assumption is that all segments finish before this one.
 #                finishedjobs = getfinishedjobs(qname)
 
                 # is this the last scan of sdm?
@@ -40,14 +42,14 @@ def monitor(qname):
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
                         print 'This job processed last scan of %s.' % d['filename']
-                        # todo: check that other scans are in finishedjobs. baseline assumption is that last scan finishes last
+                        #!!! todo: check that other scans are in finishedjobs. baseline assumption is that last scan finishes last
 
                         # check that BDFs are actually written (perhaps superfluous)
                         now = time.time()
-                        print 'Waiting for all BDF to be written for %s.' % d['filename']
+                        print 'Waiting for all BDFs to be written for %s.' % d['filename']
                         while 1:
                             if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                                print 'All BDF written for %s.' % d['filename']
+                                print 'All BDFs written for %s.' % d['filename']
                                 break
                             elif time.time() - now > timeout:
                                 print 'Timeout while waiting for BDFs in %s.' % d['filename']
@@ -62,9 +64,23 @@ def monitor(qname):
                             goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                             status = subprocess.call(["queue_rtpipe.py", d['filename'], '--mode', 'plot_summary'])
 
-                            # scan/chop SDM. 'goodscans' defines scans to archive.
+                            #!!! if trig_arch:
+                            # Get a sorted list of good scans, then convert it to a comma-delimited string to pass to choose_SDM_scans.pl
+                            scanlist = goodscans.keys()
+                            scanlist.sort() 
+                            scanstring = ','.join(str(sc) for sc in scanlist)
 
-                            # copy new SDM and good BDFs to archive locations (new stuff)
+                            # Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                            sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                            subprocess.call(['sdm_chop-n-serve.pl',d['filename'],d['workdir'],scanstring])
+
+                            # NOW ARCHIVE EDITED SDM.
+                            copyDirectory(os.path.join(d['workdir'],os.path.basename(d['filename'])),sdmArchdir)
+
+                            #!!! Need to add a line here to clean up: remove SDM and edited SDM
+
+                            #!!! Now archive the relevant BDFs for that SDM. Delete (or tag for deletion) the undesired BDFs.
+ 
 
                 # remove from db
                 removejob(jobid)
@@ -108,6 +124,17 @@ def count_candidates(mergefile):
         d[scan] = len(n.where(scan == scans)[0])
 
     return d
+
+def copyDirectory(src, dest):
+    try:
+        shutil.copytree(src, dest)
+    # Directories are the same
+    except shutil.Error as e:
+        print('Directory not copied. Error: %s' % e)
+    # Any error saying that the directory doesn't exist
+    except OSError as e:
+        print('Directory not copied. Error: %s' % e)
+
 
 def failed():
     """ Quick dump of trace for all failed jobs
