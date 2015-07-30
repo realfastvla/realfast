@@ -13,14 +13,12 @@ import datetime
 import os
 import logging
 import asyncore
-import subprocess
 import click
-import realfast.mcaf_library as mcaf
-from realfast import queue_monitor
+from realfast import queue_monitor, rtutils, mcaf_library
 
 # set up
 logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
-confloc = os.path.join(os.path.split(os.path.split(mcaf.__file__)[0])[0], 'conf')   # install system puts conf files here. used by queue_rtpipe.py
+confloc = os.path.join(os.path.split(os.path.split(mcaf_library.__file__)[0])[0], 'conf')   # install system puts conf files here. used by queue_rtpipe.py
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
 redishost = os.uname()[1]  # assuming we start on redis host
@@ -37,7 +35,7 @@ class FRBController(object):
         self.verbose = verbose
 
     def add_sdminfo(self, sdminfo):
-        config = mcaf.MCAST_Config(sdminfo=sdminfo)
+        config = mcaf_library.MCAST_Config(sdminfo=sdminfo)
 
         # !!! Wrapper here to deal with potential subscans?
 
@@ -50,12 +48,13 @@ class FRBController(object):
             logging.debug("BDF is in %s\n" % (config.bdfLocation))
 
             # If we're not in listening mode, prepare data and submit to queue system
-#            job = ['queue_rtpipe.py', config.sdmLocation, '--scans', str(config.scan), '--mode', 'rtsearch', '--paramfile', os.path.join(confloc, 'rtpipe_cbe.conf')]
             if not self.listen:
-                logging.info("Submitting scan %d..." % (config.scan))
+                filename = config.sdmLocation
+                scan = config.scan
+                logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
 
                 # 1) copy data into place
-                rtutils.rsyncsdm(config.sdmLocation, workdir)
+                rtutils.rsyncsdm(filename, workdir)
                 filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
                 assert 'mchammer' not in filename  # be sure we are not working with pure version
 
@@ -64,10 +63,10 @@ class FRBController(object):
 
                 # 3) submit search job and add tail job to monitoring queue
                 if telcalfile:
-                    lastjob = rtutils.search('default', filename, os.path.join(confloc, 'rtpipe_cbe.conf'), '', [int(config.scan)], telcalfile=telcalfile, redishost=redishost)
+                    lastjob = rtutils.search('default', filename, os.path.join(confloc, 'rtpipe_cbe.conf'), '', [int(scan)], telcalfile=telcalfile, redishost=redishost)
                     queue_monitor.addjob(lastjob.id)
                 else:
-                    print 'No calibration available. No job submitted.'
+                    logging.info('No calibration available. No job submitted.')
 
 @click.command()
 @click.option('--intent', '-i', default='', help="Intent to trigger on")
@@ -96,7 +95,7 @@ def monitor(intent, project, listen, verbose):
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose)
-    sdminfo_client = mcaf.SdminfoClient(controller)
+    sdminfo_client = mcaf_library.SdminfoClient(controller)
     try:
         asyncore.loop()
     except KeyboardInterrupt:

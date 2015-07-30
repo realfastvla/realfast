@@ -1,7 +1,7 @@
 """ Functions imported by queue system.
 """
 
-import os, glob, time, shutil, subprocess
+import os, glob, time, shutil, subprocess, logging
 import sdmreader
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
@@ -9,6 +9,8 @@ import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
+
+logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 
 def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Simple parse and return metadata for pipeline for first scan
@@ -95,12 +97,12 @@ def gettelcalfile(telcaldir, filename, timeout=0):
     telcaldir2 = os.path.join(telcaldir, year, month)
 
     while 1:
-        print 'Looking for telcalfile in %s' % telcaldir2
+        logging.info('Looking for telcalfile in %s' % telcaldir2)
         telcalfile = [os.path.join(telcaldir2, ff) for ff in os.listdir(telcaldir2) if fname+'.GN' in ff]
 
         # if not in latest directory, walk through whole structure
         if not len(telcalfile):
-            print 'No telcal in newest directory. Searching whole telcalfile tree.'
+            logging.info('No telcal in newest directory. Searching whole telcalfile tree.')
             telcalfile = [os.path.join(root, fname+'.GN') for root, dirs, files in os.walk(telcaldir) if fname+'.GN' in files]
 
         assert isinstance(telcalfile, list)
@@ -108,10 +110,10 @@ def gettelcalfile(telcaldir, filename, timeout=0):
         # make into string (emtpy or otherwise)
         if len(telcalfile):
             telcalfile = telcalfile[0]
-            print 'found telcal file at %s' % telcalfile
+            logging.info('found telcal file at %s' % telcalfile)
         else:
             telcalfile = ''
-            print 'no telcal file found in %s' % telcaldir
+            logging.info('no telcal file found in %s' % telcaldir)
 
         assert isinstance(telcalfile, str)
 
@@ -121,10 +123,10 @@ def gettelcalfile(telcaldir, filename, timeout=0):
                 time.sleep(2)
                 continue
             else:   # reached timeout
-                print 'Timeout waiting for telcalfile'
+                logging.info('Timeout waiting for telcalfile')
                 break
         else:
-            print 'Not waiting for telcalfile'
+            logging.info('Not waiting for telcalfile')
             break
 
     return telcalfile
@@ -133,7 +135,7 @@ def rsyncsdm(filename, workdir):
     """ Uses subprocess.call to call rsync for filename into workdir.
     """
 
-    subprocess.call(["rsync", "-av", filename, workdir])
+    subprocess.call(["rsync", "-av", filename.rstrip('/'), workdir])
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
