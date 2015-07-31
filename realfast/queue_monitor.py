@@ -81,28 +81,27 @@ def monitor(qname, triggered, archive):
                         # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                         if archive:
                             sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            scratchDir = 'home/cbe-master/realfast/workdir/' #!!! Temporary: need to ascertain what our general workdir is.
-                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], scratchDir, scanstring])
+                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
                             # 4) copy new SDM and good BDFs to archive locations
-                            copyDirectory(os.path.join(scratchDir, os.path.basename(d['filename']), "_edited"), os.path.join(sdmArchdir,d['filename']))
+                            copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, d['filename']))
 
                             #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
-                            touch(os.path.join(scratchDir, os.path.basename(d['filename']), "_edited.delete"))
-                            touch(os.path.join(scratchDir, os.path.basename(d['filename']), ".delete"))
+                            touch(d['filename'].rstrip('/') + "_edited.delete")
+                            touch(d['filename'].rstrip('/') + ".delete")
 
                             # Each sc key contains a dictionary. The key is the scan number.                            
                             # Archive the BDF (via hardlink to archdir)
                             for scan in goodscans:
                                 #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
-                                touch(os.path.join('/home/cbe-master/realfast/fake_archdir/',os.path.basename(sc[i]['bdfstr']),'.archive')))
+
+                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive'))
                                 #!!! PERMA-SOLUTION: hardlink the file
-                                #!!!os.link(sc[i]['bdfstr'],os.path.join(bdfArchdir,os.path.basename(sc[i]['bdfstr'])))
- 
+                                #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive'))
 
                             # Now delete all the hardlinks in our BDF working directory for this SB.
                             for scan in sc.keys():
-                                touch(os.path.join('/home/cbe-master/realfast/fake_archdir/',os.path.basename(sc[i]['bdfstr']),'.delete')))
+                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr']) + '.delete'))
                             
  
                         # 5) finally plot candidates
