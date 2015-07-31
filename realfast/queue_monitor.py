@@ -95,9 +95,9 @@ def monitor(qname, triggered, archive):
                             for scan in goodscans:
                                 #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
 
-                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive'))
+                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
                                 #!!! PERMA-SOLUTION: hardlink the file
-                                #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive'))
+                                #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
 
                             # Now delete all the hardlinks in our BDF working directory for this SB.
                             for scan in sc.keys():
