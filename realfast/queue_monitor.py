@@ -1,7 +1,7 @@
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle, sys, logging
+import time, pickle, sys, logging, os
 import sdmreader
 import click
 import shutil
