@@ -1,4 +1,15 @@
 #!/usr/bin/perl
+#
+# Takes SDM, target dir, and a scan list, and creates an edited full
+# SDM in targetdir.
+#
+# What it actually does is replace BDF names in Main.xml with 'X1',
+# the indicator for "no BDF available". This effectively chops out the
+# scans marked thus.
+#
+# Sarah B Spolaor July 2015
+# Adapted from Bryan Butler's choose_SDM_scans.pl
+#
 
 use strict;
 
