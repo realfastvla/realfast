@@ -4,14 +4,14 @@ import glob
 setup(
     name = 'realfast',
     description = 'Python scripts for running real-time data analysis at the VLA',
-    author = 'Casey Law',
+    author = 'Casey Law + SBS',
     author_email = 'caseyjlaw@gmail.com',
     version = '0.0',
     include_package_data=True,
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*.conf'))],
     dependency_links = ['http://github.com/caseyjlaw/rtpipe', 'http://github.com/caseyjlaw/sdmpy', 'http://github.com/caseyjlaw/sdmreader'],
-    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py'],   # add non-python scripts
+    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py','scripts/realfast.pl'],   # add non-python scripts
     install_requires=[
         'Click',
         ],
