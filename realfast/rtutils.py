@@ -22,7 +22,7 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
     logging.info('Example pipeline:')
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None):
+def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir='/lustre/evla/wcbe/data/bunker'):
     """ Search for transients in all target scans and segments
     """
 
@@ -33,7 +33,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
     for scan in scans:
         assert isinstance(scan, int)
         scanind = scans.index(scan)
-        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True)
+        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
         for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead
             stateseg.append( (state, segment) )
     njobs = len(stateseg)
