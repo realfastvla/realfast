@@ -11,13 +11,15 @@ setup(
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*.conf'))],
     dependency_links = ['http://github.com/caseyjlaw/rtpipe', 'http://github.com/caseyjlaw/sdmpy', 'http://github.com/caseyjlaw/sdmreader'],
-    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py','scripts/realfast.pl'],   # add non-python scripts
+    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py', 'scripts/realfast.pl'],   # add non-python scripts
     install_requires=[
         'Click',
         ],
     entry_points='''
         [console_scripts]
         queue_monitor=realfast.queue_monitor:monitor
+        rqempty=realfast.queue_monitor:empty
+        rqfailed=realfast.queue_monitor:failed
         rqinfo_monitor=realfast.rqinfo_monitor:monitor
         mcaf_monitor=realfast.mcaf_monitor:monitor
     ''',

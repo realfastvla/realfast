@@ -170,6 +170,7 @@ def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
 
+@click.command()
 def failed():
     """ Quick dump of trace for all failed jobs
     """
@@ -179,3 +180,15 @@ def failed():
     for i in range(len(q.jobs)):
         logging.info('Failure %d' % i)
         logging.info('%s' % q.jobs[i].exc_info)
+
+@click.command()
+@click.argument('qname')
+def empty(qname):
+    """ Quick dump of trace for all failed jobs
+    """
+
+    q = Queue(qname, connection=conn0)
+    logging.info('Emptying queue %s' % qname)
+    for job in q.jobs:
+        q.remove(job)
+        logging.info('Removed %s\r' % job.id)
