@@ -84,7 +84,7 @@ def monitor(qname, triggered, archive):
                             subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
                             # 4) copy new SDM and good BDFs to archive locations
-                            copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, d['filename']))
+                            copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'])))
 
                             #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
                             touch(d['filename'].rstrip('/') + "_edited.delete")
@@ -95,13 +95,19 @@ def monitor(qname, triggered, archive):
                             for scan in goodscans:
                                 #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
 
-                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
+                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive")
                                 #!!! PERMA-SOLUTION: hardlink the file
                                 #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
 
                             # Now delete all the hardlinks in our BDF working directory for this SB.
                             for scan in sc.keys():
-                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr']) + '.delete'))
+                                # The lines below need to be replaced with the actual BDF workdir hardlink delete command
+                                delfile = open(os.path.join(sdmArchdir,os.path.basename(sc[i]['bdfstr']) + '.delete'),'w')
+                                delfile.write('want to remove BDF '  + sc[i]['bdfstr']+"\n")
+                                delfile.write('and create link to '  + os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive\n")
+                                delfile.write('want to archive SDM ' + d['filename'].rstrip('/') + "_edited\n")
+                                delfile.write('to archive location ' + os.path.join(sdmArchdir, os.path.basename(d['filename'])))
+                                delfile.close();
                             
  
                         # 5) finally plot candidates
