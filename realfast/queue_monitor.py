@@ -30,7 +30,8 @@ def monitor(qname, triggered, archive):
         jobids = conn.scan(cursor=0, count=2000)[1]
 
         if jobids0 != jobids:
-            logging.info('Tracking jobs: %s' % str(jobids))
+            logging.info('Tracking %d jobs' % len(jobids))
+            logging.debug('jobids: %s' % str(jobids))
             sys.stdout.flush()
             jobids0 = jobids
 
@@ -162,7 +163,12 @@ def removejob(jobid):
     """ Removes jobid from db.
     """
 
-    conn.delete(jobid)
+    status = conn.delete(jobid)
+    if status:
+        logging.info('jobid %s removed' % jobid)
+    else:
+        logging.info('jobid %s not removed' % jobid)
+
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
@@ -205,6 +211,20 @@ def failed():
     for i in range(len(q.jobs)):
         logging.info('Failure %d' % i)
         logging.info('%s' % q.jobs[i].exc_info)
+
+@click.command()
+def requeue():
+    """ Take jobs from failed queue and add them to default queue
+    """
+
+    qf = Queue('failed', connection=conn0)
+    logging.info('Enqueuing %d failed jobs' % len(qf.jobs))
+
+    q = Queue('default', connection=conn0)
+    for job in qf.jobs:
+        logging.info('Moved job %s' % job.id)
+        q.enqueue_job(job)
+        qf.remove(job)
 
 @click.command()
 @click.argument('qname')
