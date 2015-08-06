@@ -71,7 +71,6 @@ def monitor(qname, triggered, archive):
                         
                         # do "end of SB" processing
                         # 1) aggregate cands/noise files and plot
-<<<<<<< HEAD
                         try:
                             rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
                         except IndexError:
