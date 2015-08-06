@@ -17,17 +17,20 @@ logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=lo
 @click.option('--qname', default='default', help='Name of queue to monitor')
 @click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
+@click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 # NEED TO ADD VERBOSE OPTION HERE
 def monitor(qname, triggered, archive):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
-    
+
     verbose = True
     if verbose:
         logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
         logging.debug('Monitoring queue running in verbose mode.')
+
+    logging.debug('seeee')
 
     logging.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
