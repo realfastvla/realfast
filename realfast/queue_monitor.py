@@ -3,6 +3,7 @@ from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
 import time, pickle, sys, logging, os
 import sdmreader
+import subprocess
 import click
 import shutil
 from realfast import rtutils
