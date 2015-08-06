@@ -69,8 +69,10 @@ def monitor(qname, triggered, archive):
                         rtutils.cleanup(d['workdir'], d['fileroot'], sc.keys())
 
                         # 2) if triggered recording, get scans with detections, else save all.
-                        if triggered:  
-                            goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                        goodscans = []
+                        if triggered:
+                            if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
+                                goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                             goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
                         else:
                             goodscans = sc.keys()
