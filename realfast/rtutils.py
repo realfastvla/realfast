@@ -163,11 +163,11 @@ def check_sdmorder(sdmfile, scan):
     """
 
     d = rt.set_pipeline(sdmfile, scan, silent=True)
-    if len(d['spw_reffreq']) > 2:
-        dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
-        return len(where(dfreq < 0)[0]) == 1   # !! imperfect test of permutability !!
-    else:
-        return True   # always permutable
+
+    dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
+    dfreqneg = [df for df in dfreq if df < 0]
+
+    return len(dfreqneg) <= 1
 
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.
