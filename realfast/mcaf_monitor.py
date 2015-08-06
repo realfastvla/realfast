@@ -52,25 +52,29 @@ class FRBController(object):
             if not self.listen:
                 filename = config.sdmLocation.rstrip('/')
                 scan = int(config.scan)
-                logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
 
                 assert len(filename) and isinstance(filename, str)
 
-                # 1) copy data into place
-                rtutils.rsyncsdm(filename, workdir)
-                filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
-                assert 'mchammer' not in filename  # be sure we are not working with pure version
+                # check that SDM is usable by rtpipe
+                # only one test for now: sdm frequency order
+                if rtutils.check_sdmorder(filename, scan):
+                    logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
 
-                # 2) find telcalfile (use timeout to wait for it to be written)
-                telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+                    # 1) copy data into place
+                    rtutils.rsyncsdm(filename, workdir)
+                    filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+                    assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
-                # 3) submit search job and add tail job to monitoring queue
-                if telcalfile:
-                    logging.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirnname(config.bdfLocation.rstrip('/'))))
-                    lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirnname(config.bdfLocation.rstrip('/')))
-                    queue_monitor.addjob(lastjob.id)
-                else:
-                    logging.info('No calibration available. No job submitted.')
+                    # 2) find telcalfile (use timeout to wait for it to be written)
+                    telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+
+                    # 3) submit search job and add tail job to monitoring queue
+                    if telcalfile:
+                        logging.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
+                        lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
+                        queue_monitor.addjob(lastjob.id)
+                    else:
+                        logging.info('No calibration available. No job submitted.')
 
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')

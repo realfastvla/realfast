@@ -9,6 +9,7 @@ import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 from rq import Queue, Connection
 from redis import Redis
+from numpy import where
 
 logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 
@@ -156,6 +157,17 @@ def copysdm(filename, workdir):
     else:
         logging.info('File %s already in %s. Using that one...' % (fname, workdir))
     filename = newfileloc
+
+def check_sdmorder(sdmfile, scan):
+    """ Looks at relative freq of spw. Returns 1 for permutable order and 0 for non-permutable (bad) order.
+    """
+
+    d = rt.set_pipeline(sdmfile, scan, silent=True)
+    if len(d['spw_reffreq']) > 2:
+        dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
+        return len(where(dfreq < 0)[0]) == 1   # !! imperfect test of permutability !!
+    else:
+        return True   # always permutable
 
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.
