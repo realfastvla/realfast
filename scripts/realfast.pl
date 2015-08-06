@@ -11,9 +11,10 @@
 
 $rf_setup         = '/home/cbe-master/realfast/soft/realfast/scripts/rf_default.sh';     
                                             # default REALFAST setup file (environment vars sh file)
-$workers_per_node = 4;                      # number of workers per node
+$workers_per_node = 1;                      # number of workers per node
 chomp($workdir    = `pwd`);                 # working directory
 $supervisord_conf = '';                     # Default set to $workdir/supervisord.conf below.
+$redisnode = 'cbe-node-01';
 
 if (!-e $rf_setup){
     throw_error("Couldn't find setup file.");
@@ -28,7 +29,7 @@ if (!-e $rf_setup){
 
 realfast_setup($rf_setup);
 $workdir = $ENV{'WORKDIR'};
-if ($supervisord_conf = ''){                # default conf file
+if ($supervisord_conf eq ''){                # default conf file
     $supervisord_conf = "$workdir/supervisord.conf";
 }
 
@@ -37,7 +38,14 @@ if ($supervisord_conf = ''){                # default conf file
 # Go to workdir; do error checking.
 
 chdir $workdir;
-print STDERR "Will use working directory $workdir.\n";
+print STDERR "
+----------------------------------
+        STARTING REALFAST
+
+Will use working directory $workdir
+----------------------------------
+
+";
 
 system "touch temp.garbage";
 if (!-e "temp.garbage"){
@@ -45,9 +53,10 @@ if (!-e "temp.garbage"){
     exit 0;
 }
 
-if (!-e "supervdisord.conf"){
-    print "\n* * * WARNING:\n\tsupervisord.conf already exists in $workdir. Overwrite?\n\tCtrl+C to exit, Enter to continue.\n\n";
+if (-e "$supervisord_conf"){
+    print "\n* * * WARNING:\n\tConf file $supervisord_conf already exists. Overwrite?\n\tCtrl+C to exit, Enter to continue.";
     $dummy = <STDIN>;
+    print "\n";
 }
 
 
@@ -66,13 +75,16 @@ if ($#cbe_nodes < 0){
 
 # Set up, run Supervisord.
 
-print_conf("./supervisord.conf");
+print_conf("$supervisord_conf");
 system "supervisord"; #!!! NEED TO CHECK FOR ERROR STATUS RETURN
 
 # Tell user how to monitor things and exit.
-print "\nREALFAST HAS STARTED.
-Current supervisor daemon status:\n"
+print "\n----------------------------------
+-     REALFAST HAS STARTED.      -
+----------------------------------
+Current supervisor daemon status:\n";
 system "supervisorctl status";
+print "----------------------------------\n";
 print "\nNote: supervisord conf file is $supervisord_conf";
 print "\n\nYou can update supervisord by setting new environment variables maybe?\n\n";
 
@@ -88,7 +100,7 @@ exit 0;
 # Print supervisord conf file
 sub print_conf(){
     my $conf_file = shift @_;
-    open (CONF, ">conf_file");
+    open (CONF, ">$conf_file");
     print CONF '; Sample supervisor config file.
 ;
 ; For more information on the config file, please see:
@@ -96,7 +108,7 @@ sub print_conf(){
 ;
 ; Notes:
 ;  - Shell expansion ("~" or "$HOME") is not supported.  Environment
-;    variables can be expanded using this syntax: "%(ENV_HOME)".
+;    variables can be expanded using this syntax: "%(ENV_HOME)s".
 ;  - Comments must have a leading space: "a=b ;comment" not "a=b;comment".
 
 [unix_http_server]
@@ -126,7 +138,9 @@ minprocs=200                 ; (min. avail process descriptors;default 200)
 ;directory=/tmp              ; (default is not to cd during start)
 ;nocleanup=true              ; (don\'t clean up tempfiles at start;default false)
 ;childlogdir=/tmp            ; (\'AUTO\' child log dir, default $TEMP)
-;environment=KEY="value"     ; (key value pairs to add to environment)
+';
+#!!! ADD ENVIRONMENT VARS HERE. I'm still not sure why the perl-set env-vars aren't being passed to supervisord; need to check that.
+print ';environment=KEY="value"     ; (key value pairs to add to environment)
 ;strip_ansi=false            ; (strip ansi escape codes in logs; def. false)
 
 ; the below section must remain in the config file for RPC
@@ -159,11 +173,11 @@ redirect_stderr=True
 stdout_logfile=/home/cbe-master/realfast/soft/realfast.log       ; stdout log path, NONE for none; default AUTO
 stdout_logfile_backups=5     ; # of stdout logfile backups (default 10)
 
-[program:mcaf]
-command=nice -n\%(ENV\_MCAF\_MON\_NICE) mcaf_monitor.py \%(ENV\_MCAF\_INPUTS)
-priority=5     ; watch for data last
-redirect_stderr=True
-stdout_logfile=/home/cbe-master/realfast/soft/realfast.log       ; stdout log path, NONE for none; default AUTO
+;[program:mcaf]
+;command=nice -n;%(ENV_MCAF_MON_NICE)s mcaf_monitor.py %(ENV_MCAF_INPUTS)s
+;priority=5     ; watch for data last
+;redirect_stderr=True
+;stdout_logfile=/home/cbe-master/realfast/soft/realfast.log       ; stdout log path, NONE for none; default AUTO
 ';
 
     foreach $node (@cbe_nodes){
@@ -171,7 +185,7 @@ stdout_logfile=/home/cbe-master/realfast/soft/realfast.log       ; stdout log pa
 	    $nodenum = substr($node,-2,2);
 	    print CONF "
 [program:work$nodenum-$i]
-command=ssh -t $node rq worker default -u redis://$node   ; -t option keeps connection and allows supervisor to (re)start, etc.
+command=ssh -t $node rq worker default -u redis://$redisnode   ; -t option keeps connection and allows supervisor to (re)start, etc.
 priority=3     ; start worker after db
 redirect_stderr=True
 autostart=False
