@@ -149,7 +149,7 @@ def getfinishedjobs(qname='default'):
 def count_candidates(mergefile):
     """ Parses merged cands file and returns dict of (scan, candcount).
     """
-    with open(candsfile, 'rb') as pkl:
+    with open(mergefile, 'rb') as pkl:
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
 
