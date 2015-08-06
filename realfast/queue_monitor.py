@@ -46,7 +46,7 @@ def monitor(qname, triggered, archive, verbose):
 
         # iterate over ready list
         for job in jobs:
-            logging.info('Job %s finished.' % str(jobid))
+            logging.info('Job %s finished.' % str(job.id))
             d, segments = job.args
 
             #!!! todo: check that all other segments are also finished? baseline assumption is that all segments finish before this one.
@@ -84,7 +84,8 @@ def monitor(qname, triggered, archive, verbose):
                 try:
                     rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
                 except IndexError:
-                    logging.info('No files found for %s and scans %s. Skipping.' % (d['fileroot'], str(sc.keys())))
+                    logging.info('No files found for %s and scans %s. Removing from tracking queue.' % (d['fileroot'], str(sc.keys())))
+                    removejob(job.id)
                     continue
 
                 # 2) if triggered recording, get scans with detections, else save all.
@@ -155,7 +156,7 @@ def monitor(qname, triggered, archive, verbose):
                 logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
 
             # job is finished, so remove from db
-            removejob(jobid)
+            removejob(job.id)
 
         sys.stdout.flush()
         time.sleep(2)
