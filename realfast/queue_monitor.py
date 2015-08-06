@@ -84,8 +84,11 @@ def monitor(qname, triggered, archive, verbose):
                 try:
                     rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
                 except IndexError:
-                    logging.info('No files found for %s and scans %s. Removing from tracking queue.' % (d['fileroot'], str(sc.keys())))
+                    logging.info('Looks like no files found for %s and scans %s. Removing from tracking queue.' % (d['fileroot'], str(sc.keys())))
                     removejob(job.id)
+                    continue
+                except:
+                    logging.info('Trouble merging scans and plotting for %s.' % d['fileroot'])
                     continue
 
                 # 2) if triggered recording, get scans with detections, else save all.
@@ -186,8 +189,10 @@ def getfinishedjobs(qname='default'):
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
 
 def count_candidates(mergefile):
-    """ Parses merged cands file and returns dict of (scan, candcount).
+    """ Parses merged cands file and returns list of scans with detections.
+    Goal for this function is to apply RFI rejection, dm-t island detection, and whatever else we can think of.
     """
+
     with open(mergefile, 'rb') as pkl:
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
