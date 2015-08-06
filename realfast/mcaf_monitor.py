@@ -75,6 +75,8 @@ class FRBController(object):
                         queue_monitor.addjob(lastjob.id)
                     else:
                         logging.info('No calibration available. No job submitted.')
+                else:
+                    logging.info("Not submitting scan %d of sdm %s. spw can\'t be permuted to increasing frequency order." % (scan, os.path.basename(filename)))                    
 
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
