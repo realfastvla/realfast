@@ -48,7 +48,7 @@ def monitor(qname, triggered, archive):
                     d, segments = job.args
 
                     # merge segments
-                    rtutils.cleanup(d['workdir'], d['fileroot'], d['scan'])
+                    rtutils.cleanup(d['workdir'], d['fileroot'], [d['scan']])
 
                     # is this the last scan of sdm?
                     sc,sr = sdmreader.read_metadata(d['filename'])
@@ -71,51 +71,54 @@ def monitor(qname, triggered, archive):
                         
                         # do "end of SB" processing
                         # 1) aggregate cands/noise files and plot
-                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+                        try:
+                            rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+                        except IndexError:
+                            logging.info('No files found for %s and scans %s. Skipping.' % (d['fileroot'], str(sc.keys())))
+                        finally:
 
-                        # 2) if triggered recording, get scans with detections, else save all.
-                        goodscans = []
-                        if triggered:
-                            if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                                goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
-                            goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
-                        else:
-                            goodscans = sc.keys()
+                            # 2) if triggered recording, get scans with detections, else save all.
+                            if triggered:
+                                goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
+                                if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
+                                    goodscans += count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                            else:
+                                goodscans = sc.keys()
+                            goodscans.sort()
 
-                        scanstring = ','.join(str(s) for s in goodscans)
-                        logging.info('Found good scans: %s' % scanstring)
+                            scanstring = ','.join(str(s) for s in goodscans)
+                            logging.info('Found cal and candidate scans: %s' % scanstring)
 
-                        # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                        if archive:
-                            sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
+                            # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                            if archive:
+                                sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mctest/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                                subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
-                            # 4) copy new SDM and good BDFs to archive locations
-                            copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'])))
+                                # 4) copy new SDM and good BDFs to archive locations
+                                copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'])))
+                                
+                                #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
+                                touch(d['filename'].rstrip('/') + "_edited.delete")
+                                touch(d['filename'].rstrip('/') + ".delete")
 
-                            #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
-                            touch(d['filename'].rstrip('/') + "_edited.delete")
-                            touch(d['filename'].rstrip('/') + ".delete")
+                                # Each sc key contains a dictionary. The key is the scan number.                            
+                                # Archive the BDF (via hardlink to archdir)
+                                for scan in goodscans:
+                                    #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
 
-                            # Each sc key contains a dictionary. The key is the scan number.                            
-                            # Archive the BDF (via hardlink to archdir)
-                            for scan in goodscans:
-                                #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
+                                    touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive")
+                                    #!!! PERMA-SOLUTION: hardlink the file
+                                    #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
 
-                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive")
-                                #!!! PERMA-SOLUTION: hardlink the file
-                                #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + '.archive')
-
-                            # Now delete all the hardlinks in our BDF working directory for this SB.
-                            for scan in sc.keys():
-                                # The lines below need to be replaced with the actual BDF workdir hardlink delete command
-                                delfile = open(os.path.join(sdmArchdir,os.path.basename(sc[i]['bdfstr']) + '.delete'),'w')
-                                delfile.write('want to remove BDF '  + sc[i]['bdfstr']+"\n")
-                                delfile.write('and create link to '  + os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive\n")
-                                delfile.write('want to archive SDM ' + d['filename'].rstrip('/') + "_edited\n")
-                                delfile.write('to archive location ' + os.path.join(sdmArchdir, os.path.basename(d['filename'])))
-                                delfile.close();
-                            
+                                # Now delete all the hardlinks in our BDF working directory for this SB.
+                                for scan in sc.keys():
+                                    # The lines below need to be replaced with the actual BDF workdir hardlink delete command
+                                    delfile = open(os.path.join(sdmArchdir,os.path.basename(sc[i]['bdfstr']) + '.delete'),'w')
+                                    delfile.write('want to remove BDF '  + sc[i]['bdfstr']+"\n")
+                                    delfile.write('and create link to '  + os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive\n")
+                                    delfile.write('want to archive SDM ' + d['filename'].rstrip('/') + "_edited\n")
+                                    delfile.write('to archive location ' + os.path.join(sdmArchdir, os.path.basename(d['filename'])))
+                                    delfile.close();
  
                         # 6) organize cands/noise files?
 
