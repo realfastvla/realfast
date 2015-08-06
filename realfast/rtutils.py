@@ -32,7 +32,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
     logging.info('Setting up pipelines for %s, scans %s...' % (filename, scans))
 
     for scan in scans:
-        assert isinstance(scan, int)
+        assert isinstance(scan, int), 'Scan should be an integer'
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
         for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead

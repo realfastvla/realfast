@@ -184,7 +184,7 @@ def failed():
 @click.command()
 @click.argument('qname')
 def empty(qname):
-    """ Quick dump of trace for all failed jobs
+    """ Empty qname
     """
 
     q = Queue(qname, connection=conn0)
@@ -192,3 +192,21 @@ def empty(qname):
     for job in q.jobs:
         q.remove(job)
         logging.info('Removed %s\r' % job.id)
+
+@click.command()
+def reset():
+    """ Reset queues (both dbs)
+    """
+
+    for qname in ['default', 'failed']:
+        q = Queue(qname, connection=conn0)
+        logging.info('Emptying queue %s' % qname)
+        for job in q.jobs:
+            q.remove(job)
+            logging.info('Removed %s' % job.id)
+
+    logging.info('Emptying tracking queue')
+    jobids = conn.scan()[1]
+    for jobid in jobids:
+        removejob(jobid)
+        logging.info('Removed %s' % jobid)

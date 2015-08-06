@@ -18,8 +18,9 @@ setup(
     entry_points='''
         [console_scripts]
         queue_monitor=realfast.queue_monitor:monitor
-        rqempty=realfast.queue_monitor:empty
-        rqfailed=realfast.queue_monitor:failed
+        queue_empty=realfast.queue_monitor:empty
+        queue_failed=realfast.queue_monitor:failed
+        queue_reset=realfast.queue_monitor:reset
         rqinfo_monitor=realfast.rqinfo_monitor:monitor
         mcaf_monitor=realfast.mcaf_monitor:monitor
     ''',
