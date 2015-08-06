@@ -45,7 +45,8 @@ def monitor(qname, triggered, archive):
 #                finishedjobs = getfinishedjobs(qname)
 
                 if 'RT.pipeline' in job.func_name:
-                    logging.debug('Finished job is RT.pipeline job.')
+                    #logging.debug('Finished job is RT.pipeline job.')
+                    logging.info('Finished job is RT.pipeline job.')
                     d, segments = job.args
 
                     # merge segments
