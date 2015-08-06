@@ -2,15 +2,14 @@ from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
 import time, pickle, sys, logging, os
+import subprocess, click, shutil
 import sdmreader
-import subprocess
-import click
-import shutil
 from realfast import rtutils
 
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
+trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 
 @click.command()
@@ -33,7 +32,7 @@ def monitor(qname, triggered, archive, verbose):
 
     jobids0 = []
     while 1:
-        jobids = conn.scan(cursor=0, count=2000)[1]
+        jobids = conn.scan(cursor=0, count=trackercount)[1]
 
         if jobids0 != jobids:
             logging.info('Tracking %d jobs' % len(jobids))
@@ -46,8 +45,8 @@ def monitor(qname, triggered, archive, verbose):
 
         # iterate over ready list
         for job in jobs:
-            logging.info('Job %s finished.' % str(job.id))
             d, segments = job.args
+            logging.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
 
             #!!! todo: check that all other segments are also finished? baseline assumption is that all segments finish before this one.
 #            finishedjobs = getfinishedjobs(qname)
@@ -59,7 +58,8 @@ def monitor(qname, triggered, archive, verbose):
             try:
                 sc,sr = sdmreader.read_metadata(d['filename'])
             except:
-                logger.error('Could not parse sdm %s' % d['filename'])
+                logger.error('Could not parse sdm %s. Removing from tracking queue.' % d['filename'])
+                removejob(job.id)
                 continue
 
             if d['scan'] == sc.keys()[-1]:
