@@ -48,7 +48,7 @@ def monitor(qname, triggered, archive):
                     d, segments = job.args
 
                     # merge segments
-                    rtutils.cleanup(d['workdir'], d['fileroot'], d['scan'])
+                    rtutils.cleanup(d['workdir'], d['fileroot'], [d['scan']])
 
                     # is this the last scan of sdm?
                     sc,sr = sdmreader.read_metadata(d['filename'])
@@ -71,74 +71,76 @@ def monitor(qname, triggered, archive):
                         
                         # do "end of SB" processing
                         # 1) aggregate cands/noise files and plot
-                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+<<<<<<< HEAD
+                        try:
+                            rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+                        except IndexError:
+                            logging.info('No files found for %s and scans %s. Skipping.' % (d['fileroot'], str(sc.keys())))
+                        finally:
+                            # 2) if triggered recording, get scans with detections, else save all.
+                            if triggered:
+                                logging.debug('Triggering is on.')
+                                goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
+                                if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
+                                    goodscans += count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                            else:
+                                logging.debug('Triggering is off.')
+                                goodscans = sc.keys()
+                            goodscans.sort()
 
-                        # 2) if triggered recording, get scans with detections, else save all.
-                        goodscans = []
-                        if triggered:
-                            logging.debug('Triggering is on.')
-                            if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                                goodscans = count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
-                            goodscans = goodscans + [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
-                        else:
-                            logging.debug('Triggering is off.')
-                            goodscans = sc.keys()
+                            scanstring = ','.join(str(s) for s in goodscans)
+                            logging.info('Found good scans: %s' % scanstring)
 
-                        scanstring = ','.join(str(s) for s in goodscans)
-                        logging.info('Found good scans: %s' % scanstring)
+                            # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                            if archive:
+                                logging.debug('Archiving is on.')
+                                sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                                bdfArchdir = '' #'/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+                                bdfWorkdir = '' #'/lustre/evla/wcbe/data/no_archive/'
+                                logging.debug('Archiving directory info:')
+                                logging.debug('Workdir: %s')
+                                logging.debug('SDMarch: %s' % sdmArchdir)
+                                logging.debug('SDM:     %s' % d['filename'])
+                                logging.debug('BDFarch: %s' % sdmArchdir)
+                                logging.debug('BDFwork: %s' % os.path.dirname(sc[i]['bdfstr']))
 
-                        # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                        if archive:
-                            logging.debug('Archiving is on.')
-                            sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            bdfArchdir = '' #'/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
-                            bdfWorkdir = '' #'/lustre/evla/wcbe/data/no_archive/'
-                            logging.debug('Archiving directory info:')
-                            logging.debug('Workdir: %s')
-                            logging.debug('SDMarch: %s' % sdmArchdir)
-                            logging.debug('SDM:     %s' % d['filename'])
-                            logging.debug('BDFarch: %s' % sdmArchdir)
-                            logging.debug('BDFwork: %s' % os.path.dirname(sc[i]['bdfstr']))
+                                subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
-                            subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
+                                # 4) copy new SDM and good BDFs to archive locations
+                                logging.debug('PROD Will archive %s to %s' % (d['filename'].rstrip('/') + "_edited",os.path.join(sdmArchdir, os.path.basename(d['filename']))))
+                                copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'])))
 
-                            # 4) copy new SDM and good BDFs to archive locations
-                            logging.debug('PROD Will archive %s to %s' % (d['filename'].rstrip('/') + "_edited",os.path.join(sdmArchdir, os.path.basename(d['filename']))))
-                            copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'])))
+                                #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
+                                touch(d['filename'].rstrip('/') + "_edited.delete")
+                                touch(d['filename'].rstrip('/') + ".delete")
+                                #!!! PERMA-SOLUTION
+                                logging.debug('PROD Will delete %s and %s' % (d['filename'].rstrip('/') + "_edited",d['filename']))
+                                #!!!shutil.rmtree(d['filename'].rstrip('/')+"_edited")
+                                #!!!shutil.rmtree(d['filename'])
 
-                            #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
-                            touch(d['filename'].rstrip('/') + "_edited.delete")
-                            touch(d['filename'].rstrip('/') + ".delete")
-                            #!!! PERMA-SOLUTION
-                            logging.debug('PROD Will delete %s and %s' % (d['filename'].rstrip('/') + "_edited",d['filename']))
-                            #!!!shutil.rmtree(d['filename'].rstrip('/')+"_edited")
-                            #!!!shutil.rmtree(d['filename'])
+                                # Each sc key contains a dictionary. The key is the scan number.                            
+                                # Archive the BDF (via hardlink to archdir)
+                                for scan in goodscans:
+                                    #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
 
-                            # Each sc key contains a dictionary. The key is the scan number.                            
-                            # Archive the BDF (via hardlink to archdir)
-                            for scan in goodscans:
-                                #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
-
-                                touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive")
-                                #!!! PERMA-SOLUTION: hardlink the file
-                                logging.debug('PROD Would hardlink %s to %s' % (sc[i]['bdfstr'],os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr']))))
-                                #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])))
+                                    touch(os.path.join(sdmArchdir, os.path.basename(sc[i]['bdfstr'])) + ".archive")
+                                    #!!! PERMA-SOLUTION: hardlink the file
+                                    logging.debug('PROD Would hardlink %s to %s' % (sc[i]['bdfstr'],os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr']))))
+                                    #!!!os.link(sc[i]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[i]['bdfstr'])))
  
+                                # Now delete all the hardlinks in our BDF working directory for this SB.
+                                for scan in sc.keys():
+                                    # The lines below need to be replaced with the actual BDF workdir hardlink delete command
+                                    logging.debug('PROD would remove BDF %s' % sc[i]['bdfstr'].rstrip('/'))
+                                    #!!! FOR PRE-RUN TESTING: write a .delete file.
+                                    touch(os.path.join(bdfArchdir,os.path.basename(sc[i]['bdfstr'].rstrip('/')) + '.delete'))
+                                    #!!! PERMA-SOLUTION: remove the hardlink in our no_archive directory.
+                                    #!!! os.remove(sc[i]['bdfstr'].rstrip('/'))
 
-                            # Now delete all the hardlinks in our BDF working directory for this SB.
-                            for scan in sc.keys():
-                                # The lines below need to be replaced with the actual BDF workdir hardlink delete command
-                                logging.debug('PROD would remove BDF %s' % sc[i]['bdfstr'].rstrip('/'))
-                                #!!! FOR PRE-RUN TESTING: write a .delete file.
-                                touch(os.path.join(bdfArchdir,os.path.basename(sc[i]['bdfstr'].rstrip('/')) + '.delete'))
-                                #!!! PERMA-SOLUTION: remove the hardlink in our no_archive directory.
-                                #!!! os.remove(sc[i]['bdfstr'].rstrip('/'))
-
-                        else:
-                            logging.debug('Archiving is off.')                            
+                                else:
+                                    logging.debug('Archiving is off.')                            
  
                         # 6) organize cands/noise files?
-
                     else:
                         logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
                 else:
