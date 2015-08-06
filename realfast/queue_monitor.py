@@ -42,10 +42,14 @@ def monitor(qname, triggered, archive):
                 #!!! todo: check that all other segmentss are also finished? baseline assumption is that all segments finish before this one.
 #                finishedjobs = getfinishedjobs(qname)
 
-                # is this the last scan of sdm?
                 if 'RT.pipeline' in job.func_name:
                     logging.debug('Finished job is RT.pipeline job.')
                     d, segments = job.args
+
+                    # merge segments
+                    rtutils.cleanup(d['workdir'], d['fileroot'], d['scan'])
+
+                    # is this the last scan of sdm?
                     sc,sr = sdmreader.read_metadata(d['filename'])
                     if d['scan'] == sc.keys()[-1]:
                         logging.info('This job processed last scan of %s.' % d['filename'])
@@ -65,8 +69,8 @@ def monitor(qname, triggered, archive):
                                 time.sleep(1)
                         
                         # do "end of SB" processing
-                        # 1) aggregate cands/noise files
-                        rtutils.cleanup(d['workdir'], d['fileroot'], sc.keys())
+                        # 1) aggregate cands/noise files and plot
+                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
 
                         # 2) if triggered recording, get scans with detections, else save all.
                         if triggered:  
@@ -110,9 +114,6 @@ def monitor(qname, triggered, archive):
                                 delfile.close();
                             
  
-                        # 5) finally plot candidates
-                        rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
-
                         # 6) organize cands/noise files?
 
                     else:
