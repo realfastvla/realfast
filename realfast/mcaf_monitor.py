@@ -53,7 +53,7 @@ class FRBController(object):
                 filename = config.sdmLocation.rstrip('/')
                 scan = int(config.scan)
 
-                assert len(filename) and isinstance(filename, str)
+                assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
 
                 # check that SDM is usable by rtpipe
                 # only one test for now: sdm frequency order
