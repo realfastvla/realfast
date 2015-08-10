@@ -11,7 +11,7 @@ setup(
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*.conf'))],
     dependency_links = ['http://github.com/caseyjlaw/rtpipe', 'http://github.com/caseyjlaw/sdmpy', 'http://github.com/caseyjlaw/sdmreader'],
-    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py', 'scripts/realfast.pl', 'scripts/my_custom_listener.py'],   # add non-python scripts
+    scripts = ['scripts/choose_SDM_scans.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py', 'scripts/realfast.pl', 'scripts/listener.py'],   # add non-python scripts
     install_requires=[
         'Click',
         ],
