@@ -28,16 +28,23 @@ def supervisor_events(stdin, stdout):
         writeflush(stdout, 'RESULT 2\nOK')
 
 @click.command()
-@click.argument('mode')
-def main(mode):
+@click.option('--process', '-p', default='', help='Name of process to select. Default is all.')
+@click.option('--select', '-s', default='', help='Select lines containing this string. Default is all.')
+@click.option('--destination', '-d', default='stderr', help='Send lines to either stderr or email. Default is stderr (which is saved as log file)')
+def main(process, select, destination):
     for payload in supervisor_events(sys.stdin, sys.stdout):
-        if mode == 'state':
+        if destination == 'stderr' and process == 'state':
             writeflush(sys.stderr, payload + '\n')
-        elif mode == 'mcaf':
+        else:
             line0, data = payload.split('\n',1)
             headers = get_headers(line0)
-            if headers['processname'] == mode:
-                subprocess.call("""echo "%s" | mailx -s 'test' caseyjlaw@gmail.com""" % data, shell=True)
+            
+            if process in headers['processname']:
+                if select in data:
+                    if destination == 'stderr':
+                        writeflush(sys.stderr, payload + '\n')
+                    elif destination == 'email':
+                        subprocess.call("""echo "%s" | mailx -s 'test' caseyjlaw@gmail.com""" % data, shell=True)
 
 if __name__ == '__main__':
     main()
