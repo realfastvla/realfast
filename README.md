@@ -11,10 +11,15 @@ Requirements:
 * [rq](http://python-rq.org)
 * [redis](http://redis.io)
 * [supervisor](http://supervisord.org)
+* [click](http://click.pocoo.org/)
 * [pwkit](http://github.com/pkgw/pwkit) (used for CASA library access)
 * [pyfftw](https://pypi.python.org/pypi/pyFFTW) (optional, accelerated FFTs)
 * [sdmreader](http://github.com/caseyjlaw/sdmreader) (optional, for reading SDM format data from VLA archive)
 * [sdmpy](http://github.com/caseyjlaw/sdmpy) (optional, for reading SDM format data from VLA archive)
+
+Install
+---
+    python setup.py install
 
 Contributors:
 ---
