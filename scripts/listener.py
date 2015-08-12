@@ -23,28 +23,30 @@ def supervisor_events(stdin, stdout):
         line = stdin.readline()
         headers = get_headers(line)
         payload = stdin.read(int(headers['len']))
-        yield payload
-
+        payload = payload.split('\n')
+        yield payload[0], '\n'.join(payload[1:])
         writeflush(stdout, 'RESULT 2\nOK')
+
+email_prefix = """Heads-up! Data coming... \n\n"""
 
 @click.command()
 @click.option('--process', '-p', default='', help='Name of process to select. Default is all.')
 @click.option('--select', '-s', default='', help='Select lines containing this string. Default is all.')
 @click.option('--destination', '-d', default='stderr', help='Send lines to either stderr or email. Default is stderr (which is saved as log file)')
 def main(process, select, destination):
-    for payload in supervisor_events(sys.stdin, sys.stdout):
-        if destination == 'stderr' and process == 'state':
-            writeflush(sys.stderr, payload + '\n')
-        else:
-            line0, data = payload.split('\n',1)
-            headers = get_headers(line0)
-            
-            if process in headers['processname']:
-                if select in data:
-                    if destination == 'stderr':
-                        writeflush(sys.stderr, payload + '\n')
-                    elif destination == 'email':
-                        subprocess.call("""echo "%s" | mailx -s 'test' caseyjlaw@gmail.com""" % data, shell=True)
+    for ehead, edata in supervisor_events(sys.stdin, sys.stdout):
+        ehead_parsed = get_headers(ehead)
+
+        if process in ehead_parsed['processname']:    # select process from head
+            if select in edata:     # select by string in edata
+                if not len(edata):                # state event has no data. ehead becomes edata
+                    edata = ehead   
+
+                # send data along
+                if destination == 'stderr':
+                    writeflush(sys.stderr, edata + '\n')
+                elif destination == 'email':
+                    subprocess.call("""echo "%s" | mailx -s 'Supervisor Event (process %s and select %s)' caseyjlaw@gmail.com""" % (email_prefix+str(edata), process, select), shell=True)
 
 if __name__ == '__main__':
     main()
