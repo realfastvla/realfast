@@ -1,7 +1,7 @@
 # realfast
 
 Library and scripts for real-time transient search of data at the Very Large Array.
-Designed to run on correlator backend (CBE, a compute cluster).
+Designed to run on correlator backend (CBE, a compute cluster). Not for general use (yet).
 Goal is to detect incoming data, define fast transient search pipeline, and queue search jobs on nodes of cluster.
 
 Requirements:
