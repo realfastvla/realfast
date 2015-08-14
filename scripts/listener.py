@@ -41,7 +41,7 @@ def main(process, select, destination):
             if select in edata:     # select by string in edata
                 if not len(edata):                # state event has no data. ehead becomes edata
                     edata = ehead   
-
+                    
                 # send data along
                 if destination == 'stderr':
                     writeflush(sys.stderr, edata + '\n')
