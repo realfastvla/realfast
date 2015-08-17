@@ -18,7 +18,9 @@ parser.add_argument("--scans", help="scans to search. comma-delimited integers."
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
 parser.add_argument("--remove", help="List of times to remove plot_summary visualizations", nargs='+', type=float, default=[])
-args = parser.parse_args(); filename = args.filename; scans = [int(sc) for sc in args.scans.split(',')]; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove
+args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove
+
+scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, intent='')
 
 # Define names, paths
 filename = os.path.abspath(filename)
