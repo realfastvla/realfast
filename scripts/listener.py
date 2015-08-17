@@ -32,7 +32,7 @@ email_prefix = """Heads-up! Data coming... \n\n"""
 @click.command()
 @click.option('--process', '-p', default='', help='Name of process to select. Default is all.')
 @click.option('--select', '-s', default='', help='Select lines containing this string. Default is all.')
-@click.option('--destination', '-d', default='stderr', help='Send lines to either stderr or email. Default is stderr (which is saved as log file)')
+@click.option('--destination', '-d', default='log', help='Send lines to either \'stderr\' or \'email\'. Default is log (which is routed via stderr)')
 def main(process, select, destination):
     for ehead, edata in supervisor_events(sys.stdin, sys.stdout):
         ehead_parsed = get_headers(ehead)
@@ -43,7 +43,7 @@ def main(process, select, destination):
                     edata = ehead   
                     
                 # send data along
-                if destination == 'stderr':
+                if destination == 'log':
                     writeflush(sys.stderr, edata + '\n')
                 elif destination == 'email':
                     subprocess.call("""echo "%s" | mailx -s 'Supervisor Event (process %s and select %s)' caseyjlaw@gmail.com""" % (email_prefix+str(edata), process, select), shell=True)

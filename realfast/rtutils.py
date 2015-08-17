@@ -332,6 +332,8 @@ def plot_summary(workdir, fileroot, scans=[], remove=[]):
             pkllist.append(pklfile)
     pc.plot_noise(pkllist, outroot=fileroot, remove=remove)
 
+    logging.info('Completed plotting for fileroot %s and scans %s' % (fileroot, str(scans))
+
 def plot_cand(workdir, fileroot, scans=[], candnum=-1):
     """ Visualize a candidate
     """
