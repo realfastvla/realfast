@@ -323,14 +323,14 @@ def plot_summary(workdir, fileroot, scans=[], remove=[]):
         pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
-    pc.plot_summary(pkllist, remove=remove)
+    pc.plot_summary(pkllist, outroot=fileroot, remove=remove)
     
     pkllist = []
     for scan in scans:
         pklfile = os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')
         if os.path.exists(pklfile):
             pkllist.append(pklfile)
-    pc.plot_noise(pkllist, remove=remove)
+    pc.plot_noise(pkllist, outroot=fileroot, remove=remove)
 
 def plot_cand(workdir, fileroot, scans=[], candnum=-1):
     """ Visualize a candidate
