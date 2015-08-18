@@ -15,7 +15,9 @@ bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 bdfArchdir = '' #'/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 bdfWorkdir = '' #'/lustre/evla/wcbe/data/no_archive/'
-logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
@@ -28,11 +30,12 @@ def monitor(qname, triggered, archive, verbose):
     """
 
     if verbose:
-        logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        logging.debug('Monitoring queue running in verbose mode.')
+    else:
+        logger.setLevel(logging.INFO)
 
-    logging.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
+    logging.debug('Monitoring queue running in verbose mode.')
+    logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
@@ -40,8 +43,8 @@ def monitor(qname, triggered, archive, verbose):
         jobids = conn.scan(cursor=0, count=trackercount)[1]
 
         if jobids0 != jobids:
-            logging.info('Tracking %d jobs' % len(jobids))
-            logging.debug('jobids: %s' % str(jobids))
+            logger.info('Tracking %d jobs' % len(jobids))
+            logger.debug('jobids: %s' % str(jobids))
             sys.stdout.flush()
             jobids0 = jobids
 
@@ -51,7 +54,7 @@ def monitor(qname, triggered, archive, verbose):
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
-            logging.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
+            logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
 
             # To be done for each scan:
 
@@ -78,33 +81,33 @@ def monitor(qname, triggered, archive, verbose):
             try:
                 rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
             except:
-                logging.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
+                logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 removejob(job.id)
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
             if d['scan'] == sc.keys()[-1]:
-                logging.info('This job processed last scan of %s.' % d['filename'])
+                logger.info('This job processed last scan of %s.' % d['filename'])
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
 
                 # 4-1) use timeout to check that BDFs are actually written (perhaps superfluous)
                 if not all([sc[i]['bdfstr'] for i in sc.keys()]):   # bdfstr=None if file not written/found
-                    logging.info('Not all bdf written yet for %s and scan %d. Waiting...' % (d['filename'], d['scan']))
+                    logger.info('Not all bdf written yet for %s and scan %d. Waiting...' % (d['filename'], d['scan']))
                     now = time.time()
                     while 1:
                         if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                            logging.info('All BDF written for %s.' % d['filename'])
+                            logger.info('All BDF written for %s.' % d['filename'])
                             break
                         elif time.time() - now > timeout:
-                            logging.info('Timeout while waiting for BDFs in %s.' % d['filename'])
+                            logger.info('Timeout while waiting for BDFs in %s.' % d['filename'])
                             break
                         else:
                             time.sleep(2)
                         
                 # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
-                    logging.debug('Triggering is on. Saving cal scans and those with candidates.')
+                    logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
 
                     # if merged cands available, identify scans to archive.
@@ -113,34 +116,34 @@ def monitor(qname, triggered, archive, verbose):
                         goodscans += count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                 else:
-                    logging.debug('Triggering is off. Saving all scans.')
+                    logger.debug('Triggering is off. Saving all scans.')
                     goodscans = sc.keys()
 
                 scanstring = ','.join(str(s) for s in goodscans)
-                logging.info('Found good scans: %s' % scanstring)
+                logger.info('Found good scans: %s' % scanstring)
 
                 # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), 'No messing with bunker bdfs!'
-                    logging.debug('Archiving is on.')
-                    logging.debug('Archiving directory info:')
-                    logging.debug('Workdir: %s' % d['workdir'])
-                    logging.debug('SDMarch: %s' % sdmArchdir)
-                    logging.debug('SDM:     %s' % d['filename'])
-                    logging.debug('BDFarch: %s' % sdmArchdir)
-                    logging.debug('BDFwork: %s' % os.path.dirname(sc[goodscans[0]]['bdfstr']))
+                    logger.debug('Archiving is on.')
+                    logger.debug('Archiving directory info:')
+                    logger.debug('Workdir: %s' % d['workdir'])
+                    logger.debug('SDMarch: %s' % sdmArchdir)
+                    logger.debug('SDM:     %s' % d['filename'])
+                    logger.debug('BDFarch: %s' % sdmArchdir)
+                    logger.debug('BDFwork: %s' % os.path.dirname(sc[goodscans[0]]['bdfstr']))
                     
                     subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
                     # 4) copy new SDM and good BDFs to archive locations
-                    logging.debug('PROD Will archive %s to %s' % (d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))))
+                    logger.debug('PROD Will archive %s to %s' % (d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))))
                     copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/'))))
 
                     #!!! FOR PRE-RUN TESTING: Need to fix these lines here to clean up: remove SDM and edited SDM
                     touch(d['filename'].rstrip('/') + "_edited.delete")
                     touch(d['filename'].rstrip('/') + ".delete")
                     #!!! PERMA-SOLUTION
-                    logging.debug('PROD Will delete %s and %s' % (d['filename'].rstrip('/') + "_edited", d['filename'].rstrip('/')))
+                    logger.debug('PROD Will delete %s and %s' % (d['filename'].rstrip('/') + "_edited", d['filename'].rstrip('/')))
                     #!!!shutil.rmtree(d['filename'].rstrip('/')+"_edited")
                     #!!!shutil.rmtree(d['filename'].rstrip('/'))
 
@@ -150,24 +153,24 @@ def monitor(qname, triggered, archive, verbose):
                         #!!! FOR PRE-RUN TESTING: write a .save to our realfast home workdir
                         touch(os.path.join(sdmArchdir, os.path.basename(sc[scan]['bdfstr'])) + ".archive")
                         #!!! PERMA-SOLUTION: hardlink the file
-                        logging.debug('PROD Would hardlink %s to %s' % (sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))))
+                        logger.debug('PROD Would hardlink %s to %s' % (sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))))
                         #!!!os.link(sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr'])))
  
                     # Now delete all the hardlinks in our BDF working directory for this SB.
                     for scan in sc.keys():
                         # The lines below need to be replaced with the actual BDF workdir hardlink delete command
-                        logging.debug('PROD would remove BDF %s' % sc[scan]['bdfstr'].rstrip('/'))
+                        logger.debug('PROD would remove BDF %s' % sc[scan]['bdfstr'].rstrip('/'))
                         #!!! FOR PRE-RUN TESTING: write a .delete file.
                         touch(os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr'].rstrip('/')) + '.delete'))
                         #!!! PERMA-SOLUTION: remove the hardlink in our no_archive directory.
                         #!!! os.remove(sc[scan]['bdfstr'].rstrip('/'))
 
                 else:
-                    logging.debug('Archiving is off.')                            
+                    logger.debug('Archiving is off.')                            
  
                 # 6) organize cands/noise files?
             else:
-                logging.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
+                logger.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
 
             # job is finished, so remove from db
             removejob(job.id)
@@ -187,9 +190,9 @@ def removejob(jobid):
 
     status = conn.delete(jobid)
     if status:
-        logging.info('jobid %s removed' % jobid)
+        logger.info('jobid %s removed' % jobid)
     else:
-        logging.info('jobid %s not removed' % jobid)
+        logger.info('jobid %s not removed' % jobid)
 
 
 def getfinishedjobs(qname='default'):
@@ -238,10 +241,10 @@ def failed():
     """
 
     q = Queue('failed', connection=conn0)
-    logging.info('Failed queue: %s' % q.jobs)
+    logger.info('Failed queue: %s' % q.jobs)
     for i in range(len(q.jobs)):
-        logging.info('Failure %d' % i)
-        logging.info('%s' % q.jobs[i].exc_info)
+        logger.info('Failure %d' % i)
+        logger.info('%s' % q.jobs[i].exc_info)
 
 @click.command()
 def requeue():
@@ -249,11 +252,11 @@ def requeue():
     """
 
     qf = Queue('failed', connection=conn0)
-    logging.info('Enqueuing %d failed jobs' % len(qf.jobs))
+    logger.info('Enqueuing %d failed jobs' % len(qf.jobs))
 
     q = Queue('default', connection=conn0)
     for job in qf.jobs:
-        logging.info('Moved job %s' % job.id)
+        logger.info('Moved job %s' % job.id)
         q.enqueue_job(job)
         qf.remove(job)
 
@@ -264,10 +267,10 @@ def empty(qname):
     """
 
     q = Queue(qname, connection=conn0)
-    logging.info('Emptying queue %s' % qname)
+    logger.info('Emptying queue %s' % qname)
     for job in q.jobs:
         q.remove(job)
-        logging.info('Removed %s\r' % job.id)
+        logger.info('Removed %s\r' % job.id)
 
 @click.command()
 def reset():
@@ -276,13 +279,13 @@ def reset():
 
     for qname in ['default', 'failed']:
         q = Queue(qname, connection=conn0)
-        logging.info('Emptying queue %s' % qname)
+        logger.info('Emptying queue %s' % qname)
         for job in q.jobs:
             q.remove(job)
-            logging.info('Removed %s' % job.id)
+            logger.info('Removed %s' % job.id)
 
-    logging.info('Emptying tracking queue')
+    logger.info('Emptying tracking queue')
     jobids = conn.scan()[1]
     for jobid in jobids:
         removejob(jobid)
-        logging.info('Removed %s' % jobid)
+        logger.info('Removed %s' % jobid)

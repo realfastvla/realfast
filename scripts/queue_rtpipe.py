@@ -4,9 +4,12 @@
 # each job is independent but shares file system. one worker per node.
 
 from rq import Queue, Connection
-import os, argparse, time, shutil
+import os, argparse, time, shutil, logging
 import sdmreader
 from realfast import rtutils, queue_monitor
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
@@ -71,23 +74,20 @@ if __name__ == '__main__':
                 lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost=redishost)
                 queue_monitor.addjob(lastjob.id)
             else:
-                print 'No calibration available. No job submitted.'
+                logger.info('No calibration available. No job submitted.')
 
         elif mode == 'calibrate':
             q = Queue(qpriority)
             caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)
             
         elif mode == 'cleanup':
-            q = Queue(qpriority, async=False)
-            cleanjob = q.enqueue_call(func=rtutils.cleanup, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent
+            rtutils.cleanup(workdir, fileroot, scans)
 
         elif mode == 'plot_summary':
-            q = Queue(qpriority, async=False)
-            plotjob = q.enqueue_call(func=rtutils.plot_summary, args=(workdir, fileroot, scans, remove), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent
+            rtutils.plot_summary(workdir, fileroot, scans, remove)
 
         elif mode == 'show_cands':
-            q = Queue(qpriority, async=False)
-            plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)   # default TARGET intent
+            rtutils.plot_cand(workdir, fileroot, scans)
 
         elif mode == 'plot_cand':
             q = Queue(qpriority)
@@ -98,4 +98,4 @@ if __name__ == '__main__':
             plotjob = q.enqueue_call(func=rtutils.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent        
 
         else:
-            print 'mode %s not recognized.' % mode
+            logger.info('mode %s not recognized.' % mode)

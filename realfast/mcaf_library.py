@@ -4,6 +4,8 @@ import logging
 import asyncore, socket
 import sdminfoxml_parser
 
+logger = logging.getLogger(__name__)
+
 class McastClient(asyncore.dispatcher):
     """Generic class to receive the multicast XML docs."""
 
@@ -23,11 +25,11 @@ class McastClient(asyncore.dispatcher):
         self.read = None
 
     def handle_connect(self):
-        logging.debug('connect %s group=%s port=%d' % (self.name, 
+        logger.debug('connect %s group=%s port=%d' % (self.name, 
             self.group, self.port))
 
     def handle_close(self):
-        logging.debug('close %s group=%s port=%d' % (self.name, 
+        logger.debug('close %s group=%s port=%d' % (self.name, 
             self.group, self.port))
 
     def writeable(self):
@@ -35,14 +37,14 @@ class McastClient(asyncore.dispatcher):
 
     def handle_read(self):
         self.read = self.recv(100000)
-        logging.debug('read ' + self.name + ' ' + self.read)
+        logger.debug('read ' + self.name + ' ' + self.read)
         try:
             self.parse()
         except Exception as e:
-            logging.exception("error handling '%s' message" % self.name)
+            logger.exception("error handling '%s' message" % self.name)
 
     def handle_error(self, type, val, trace):
-        logging.error('unhandled exception: ' + repr(val))
+        logger.error('unhandled exception: ' + repr(val))
 
 
 class SdminfoClient(McastClient):
@@ -60,7 +62,7 @@ class SdminfoClient(McastClient):
 
     def parse(self):
         sdminfo = sdminfoxml_parser.parseString(self.read)
-        logging.info("read sdminfo datasetID='%s' scanNo=%d" % (sdminfo.datasetID,
+        logger.info("read sdminfo datasetID='%s' scanNo=%d" % (sdminfo.datasetID,
             sdminfo.scanNumber))
         if self.controller is not None:
             self.controller.add_sdminfo(sdminfo)
@@ -130,11 +132,9 @@ class MCAST_Config(object):
 # is passed, so the only action taken here is to print log messages when
 # each sdminfo document comes in.
 if __name__ == '__main__':
-    logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s",
-            level=logging.DEBUG)
     sdminfo_client = SdminfoClient()
     try:
         asyncore.loop()
     except KeyboardInterrupt:
         # Just exit without the trace barf on control-C
-        logging.info('got SIGINT, exiting')
+        logger.info('got SIGINT, exiting')

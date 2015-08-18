@@ -17,11 +17,13 @@ import click
 from realfast import queue_monitor, rtutils, mcaf_library
 
 # set up
-logging.basicConfig(format="%(asctime)-15s %(levelname)8s %(message)s", level=logging.INFO)
 rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(mcaf_library.__file__)[0])[0], 'conf'), 'rtpipe_cbe.conf') # install system puts conf files here. used by queue_rtpipe.py
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
 redishost = os.uname()[1]  # assuming we start on redis host
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
@@ -42,11 +44,11 @@ class FRBController(object):
 
         # Check if MCAST message is simply telling us the obs is finished
         if config.obsComplete:
-            logging.info("Received finalMessage=True; This observation has completed.")
+            logger.info("Received finalMessage=True; This observation has completed.")
 
         elif self.intent in config.intentString and self.project in config.projectID:
-            logging.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
-            logging.debug("BDF is in %s\n" % (config.bdfLocation))
+            logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
+            logger.debug("BDF is in %s\n" % (config.bdfLocation))
 
             # If we're not in listening mode, prepare data and submit to queue system
             if not self.listen:
@@ -58,7 +60,7 @@ class FRBController(object):
                 # check that SDM is usable by rtpipe
                 # only one test for now: sdm frequency order
                 if rtutils.check_sdmorder(filename, scan):
-                    logging.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
+                    logger.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
 
                     # 1) copy data into place
                     rtutils.rsyncsdm(filename, workdir)
@@ -70,13 +72,13 @@ class FRBController(object):
 
                     # 3) submit search job and add tail job to monitoring queue
                     if telcalfile:
-                        logging.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
+                        logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
                         lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
                         queue_monitor.addjob(lastjob.id)
                     else:
-                        logging.info('No calibration available. No job submitted.')
+                        logger.info('No calibration available. No job submitted.')
                 else:
-                    logging.info("Not submitting scan %d of sdm %s. spw can\'t be permuted to increasing frequency order." % (scan, os.path.basename(filename)))                    
+                    logger.info("Not submitting scan %d of sdm %s. spw can\'t be permuted to increasing frequency order." % (scan, os.path.basename(filename)))                    
 
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
@@ -90,19 +92,20 @@ def monitor(intent, project, listen, verbose, rtparams):
     Blocking function.
     """
 
-    logging.info('mcaf_monitor started')
-    logging.info("Looking for intent = %s, project = %s" % (intent, project))
-
     # Set up verbosity level for log
     if verbose:
-        logger = logging.getLogger()
         logger.setLevel(logging.DEBUG)
-        logging.debug('Running in verbose mode')
+    else:
+        logger.setLevel(logging.INFO)
+
+    logger.info('mcaf_monitor started')
+    logger.info('Looking for intent = %s, project = %s' % (intent, project))
+    logger.debug('Running in verbose mode')
 
     if listen:
-        logging.info('Running in listen mode')
+        logger.info('Running in listen mode')
     else:
-        logging.info('Running in do mode')
+        logger.info('Running in do mode')
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose, rtparams=rtparams)
@@ -111,4 +114,4 @@ def monitor(intent, project, listen, verbose, rtparams):
         asyncore.loop()
     except KeyboardInterrupt:
         # Just exit without the trace barf
-        logging.info('Escaping mcaf_monitor')
+        logger.info('Escaping mcaf_monitor')
