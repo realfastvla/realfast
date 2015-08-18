@@ -43,18 +43,19 @@ def monitor(qname, triggered, archive, verbose):
         # filter all jobids to those that are finished pipeline jobs
         jobs = [q.fetch_job(jobid) for jobid in jobids if not q.fetch_job(jobid).is_finished and 'RT.pipeline' in q.fetch_job(jobid).func_name]
 
-        # iterate over ready list
+        # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
             logging.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
 
-            #!!! todo: check that all other segments are also finished? baseline assumption is that all segments finish before this one.
-#            finishedjobs = getfinishedjobs(qname)
+            # To be done for each scan:
 
-            # merge segments
+            # 0) may want to check that other segments finished for this scan. should do so by default ordering in queue
+
+            # 1) merge segments. removes segment pkls, if successfully merged.
             rtutils.cleanup(d['workdir'], d['fileroot'], [d['scan']])
 
-            # is this the last scan of sdm?
+            # 2) get metadata (and check that file still available to work with)
             try:
                 sc,sr = sdmreader.read_metadata(d['filename'])
             except:
@@ -62,51 +63,52 @@ def monitor(qname, triggered, archive, verbose):
                 removejob(job.id)
                 continue
 
+            # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
+            try:
+                rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+            except:
+                logging.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
+                removejob(job.id)
+                continue
+
+            # 4) if last scan of sdm, start end-of-sb processing
             if d['scan'] == sc.keys()[-1]:
                 logging.info('This job processed last scan of %s.' % d['filename'])
-                #!!! todo: check that other scans are in finishedjobs. baseline assumption is that last scan finishes last
 
-                # check that BDFs are actually written (perhaps superfluous)
-                now = time.time()
+                # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
+
+                # 4-1) use timeout to check that BDFs are actually written (perhaps superfluous)
                 logging.info('Waiting for all BDF to be written for %s.' % d['filename'])
+                now = time.time()
                 while 1:
-                    if all([sc[i]['bdfstr'] for i in sc.keys()]):
+                    if all([sc[i]['bdfstr'] for i in sc.keys()]):   # bdfstr=None if file not written/found
                         logging.info('All BDF written for %s.' % d['filename'])
                         break
                     elif time.time() - now > timeout:
                         logging.info('Timeout while waiting for BDFs in %s.' % d['filename'])
                         break
                     else:
-                        time.sleep(1)
+                        time.sleep(2)
                         
-                # do "end of SB" processing
-                # 1) aggregate cands/noise files and plot
-                try:
-                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
-                except IndexError:
-                    logging.info('Looks like no files found for %s and scans %s. Removing from tracking queue.' % (d['fileroot'], str(sc.keys())))
-                    removejob(job.id)
-                    continue
-                except:
-                    logging.info('Trouble merging scans and plotting for %s.' % d['fileroot'])
-                    continue
-
-                # 2) if triggered recording, get scans with detections, else save all.
+                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
-                    logging.debug('Triggering is on.')
-                    goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]
+                    logging.debug('Triggering is on. Saving cal scans and those with candidates.')
+                    goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
+
+                    # if merged cands available, identify scans to archive.
+                    # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
                         goodscans += count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                 else:
-                    logging.debug('Triggering is off.')
+                    logging.debug('Triggering is off. Saving all scans.')
                     goodscans = sc.keys()
 
-                goodscans = uniq_sort(goodscans)
+                goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                     
                 scanstring = ','.join(str(s) for s in goodscans)
                 logging.info('Found good scans: %s' % scanstring)
 
-                # 3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     logging.debug('Archiving is on.')
                     sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
