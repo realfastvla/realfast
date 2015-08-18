@@ -286,31 +286,14 @@ def cleanup(workdir, fileroot, scans=[]):
     Finds all segments in each scan and merges them into single cand/noise file per scan.
     """
 
-    # merge cands files
+    os.chdir(workdir)
+
+    # merge cands/noise files per scan
     for scan in scans:
         try:
-            pkllist = glob.glob(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
-            pc.merge_segments(pkllist)
-        except AssertionError:
-            logging.info('No cands files found for scan %d' % scan)
-
-        if os.path.exists(os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')):
-            for cc in pkllist:
-                os.remove(cc)
-
-        # merge noise files
-        try:
-            pkllist2 = glob.glob(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + 'seg*.pkl'))
-            pc.merge_segments(pkllist2)
-        except AssertionError:
-            logging.info('No noise files found for scan %d' % scan)
-
-        if os.path.exists(os.path.join(workdir, 'noise_' + fileroot + '_sc' + str(scan) + '.pkl')):
-            for cc in pkllist2:
-                os.remove(cc)
-
-        if len(pkllist) != len(pkllist2):
-            logging.info('Uh oh. noise and cands pkl lists not identical. Missing pkl?')
+            pc.merge_segments(fileroot, scan, cleanup=True)
+        except:
+            logging.exception('')
 
 def plot_summary(workdir, fileroot, scans=[], remove=[]):
     """ Make summary plots.
