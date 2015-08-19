@@ -3,13 +3,14 @@
 # split job into nsegment pieces and queue all up with rq
 # each job is independent but shares file system. one worker per node.
 
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 from rq import Queue, Connection
-import os, argparse, time, shutil, logging
+import os, argparse, time, shutil
 import sdmreader
 from realfast import rtutils, queue_monitor
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")

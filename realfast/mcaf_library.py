@@ -68,8 +68,6 @@ class SdminfoClient(McastClient):
             self.controller.add_sdminfo(sdminfo)
 
 
-
-
 #A dumbed down version of EVLAconfig just for reading SDM info
 class MCAST_Config(object):
     """
@@ -125,7 +123,6 @@ class MCAST_Config(object):
     @property
     def obsComplete(self):
         return self.sdminfo.finalMessage
-
 
 
 # This is how comms would be used in a program.  Note that no controller

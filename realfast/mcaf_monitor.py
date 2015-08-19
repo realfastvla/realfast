@@ -11,9 +11,13 @@
 
 import datetime
 import os
-import logging
 import asyncore
 import click
+import logging
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 from realfast import queue_monitor, rtutils, mcaf_library
 
 # set up
@@ -21,9 +25,6 @@ rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(mcaf_li
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
 redishost = os.uname()[1]  # assuming we start on redis host
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any

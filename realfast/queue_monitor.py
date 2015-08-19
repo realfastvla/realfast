@@ -1,7 +1,10 @@
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle, sys, logging, os
+import time, pickle, sys, os
 import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
@@ -15,9 +18,6 @@ bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/cbe-master/realfast/fake_archdir' #'/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 bdfArchdir = '' #'/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 bdfWorkdir = '' #'/lustre/evla/wcbe/data/no_archive/'
-
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
