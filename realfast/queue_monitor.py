@@ -34,7 +34,7 @@ def monitor(qname, triggered, archive, verbose):
     else:
         logger.setLevel(logging.INFO)
 
-    logging.debug('Monitoring queue running in verbose mode.')
+    logger.debug('Monitoring queue running in verbose mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
 
@@ -49,7 +49,7 @@ def monitor(qname, triggered, archive, verbose):
             jobids0 = jobids
 
         # filter all jobids to those that are finished pipeline jobs
-        jobs = [q.fetch_job(jobid) for jobid in jobids if not q.fetch_job(jobid).is_finished and 'RT.pipeline' in q.fetch_job(jobid).func_name]
+        jobs = [q.fetch_job(jobid) for jobid in jobids if (not q.fetch_job(jobid).is_finished) and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
 
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
