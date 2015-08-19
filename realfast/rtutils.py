@@ -232,6 +232,7 @@ def gettelcalfile(telcaldir, filename, timeout=0):
         if len(telcalfile) == 1:
             telcalfile = telcalfile[0]
             logger.info('Found telcal file at %s' % telcalfile)
+            break
         elif len(telcalfile) > 1:
             telcalfile = ''
             logger.info('Found multiple telcalfiles %s' % telcalfile)
@@ -242,15 +243,15 @@ def gettelcalfile(telcaldir, filename, timeout=0):
         assert isinstance(telcalfile, str)
 
         # if waiting, but no file found, check timeout
-        if timeout and not telcalfile:
-            if time.time() - time_filestart < timeout:  # don't beak yet
+        if timeout:
+            if time.time() - time_filestart < timeout:  # don't break yet
                 logger.info('Waiting for telcalfile...')
                 time.sleep(2)
                 continue
             else:   # reached timeout
                 logger.info('Timeout waiting for telcalfile')
                 break
-        else:
+        else:  # not waiting
             logger.info('Not waiting for telcalfile')
             break
 
