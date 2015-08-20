@@ -51,7 +51,18 @@ if (!-e "$target_dir/temp.garbage"){
 system "rm -f $target_dir/temp.garbage";
 
 # Copy SDM to a dir we know we can edit in place.
-system "cp -r $sdm_directory $target_sdm";
+# Do not copy any bdfpkls directory.
+system "mkdir $target_sdm";
+open(SDMDIR, "ls -1 $sdm_directory |");
+while(<SDMDIR>){
+    chomp;
+    $sdm_content = $_;
+    if ($sdm_content !~ /bdfpkls/){
+        system "cp -r $sdm_directory/$sdm_content $target_sdm";
+    }
+}
+close(SDMDIR);
+
 
 my $main_xml_filename = "$target_sdm/Main.xml";
 system "rm $target_sdm/Main.xml";
