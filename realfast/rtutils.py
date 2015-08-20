@@ -204,7 +204,7 @@ def check_spw(sdmfile, scan):
 
     duplicates = list(set(d['spw_reffreq'])) != d['spw_reffreq']
 
-    return len(dfreqneg) <= 1 and duplicates
+    return len(dfreqneg) <= 1 and not duplicates
 
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
