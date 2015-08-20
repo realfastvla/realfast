@@ -56,7 +56,7 @@ system "mkdir $target_sdm";
 open(SDMDIR, "ls -1 $sdm_directory |");
 while(<SDMDIR>){
     chomp;
-    $sdm_content = $_;
+    my $sdm_content = $_;
     if ($sdm_content !~ /bdfpkls/){
         system "cp -r $sdm_directory/$sdm_content $target_sdm";
     }
