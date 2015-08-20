@@ -58,10 +58,9 @@ class FRBController(object):
 
                 assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
 
-                # check that SDM is usable by rtpipe
-                # only one test for now: sdm frequency order
-                if rtutils.check_sdmorder(filename, scan):
-                    logger.info("Submitting scan %d of sdm %s..." % (scan, os.path.basename(filename)))
+                # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
+                if rtutils.check_spw(filename, scan):
+                    logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename)), scan)
 
                     # 1) copy data into place
                     rtutils.rsyncsdm(filename, workdir)
@@ -79,7 +78,7 @@ class FRBController(object):
                     else:
                         logger.info('No calibration available. No job submitted.')
                 else:
-                    logger.info("Not submitting scan %d of sdm %s. spw can\'t be permuted to increasing frequency order." % (scan, os.path.basename(filename)))                    
+                    logger.info("Not submitting scan %d of sdm %s. spw order strange or duplicates found." % (scan, os.path.basename(filename)))                    
 
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')

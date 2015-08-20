@@ -192,8 +192,9 @@ def copysdm(filename, workdir):
         logger.info('File %s already in %s. Using that one...' % (fname, workdir))
     filename = newfileloc
 
-def check_sdmorder(sdmfile, scan):
-    """ Looks at relative freq of spw. Returns 1 for permutable order and 0 for non-permutable (bad) order.
+def check_spw(sdmfile, scan):
+    """ Looks at relative freq of spw and duplicate spw_reffreq. 
+    Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
     """
 
     d = rt.set_pipeline(sdmfile, scan, silent=True)
@@ -201,7 +202,9 @@ def check_sdmorder(sdmfile, scan):
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
 
-    return len(dfreqneg) <= 1
+    duplicates = list(set(d['spw_reffreq'])) != d['spw_reffreq']
+
+    return len(dfreqneg) <= 1 and duplicates
 
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
