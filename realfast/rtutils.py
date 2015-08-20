@@ -93,10 +93,10 @@ def cleanup(workdir, fileroot, scans=[]):
 
     # merge cands/noise files per scan
     for scan in scans:
-        try:
-            pc.merge_segments(fileroot, scan, cleanup=True)
-        except:
-            logger.exception('')
+#try:
+        pc.merge_segments(fileroot, scan, cleanup=True)
+#        except:
+#            logger.exception('')
 
 def plot_summary(workdir, fileroot, scans, remove=[]):
     """ Make summary plots for cands/noise files with fileroot
