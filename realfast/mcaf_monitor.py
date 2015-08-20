@@ -60,7 +60,7 @@ class FRBController(object):
 
                 # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
                 if rtutils.check_spw(filename, scan):
-                    logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename)), scan)
+                    logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
 
                     # 1) copy data into place
                     rtutils.rsyncsdm(filename, workdir)
