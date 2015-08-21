@@ -7,6 +7,7 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
+import pickle
 from rq import Queue, Connection
 from redis import Redis
 
