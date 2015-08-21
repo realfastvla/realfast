@@ -167,6 +167,7 @@ LOOP: while ( <INPUT> ) {
 close INPUT;
 close OUTPUT;
 
+chmod 0777, $main_xml_filename;
 
 exit 0;
 
