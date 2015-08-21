@@ -173,10 +173,21 @@ def grouprange(start, size, step):
     return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
 
 def rsync(original, new):
-    """ Uses subprocess.call to call rsync for filename into workdir.
+    """ Uses subprocess.call to rsync from 'filename' to 'new'
+    If new is directory, copies original in.
+    If new is new file, copies original to that name.
     """
 
-    subprocess.call(["rsync", "-av", original.rstrip('/'), new.rstrip('/')])
+    assert os.path.exists(original), 'Need original file!'
+
+    # need to dynamically define whether rsync from has a slash at the end
+    if os.path.exists(new):   # new is a directory
+        assert os.path.isdir(new), 'New should be a directory.'
+        trailing = ''
+    else:   # new is a new file. fill it with contents of original
+        trailing = '/'
+
+    subprocess.call(["rsync", "-ar", original.rstrip('/') + trailing, new.rstrip('/')])
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir

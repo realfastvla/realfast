@@ -158,7 +158,6 @@ def monitor(qname, triggered, archive, verbose, test):
                         touch(sdmFROM + ".archived")
                     else:
                         logger.info('Archiving SDM %s to %s' % ( sdmFROM, sdmTO ))
-#                        copyDirectory( sdmFROM, sdmTO )
                         rtutils.rsync( sdmFROM, sdmTO )
 
                     # Remove old SDM and old edited copy
