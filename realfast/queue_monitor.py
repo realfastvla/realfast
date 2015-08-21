@@ -1,4 +1,4 @@
-import logging
+cp quimport logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 from redis import Redis
@@ -36,6 +36,8 @@ def monitor(qname, triggered, archive, verbose, test):
 
     if test:
         logger.info('Running test version of the code. Will NOT actually archive but will print messages.')
+    else:
+        logger.info('***WARNING: Running the production version of the code. WILL do archiving if archiving parameter set!!!')
 
     logger.debug('Monitoring queue running in verbose/debug mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
@@ -144,42 +146,54 @@ def monitor(qname, triggered, archive, verbose, test):
                     subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
 
                     # 4) copy new SDM and good BDFs to archive locations
+                    
+                    # Set up names of source/target SDM files
+                    sdmORIG = d['filename'].rstrip('/')
+                    sdmFROM = d['filename'].rstrip('/') + "_edited"
+                    sdmTO   = os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))
 
                     # Archive edited SDM
-                    logger.debug('Archiving SDM %s to %s' % (d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))))
-                    copyDirectory(d['filename'].rstrip('/') + "_edited", os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/'))))
+                    if test:
+                        logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
+                        touch(sdmFROM + ".archived")
+                    else:
+                        logger.info('Archiving SDM %s to %s' % ( sdmFROM, sdmTO ))
+                        copyDirectory( sdmFROM, sdmTO )
 
                     # Remove old SDM and old edited copy
-                    logger.debug('PROD Will delete %s and %s' % (d['filename'].rstrip('/') + "_edited", d['filename'].rstrip('/')))
                     if test:
-                        logger.info('TEST MODE. Would delete edited SDM %s' % (d['filename'].rstrip('/') + "_edited"))
-                        logger.info('TEST MODE. Would delete original SDM %s' % (d['filename'].rstrip('/')))
-                        touch(d['filename'].rstrip('/') + "_edited.delete")
-                        touch(d['filename'].rstrip('/') + ".delete")
+                        logger.info('TEST MODE. Would delete edited SDM %s' % sdmFROM )
+                        logger.info('TEST MODE. Would delete original SDM %s' % sdmORIG )
+                        touch(sdmFROM + ".delete")
+                        touch(sdmORIG + ".delete")
                     else: 
-                        logger.debug('Deleting edited SDM %s' % (d['filename'].rstrip('/') + "_edited"))
-                        shutil.rmtree(d['filename'].rstrip('/')+"_edited")
-                        #!!!logger.debug('Deleting original SDM %s' % (d['filename'].rstrip('/'))) #!!! WHEN CASEY SAYS GO
-                        #!!!shutil.rmtree(d['filename'].rstrip('/')) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
+                        logger.debug('Deleting edited SDM %s' % sdmFROM )
+                        shutil.rmtree( sdmFROM )
+                        logger.info('***NOTE (%s): not deleting unedited SDM files yet' % sdmORIG )
+                        #!!!logger.debug('Deleting original SDM %s' % sdmORIG ) #!!! WHEN CASEY SAYS GO
+                        #!!!shutil.rmtree( sdmORIG ) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
 
                     # Archive the BDF (via hardlink to archdir)
                     for scan in goodscans:
+                        bdfFROM = sc[scan]['bdfstr']
+                        bdfTO   = os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))
                         if test:
-                            logger.info('TEST MODE. Would hardlink %s to %s' % (sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))))
-                            touch(os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr'])) + ".archive")
+                            logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+                            touch( bdfFROM + ".archived" )
                         else:
-                            logger.debug('Hardlinking %s to %s' % (sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))))
-                            os.link(sc[scan]['bdfstr'], os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr'])))
+                            logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
+                            os.link( bdfFROM, bdfTO )
  
                     # Now delete all the hardlinks in our BDF working directory for this SB.
                     for scan in sc.keys():
-                        # The lines below need to be replaced with the actual BDF workdir hardlink delete command
-                        logger.debug('PROD would remove BDF %s' % sc[scan]['bdfstr'].rstrip('/'))
+                        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
                         if test:
-                            touch(os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr'].rstrip('/')) + '.delete'))
+                            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
+                            touch( bdfREMOVE + '.delete' )
                         else:
-                            logger.info('not deleting no_archive hardlinks yet')
-                            #!!! os.remove(sc[scan]['bdfstr'].rstrip('/')) #!!! WHEN CASEY SAYS GO
+                            logger.debug('Removing BDF %s' % bdfREMOVE )
+                            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
+                            #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
 
                 else:
                     logger.debug('Archiving is off.')                            
