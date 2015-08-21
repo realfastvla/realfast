@@ -63,7 +63,7 @@ class FRBController(object):
                     logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
 
                     # 1) copy data into place
-                    rtutils.rsyncsdm(filename, workdir)
+                    rtutils.rsync(filename, workdir)
                     filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
                     assert 'mchammer' not in filename, 'filename %s is SDM original!'
 

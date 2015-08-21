@@ -172,11 +172,11 @@ def grouprange(start, size, step):
     arr = range(start,start+size)
     return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
 
-def rsyncsdm(filename, workdir):
+def rsync(original, new):
     """ Uses subprocess.call to call rsync for filename into workdir.
     """
 
-    subprocess.call(["rsync", "-av", filename.rstrip('/'), workdir])
+    subprocess.call(["rsync", "-av", original.rstrip('/'), new.rstrip('/')])
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
@@ -192,6 +192,16 @@ def copysdm(filename, workdir):
         logger.info('File %s already in %s. Using that one...' % (fname, workdir))
     filename = newfileloc
 
+def copyDirectory(src, dest):
+    try:
+        shutil.copytree(src, dest)
+    # Directories are the same
+    except shutil.Error as e:
+        print('Directory not copied. Error: %s' % e)
+    # Any error saying that the directory doesn't exist
+    except OSError as e:
+        print('Directory not copied. Error: %s' % e)
+
 def check_spw(sdmfile, scan):
     """ Looks at relative freq of spw and duplicate spw_reffreq. 
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
@@ -202,9 +212,18 @@ def check_spw(sdmfile, scan):
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
 
-    duplicates = list(set(d['spw_reffreq'])) != d['spw_reffreq']
+    duplicates = list(set(d['spw_reffreq'])).sort() != d['spw_reffreq'].sort()
 
     return len(dfreqneg) <= 1 and not duplicates
+
+def count_candidates(mergefile):
+    """ Parses merged cands file and returns list of scans with detections.
+    Goal for this function is to apply RFI rejection, dm-t island detection, and whatever else we can think of.
+    """
+    with open(mergefile, 'rb') as pkl:
+        d = pickle.load(pkl)
+        cands = pickle.load(pkl)
+    return list(set([kk[0] for kk in cands.keys()]))    
 
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories

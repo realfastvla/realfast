@@ -123,7 +123,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                        goodscans += count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                        goodscans += rtutils.count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
@@ -158,7 +158,8 @@ def monitor(qname, triggered, archive, verbose, test):
                         touch(sdmFROM + ".archived")
                     else:
                         logger.info('Archiving SDM %s to %s' % ( sdmFROM, sdmTO ))
-                        copyDirectory( sdmFROM, sdmTO )
+#                        copyDirectory( sdmFROM, sdmTO )
+                        rtutils.rsync( sdmFROM, sdmTO )
 
                     # Remove old SDM and old edited copy
                     if test:
@@ -176,7 +177,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     # Archive the BDF (via hardlink to archdir)
                     for scan in goodscans:
                         bdfFROM = sc[scan]['bdfstr']
-                        bdfTO   = os.path.join(bdfArchdir, os.path.basename(sc[scan]['bdfstr']))
+                        bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
                         if test:
                             logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
                             touch( bdfFROM + ".archived" )
@@ -224,32 +225,12 @@ def removejob(jobid):
     else:
         logger.info('jobid %s not removed' % jobid)
 
-
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
     """
 
     q = Queue(qname, connection=conn0)
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
-
-def count_candidates(mergefile):
-    """ Parses merged cands file and returns list of scans with detections.
-    Goal for this function is to apply RFI rejection, dm-t island detection, and whatever else we can think of.
-    """
-    with open(mergefile, 'rb') as pkl:
-        d = pickle.load(pkl)
-        cands = pickle.load(pkl)
-    return list(set([kk[0] for kk in cands.keys()]))    
-
-def copyDirectory(src, dest):
-    try:
-        shutil.copytree(src, dest)
-    # Directories are the same
-    except shutil.Error as e:
-        print('Directory not copied. Error: %s' % e)
-    # Any error saying that the directory doesn't exist
-    except OSError as e:
-        print('Directory not copied. Error: %s' % e)
 
 # Temporary method for creating an empty file.
 def touch(path):
