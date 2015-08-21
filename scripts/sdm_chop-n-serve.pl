@@ -36,19 +36,21 @@ if (!-e "$sdm_directory/Main.xml") {
     exit 2;
 }
 my @dummy = split('/',$sdm_directory);
-my $target_sdm = "$target_dir/".$dummy[-1]."\_edited";
 
-# Check target directory
-if (-e "$target_sdm"){
-    print "\n\tERROR ($progname):\n\tRequested target file $target_sdm already exists; we do not overwrite.\n\n";
-    exit 3;
-}
+# Check target dir
 system "touch $target_dir/temp.garbage";
 if (!-e "$target_dir/temp.garbage"){
     print "\n\tERROR ($progname):\n\tYou do not have write permission in requested target dir $target_dir\n\n";
     exit 4;
 }
 system "rm -f $target_dir/temp.garbage";
+
+# Does target SDM already exist?
+my $target_sdm = "$target_dir/".$dummy[-1]."\_edited";
+if (-e "$target_sdm"){
+    print "\n\tERROR ($progname):\n\tRequested target file $target_sdm already exists; we do not overwrite.\n\n";
+    exit 3;
+}
 
 # Copy SDM to a dir we know we can edit in place.
 # Do not copy any bdfpkls directory.
@@ -59,9 +61,11 @@ while(<SDMDIR>){
     my $sdm_content = $_;
     if ($sdm_content !~ /bdfpkls/){
         system "cp -r $sdm_directory/$sdm_content $target_sdm";
+	chmod 0777, "$target_sdm/$sdm_content";
     }
 }
 close(SDMDIR);
+chmod 0777, "$target_sdm";
 
 
 my $main_xml_filename = "$target_sdm/Main.xml";
