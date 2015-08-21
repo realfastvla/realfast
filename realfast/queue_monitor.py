@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, pickle, sys, os
+import time, sys, os
 import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
