@@ -44,8 +44,25 @@ def monitor(qname, triggered, archive, verbose, test):
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
+    q0hist = [0]
+    q1hist = [0]
     while 1:
         jobids = conn.scan(cursor=0, count=trackercount)[1]
+
+        # track history of queue sizes
+        # if either queue changes size, save value
+        q0len = len(q.jobs)
+        q1len = len(jobids)
+        logger.info("%d %d" % (q0len, q1len))
+        logger.info("%s %s" % (q0hist, q1hist))
+        if (q0len != q0hist[-1]) or (q1len != q1hist[-1]):
+            q0hist.append(q0len)  # track latest size
+            q1hist.append(q1len)
+            q0hist = q0hist[-10:]   # keep most recent 10
+            q1hist = q1hist[-10:]
+            logger.info('** Queue size history (increasing to right) **')
+            logger.info('Worker queue:\t%s' % q0hist[::-1])
+            logger.info('Tail queue:\t%s' % q1hist[::-1])
 
         if jobids0 != jobids:
             logger.info('Tracking %d jobs' % len(jobids))
