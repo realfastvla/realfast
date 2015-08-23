@@ -53,8 +53,6 @@ def monitor(qname, triggered, archive, verbose, test):
         # if either queue changes size, save value
         q0len = len(q.jobs)
         q1len = len(jobids)
-        logger.info("%d %d" % (q0len, q1len))
-        logger.info("%s %s" % (q0hist, q1hist))
         if (q0len != q0hist[-1]) or (q1len != q1hist[-1]):
             q0hist.append(q0len)  # track latest size
             q1hist.append(q1len)
@@ -72,11 +70,13 @@ def monitor(qname, triggered, archive, verbose, test):
 
         # filter all jobids to those that are finished pipeline jobs
         jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
-
+        scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids]
+        
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
+            logger.info("Scans in queue: %s" % scans_in_queue)
 
             # To be done for each scan:
 
@@ -113,8 +113,9 @@ def monitor(qname, triggered, archive, verbose, test):
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
-            if d['scan'] == sc.keys()[-1]:
-                logger.info('This job processed last scan of %s.' % d['filename'])
+            if os.path.exists(os.path.join(d['filename'], 'done')) and (d['scan'] == max(scans_in_queue)):
+#            if d['scan'] == sc.keys()[-1]:
+                logger.info('This job processed scan %d, the last of %s.' % (d['scan'], d['filename']))
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
 
@@ -217,7 +218,7 @@ def monitor(qname, triggered, archive, verbose, test):
  
                 # 6) organize cands/noise files?
             else:
-                logger.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
+                logger.info('Scan %d is not highest submitted scan or %s is not finished writing.' % (d['scan'], d['filename'])
 
             # job is finished, so remove from db
             removejob(job.id)

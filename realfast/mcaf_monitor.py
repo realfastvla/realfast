@@ -46,6 +46,8 @@ class FRBController(object):
         # Check if MCAST message is simply telling us the obs is finished
         if config.obsComplete:
             logger.info("Received finalMessage=True; This observation has completed.")
+            filename = os.path.join(workdir, os.path.basename(config.sdmLocation))   # new full-path filename
+            queue_monitor.touch(os.path.join(filename, 'done'))
 
         elif self.intent in config.intentString and self.project in config.projectID:
             logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
