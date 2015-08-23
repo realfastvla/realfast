@@ -113,27 +113,13 @@ def monitor(qname, triggered, archive, verbose, test):
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
-            if os.path.exists(os.path.join(d['filename'], 'done')) and (d['scan'] == max(scans_in_queue)):
-#            if d['scan'] == sc.keys()[-1]:
+            if all([sc[i]['bdfstr'] for i in sc.keys()]) and (d['scan'] == max(scans_in_queue)):
+#            if os.path.exists(os.path.join(d['filename'], 'done')) and (d['scan'] == max(scans_in_queue)):
                 logger.info('This job processed scan %d, the last of %s.' % (d['scan'], d['filename']))
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
-
-                # 4-1) use timeout to check that BDFs are actually written (perhaps superfluous)
-                if not all([sc[i]['bdfstr'] for i in sc.keys()]):   # bdfstr=None if file not written/found
-                    logger.info('Not all bdf written yet for %s and scan %d. Waiting...' % (d['filename'], d['scan']))
-                    now = time.time()
-                    while 1:
-                        if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                            logger.info('All BDF written for %s.' % d['filename'])
-                            break
-                        elif time.time() - now > timeout:
-                            logger.info('Timeout while waiting for BDFs in %s.' % d['filename'])
-                            break
-                        else:
-                            time.sleep(2)
                         
-                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
+                # 4-1) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
@@ -150,7 +136,7 @@ def monitor(qname, triggered, archive, verbose, test):
                 scanstring = ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % scanstring)
 
-                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 4-2) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
                     logger.debug('Archiving is on.')
