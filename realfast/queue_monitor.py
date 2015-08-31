@@ -254,7 +254,7 @@ def status():
         for job in q.jobs:
             logger.info('%s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
 
-    jobids = conn.scan()[1]
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
     logger.info('Jobs in tracking queue:')
     q = Queue('default', connection=conn0)
     for jobid in jobids:
@@ -311,7 +311,7 @@ def reset():
             logger.info('Removed %s' % job.id)
 
     logger.info('Emptying tracking queue')
-    jobids = conn.scan()[1]
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
     for jobid in jobids:
         removejob(jobid)
         logger.info('Removed %s' % jobid)
