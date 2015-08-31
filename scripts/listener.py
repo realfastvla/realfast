@@ -27,12 +27,14 @@ def supervisor_events(stdin, stdout):
         yield payload[0], '\n'.join(payload[1:])
         writeflush(stdout, 'RESULT 2\nOK')
 
-email_prefix = """Heads-up! Data coming... \n\n"""
+email_prefix = """Message for you from realfast... \n\n ====================================\n\n"""
+email_suffix = """\n\n====================================\n\n"""
 
 @click.command()
 @click.option('--process', '-p', default='', help='Name of process to select. Default is all.')
 @click.option('--select', '-s', default='', help='Select lines containing this string. Default is all.')
 @click.option('--destination', '-d', default='log', help='Send lines to either \'stderr\' or \'email\'. Default is log (which is routed via stderr)')
+@click.option('--addresses', '-a', default='caseyjlaw@gmail.com', help='If destination=email, where to send event? (comma-separated list)')
 def main(process, select, destination):
     for ehead, edata in supervisor_events(sys.stdin, sys.stdout):
         ehead_parsed = get_headers(ehead)
@@ -46,7 +48,7 @@ def main(process, select, destination):
                 if destination == 'log':
                     writeflush(sys.stderr, edata + '\n')
                 elif destination == 'email':
-                    subprocess.call("""echo "%s" | mailx -s 'Supervisor Event (process %s and select %s)' caseyjlaw@gmail.com""" % (email_prefix+str(edata), process, select), shell=True)
+                    subprocess.call("""echo "%s" | mailx -s 'Supervisor Event (process %s and select %s)' %s""" % (email_prefix+str(edata)+email_suffix, process, select, addresses), shell=True)
 
 if __name__ == '__main__':
     main()
