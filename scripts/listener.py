@@ -47,7 +47,7 @@ def main(process, select, destination):
                 # send data along
                 if destination == 'log':
                     writeflush(sys.stderr, edata + '\n')
-                elif destination == 'email':
+                elif destination == 'email' and addresses:
                     subprocess.call("""echo "%s" | mailx -s 'Supervisor Event (process %s and select %s)' %s""" % (email_prefix+str(edata)+email_suffix, process, select, addresses), shell=True)
 
 if __name__ == '__main__':
