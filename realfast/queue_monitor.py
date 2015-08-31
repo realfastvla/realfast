@@ -244,6 +244,24 @@ def uniq_sort(lst):
     return thelist
 
 @click.command()
+def status():
+    """ Quick dump of trace for all failed jobs
+    """
+
+    for qname in ['default', 'failed']:
+        q = Queue(qname, connection=conn0)
+        logger.info('Jobs in queue %s:' % qname)
+        for job in q.jobs:
+            logger.info('%s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+
+    jobids = conn.scan()[1]
+    logger.info('Jobs in tracking queue:')
+    q = Queue('default', connection=conn0)
+    for jobid in jobids:
+        job = q.fetch_job(jobid)
+        logger.info('%s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+
+@click.command()
 def failed():
     """ Quick dump of trace for all failed jobs
     """
