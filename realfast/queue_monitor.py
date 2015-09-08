@@ -68,15 +68,16 @@ def monitor(qname, triggered, archive, verbose, test):
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs
-        jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
+        # filter all jobids to those that are finished pipeline jobs 
+        # now assumes only RT.pipeline jobs in q
+        jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids]
         
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
-            logger.info("Scans in queue: %s" % scans_in_queue)
+            logger.info("Scans in queue for filename %s: %s" % (d['filename'], scans_in_queue))
 
             # To be done for each scan:
 
@@ -113,8 +114,7 @@ def monitor(qname, triggered, archive, verbose, test):
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
-            if all([sc[i]['bdfstr'] for i in sc.keys()]) and (d['scan'] == max(scans_in_queue)):
-#            if os.path.exists(os.path.join(d['filename'], 'done')) and (d['scan'] == max(scans_in_queue)):
+            if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last of %s.' % (d['scan'], d['filename']))
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
@@ -204,7 +204,8 @@ def monitor(qname, triggered, archive, verbose, test):
  
                 # 6) organize cands/noise files?
             else:
-                logger.info('Scan %d is not highest submitted scan or %s is not finished writing.' % (d['scan'], d['filename'])
+                logger.info('Scan %d is last scan or %s is not finished writing.' % (d['scan'], d['filename']))
+                logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
             removejob(job.id)

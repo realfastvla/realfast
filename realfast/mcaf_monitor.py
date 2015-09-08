@@ -48,6 +48,7 @@ class FRBController(object):
             logger.info("Received finalMessage=True; This observation has completed.")
 #            filename = os.path.join(workdir, os.path.basename(config.sdmLocation))   # new full-path filename
 #            queue_monitor.touch(os.path.join(filename, 'done'))
+            rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
         elif self.intent in config.intentString and self.project in config.projectID:
             logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
