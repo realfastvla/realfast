@@ -20,7 +20,7 @@ bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CE
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
-@click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
+@click.option('--triggered/--all', default=False, help='Triggered recording of scans or save all? (default: all)')
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--test', '-t', help='Run test version of the code (e.g. will only print rather than actually archive)', is_flag=True)
