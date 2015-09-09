@@ -23,8 +23,8 @@ bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CE
 @click.option('--triggered/--all', default=False, help='Triggered recording of scans or save all? (default: all)')
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
-@click.option('--test', '-t', help='Run test version of the code (e.g. will only print rather than actually archive)', is_flag=True)
-def monitor(qname, triggered, archive, verbose, test):
+@click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
+def monitor(qname, triggered, archive, verbose, production):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -34,10 +34,12 @@ def monitor(qname, triggered, archive, verbose, test):
     else:
         logger.setLevel(logging.INFO)
 
-    if test:
-        logger.info('Running test version of the code. Will NOT actually archive but will print messages.')
+    if production:
+        logger.info('***WARNING: Running the production version of the code.***')
+        if archive:
+            logger.info('***WARNING: Will do archiving.***')
     else:
-        logger.info('***WARNING: Running the production version of the code. WILL do archiving if archiving parameter set!!!')
+        logger.info('Running test version of the code. Will NOT actually archive but will print messages.')
 
     logger.debug('Monitoring queue running in verbose/debug mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
@@ -158,7 +160,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     sdmTO   = os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))
 
                     # Archive edited SDM
-                    if test:
+                    if not production:
                         logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
                         touch(sdmFROM + ".archived")
                     else:
@@ -166,7 +168,7 @@ def monitor(qname, triggered, archive, verbose, test):
                         rtutils.rsync( sdmFROM, sdmTO )
 
                     # Remove old SDM and old edited copy
-                    if test:
+                    if not production:
                         logger.info('TEST MODE. Would delete edited SDM %s' % sdmFROM )
                         logger.info('TEST MODE. Would delete original SDM %s' % sdmORIG )
                         touch(sdmFROM + ".delete")
@@ -182,7 +184,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     for scan in goodscans:
                         bdfFROM = sc[scan]['bdfstr']
                         bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-                        if test:
+                        if not production:
                             logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
                             touch( bdfFROM + ".archived" )
                         else:
@@ -192,7 +194,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     # Now delete all the hardlinks in our BDF working directory for this SB.
                     for scan in sc.keys():
                         bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-                        if test:
+                        if not production:
                             logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
                             touch( bdfREMOVE + '.delete' )
                         else:
