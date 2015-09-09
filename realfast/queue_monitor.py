@@ -71,13 +71,14 @@ def monitor(qname, triggered, archive, verbose, test):
         # filter all jobids to those that are finished pipeline jobs 
         # now assumes only RT.pipeline jobs in q
         jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
-        scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids]
         
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
-            logger.info("Scans in queue for filename %s: %s" % (d['filename'], scans_in_queue))
+
+            scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids if q.fetch_job(jobid).args[0]['filename'] == d['filename']]
+            logger.debug("Scans in queue for filename %s: %s" % (d['filename'], scans_in_queue))
 
             # To be done for each scan:
 
