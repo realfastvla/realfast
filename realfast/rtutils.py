@@ -237,6 +237,19 @@ def count_candidates(mergefile):
         cands = pickle.load(pkl)
     return list(set([kk[0] for kk in cands.keys()]))    
 
+def tell_candidates(mergefile, filename):
+    """
+    Parses merged cands file and prints out candidate information to outfile.
+    """
+    with open(mergefile, 'rb') as pkl:
+        d = pickle.load(pkl)
+        cands = pickle.load(pkl)
+    with open(filename, 'w') as outfile:
+        for cand in cands.values():
+            outfile.write('\t'.join(map(str,list(cand)))+"\n")
+    return
+            
+
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
     Searches recent directory first, then tries tree search.
