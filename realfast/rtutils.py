@@ -112,7 +112,7 @@ def plot_summary(workdir, fileroot, scans, remove=[]):
     except:
         logger.exception('')
 
-    logger.info('Completed plotting for fileroot %s and scans %s' % (fileroot, str(scans)))
+    logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
 def plot_cand(workdir, fileroot, scans=[], candnum=-1):
     """ Visualize a candidate
@@ -249,7 +249,6 @@ def tell_candidates(mergefile, filename):
             outfile.write('\t'.join(map(str,list(cand)))+"\n")
     return
             
-
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
     Searches recent directory first, then tries tree search.

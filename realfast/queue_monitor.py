@@ -118,7 +118,7 @@ def monitor(qname, triggered, archive, verbose, production):
 
             # 4) if last scan of sdm, start end-of-sb processing
             if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
-                logger.info('This job processed scan %d, the last of %s.' % (d['scan'], d['filename']))
+                logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
                         
@@ -132,7 +132,7 @@ def monitor(qname, triggered, archive, verbose, production):
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
                         goodscans += rtutils.count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
                         #!!! For rate tests: print cand info !!!
-                        tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'),os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
+                        rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
@@ -209,7 +209,7 @@ def monitor(qname, triggered, archive, verbose, production):
  
                 # 6) organize cands/noise files?
             else:
-                logger.info('Scan %d is last scan or %s is not finished writing.' % (d['scan'], d['filename']))
+                logger.info('Scan %d is not last scan or %s is not finished writing.' % (d['scan'], d['filename']))
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
