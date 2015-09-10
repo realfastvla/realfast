@@ -124,6 +124,8 @@ def monitor(qname, triggered, archive, verbose, test):
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
                         goodscans += rtutils.count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                        #!!! For rate tests: print cand info !!!
+                        tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'),os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
