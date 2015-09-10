@@ -245,10 +245,12 @@ def tell_candidates(mergefile, filename):
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
     with open(filename, 'w') as outfile:
-        for cand in cands.values():
-            outfile.write('\t'.join(map(str,list(cand)))+"\n")
+        k = list(cands.keys())
+        v = list(cands.values())
+        for i in range(0,len(k)):            
+            outfile.write('\t'.join(map(str,k[i]))+'\t'.join(map(str,v[i]))+"\n")
     return
-            
+
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
     Searches recent directory first, then tries tree search.
