@@ -30,11 +30,11 @@ class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, intent='', project='', listen=True, verbose=False, rtparams=''):
+    def __init__(self, intent='', project='', production=False, verbose=False, rtparams=''):
         # Mode can be project, intent
         self.intent = intent
         self.project = project
-        self.listen = listen
+        self.production = production
         self.verbose = verbose
         self.rtparams = rtparams
 
@@ -46,13 +46,16 @@ class FRBController(object):
         # Check if MCAST message is simply telling us the obs is finished
         if config.obsComplete:
             logger.info("Received finalMessage=True; This observation has completed.")
+#            filename = os.path.join(workdir, os.path.basename(config.sdmLocation))   # new full-path filename
+#            queue_monitor.touch(os.path.join(filename, 'done'))
+            rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
         elif self.intent in config.intentString and self.project in config.projectID:
             logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
             logger.debug("BDF is in %s\n" % (config.bdfLocation))
 
             # If we're not in listening mode, prepare data and submit to queue system
-            if not self.listen:
+            if self.production:
                 filename = config.sdmLocation.rstrip('/')
                 scan = int(config.scan)
 
@@ -83,12 +86,12 @@ class FRBController(object):
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
 @click.option('--project', '-p', default='', help='Project name to trigger on')
-@click.option('--listen/--do', '-l', help='Only listen to multicast or actually do work?', default=True)
+@click.option('--production', help='Run the code (not just print, etc)', is_flag=True)
 @click.option('--verbose', '-v', help='More verbose output', is_flag=True)
 @click.option('--rtparams', help='Parameter file for rtpipe. Default is rtpipe_cbe_conf.', default=rtparams_default)
-def monitor(intent, project, listen, verbose, rtparams):
+def monitor(intent, project, production, verbose, rtparams):
     """ Monitor of mcaf observation files. 
-    Scans that match intent and project are searched (unless --listen).
+    Scans that match intent and project are searched (if in production mode).
     Blocking function.
     """
 
@@ -102,13 +105,13 @@ def monitor(intent, project, listen, verbose, rtparams):
     logger.info('Looking for intent = %s, project = %s' % (intent, project))
     logger.debug('Running in verbose mode')
 
-    if listen:
-        logger.info('Running in listen mode')
+    if not production:
+        logger.info('Running in test mode')
     else:
-        logger.info('Running in do mode')
+        logger.info('Running in production mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController(intent=intent, project=project, listen=listen, verbose=verbose, rtparams=rtparams)
+    controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, rtparams=rtparams)
     sdminfo_client = mcaf_library.SdminfoClient(controller)
     try:
         asyncore.loop()

@@ -20,11 +20,11 @@ bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CE
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
-@click.option('--triggered/--all', '-t', default=False, help='Triggered recording of scans or save all? (default: all)')
+@click.option('--triggered/--all', default=False, help='Triggered recording of scans or save all? (default: all)')
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
-@click.option('--test', '-t', help='Run test version of the code (e.g. will only print rather than actually archive)', is_flag=True)
-def monitor(qname, triggered, archive, verbose, test):
+@click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
+def monitor(qname, triggered, archive, verbose, production):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -34,18 +34,35 @@ def monitor(qname, triggered, archive, verbose, test):
     else:
         logger.setLevel(logging.INFO)
 
-    if test:
-        logger.info('Running test version of the code. Will NOT actually archive but will print messages.')
+    if production:
+        logger.info('***WARNING: Running the production version of the code.***')
+        if archive:
+            logger.info('***WARNING: Will do archiving.***')
     else:
-        logger.info('***WARNING: Running the production version of the code. WILL do archiving if archiving parameter set!!!')
+        logger.info('Running test version of the code. Will NOT actually archive but will print messages.')
 
     logger.debug('Monitoring queue running in verbose/debug mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
 
     jobids0 = []
+    q0hist = [0]
+    q1hist = [0]
     while 1:
         jobids = conn.scan(cursor=0, count=trackercount)[1]
+
+        # track history of queue sizes
+        # if either queue changes size, save value
+        q0len = len(q.jobs)
+        q1len = len(jobids)
+        if (q0len != q0hist[-1]) or (q1len != q1hist[-1]):
+            q0hist.append(q0len)  # track latest size
+            q1hist.append(q1len)
+            q0hist = q0hist[-10:]   # keep most recent 10
+            q1hist = q1hist[-10:]
+            logger.info('** Queue size history (increasing to right) **')
+            logger.info('Worker queue:\t%s' % q0hist[::-1])
+            logger.info('Tail queue:\t%s' % q1hist[::-1])
 
         if jobids0 != jobids:
             logger.info('Tracking %d jobs' % len(jobids))
@@ -53,13 +70,17 @@ def monitor(qname, triggered, archive, verbose, test):
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs
-        jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
-
+        # filter all jobids to those that are finished pipeline jobs 
+        # now assumes only RT.pipeline jobs in q
+        jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
+        
         # iterate over list of tail jobs (one expected per scan)
         for job in jobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
+
+            scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids if q.fetch_job(jobid).args[0]['filename'] == d['filename']]
+            logger.debug("Scans in queue for filename %s: %s" % (d['filename'], scans_in_queue))
 
             # To be done for each scan:
 
@@ -96,26 +117,12 @@ def monitor(qname, triggered, archive, verbose, test):
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
-            if d['scan'] == sc.keys()[-1]:
-                logger.info('This job processed last scan of %s.' % d['filename'])
+            if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+                logger.info('This job processed scan %d, the last of %s.' % (d['scan'], d['filename']))
 
                 # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
-
-                # 4-1) use timeout to check that BDFs are actually written (perhaps superfluous)
-                if not all([sc[i]['bdfstr'] for i in sc.keys()]):   # bdfstr=None if file not written/found
-                    logger.info('Not all bdf written yet for %s and scan %d. Waiting...' % (d['filename'], d['scan']))
-                    now = time.time()
-                    while 1:
-                        if all([sc[i]['bdfstr'] for i in sc.keys()]):
-                            logger.info('All BDF written for %s.' % d['filename'])
-                            break
-                        elif time.time() - now > timeout:
-                            logger.info('Timeout while waiting for BDFs in %s.' % d['filename'])
-                            break
-                        else:
-                            time.sleep(2)
                         
-                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
+                # 4-1) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
@@ -132,7 +139,7 @@ def monitor(qname, triggered, archive, verbose, test):
                 scanstring = ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % scanstring)
 
-                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 4-2) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
                     logger.debug('Archiving is on.')
@@ -153,7 +160,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     sdmTO   = os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))
 
                     # Archive edited SDM
-                    if test:
+                    if not production:
                         logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
                         touch(sdmFROM + ".archived")
                     else:
@@ -161,7 +168,7 @@ def monitor(qname, triggered, archive, verbose, test):
                         rtutils.rsync( sdmFROM, sdmTO )
 
                     # Remove old SDM and old edited copy
-                    if test:
+                    if not production:
                         logger.info('TEST MODE. Would delete edited SDM %s' % sdmFROM )
                         logger.info('TEST MODE. Would delete original SDM %s' % sdmORIG )
                         touch(sdmFROM + ".delete")
@@ -177,7 +184,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     for scan in goodscans:
                         bdfFROM = sc[scan]['bdfstr']
                         bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-                        if test:
+                        if not production:
                             logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
                             touch( bdfFROM + ".archived" )
                         else:
@@ -187,7 +194,7 @@ def monitor(qname, triggered, archive, verbose, test):
                     # Now delete all the hardlinks in our BDF working directory for this SB.
                     for scan in sc.keys():
                         bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-                        if test:
+                        if not production:
                             logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
                             touch( bdfREMOVE + '.delete' )
                         else:
@@ -200,7 +207,8 @@ def monitor(qname, triggered, archive, verbose, test):
  
                 # 6) organize cands/noise files?
             else:
-                logger.info('Scan %d is not last scan of scanlist %s.' % (d['scan'], str(sc.keys())))
+                logger.info('Scan %d is last scan or %s is not finished writing.' % (d['scan'], d['filename']))
+                logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
             removejob(job.id)
