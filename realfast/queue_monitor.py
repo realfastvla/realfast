@@ -262,14 +262,14 @@ def status():
         q = Queue(qname, connection=conn0)
         logger.info('Jobs in queue %s:' % qname)
         for job in q.jobs:
-            logger.info('%s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+            logger.info('job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
 
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     logger.info('Jobs in tracking queue:')
     q = Queue('default', connection=conn0)
     for jobid in jobids:
         job = q.fetch_job(jobid)
-        logger.info('%s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        logger.info('job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
 
 @click.command()
 def failed():
@@ -277,10 +277,10 @@ def failed():
     """
 
     q = Queue('failed', connection=conn0)
-    logger.info('Failed queue: %s' % q.jobs)
     for i in range(len(q.jobs)):
-        logger.info('Failure %d' % i)
-        logger.info('%s' % q.jobs[i].exc_info)
+        job = q.jobs[i]
+        logger.info('Failed job %s, filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        logger.info('%s' % job.exc_info)
 
 @click.command()
 def requeue():
@@ -288,11 +288,9 @@ def requeue():
     """
 
     qf = Queue('failed', connection=conn0)
-    logger.info('Enqueuing %d failed jobs' % len(qf.jobs))
-
     q = Queue('default', connection=conn0)
     for job in qf.jobs:
-        logger.info('Moved job %s' % job.id)
+        logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
         q.enqueue_job(job)
         qf.remove(job)
 
@@ -305,8 +303,8 @@ def empty(qname):
     q = Queue(qname, connection=conn0)
     logger.info('Emptying queue %s' % qname)
     for job in q.jobs:
+        logger.info('Removed job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
         q.remove(job)
-        logger.info('Removed %s\r' % job.id)
 
 @click.command()
 def reset():
@@ -318,10 +316,10 @@ def reset():
         logger.info('Emptying queue %s' % qname)
         for job in q.jobs:
             q.remove(job)
-            logger.info('Removed %s' % job.id)
+            logger.info('Removed job %s' % job.id)
 
     logger.info('Emptying tracking queue')
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     for jobid in jobids:
         removejob(jobid)
-        logger.info('Removed %s' % jobid)
+        logger.info('Removed job %s' % jobid)
