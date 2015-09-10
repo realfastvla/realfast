@@ -245,8 +245,8 @@ def tell_candidates(mergefile, filename):
         d = pickle.load(pkl)
         cands = pickle.load(pkl)
     with open(filename, 'w') as outfile:
-        for cand in list(set(kk[0] for kk in cands.values()]):
-            outfile.write(cand)
+        for cand in cands.values():
+            outfile.write('\t'.join(map(str,list(cand)))+"\n")
     return
             
 
