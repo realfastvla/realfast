@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 import os, argparse, time, shutil
 import sdmreader
-from realfast import rtutils, queue_monitor
+from realfast import rtutils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
@@ -62,6 +62,8 @@ if __name__ == '__main__':
     elif mode == 'rtsearch':
         """ Real-time search on cbe. First copies sdm into workdir, then looks for telcalfile (optionally waiting with timeout), then queues jobs.
         """
+
+        import queue_monitor
 
         # copy data into place
         rtutils.rsyncsdm(filename, workdir)
