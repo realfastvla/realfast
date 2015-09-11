@@ -7,7 +7,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from rq import Queue, Connection
 import os, argparse, time, shutil
 import sdmreader
 from realfast import rtutils, queue_monitor
@@ -50,11 +49,13 @@ if __name__ == '__main__':
     # connect
     with Connection():
         if mode == 'read':
-            q = Queue(qpriority, async=False)  # run locally
-            readjob = q.enqueue_call(func=rtutils.read, args=(filename, paramfile, fileroot, bdfdir), timeout=24*3600, result_ttl=24*3600)
+            rtutils.read(filename, paramfile, fileroot, bdfdir)
 
         elif mode == 'search':
-            q = Queue(qpriority)
+            from rq import Queue
+            from redis import Redis
+
+            q = Queue(qpriority, connection=Redis())
             lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
         elif mode == 'rtsearch':
@@ -78,7 +79,10 @@ if __name__ == '__main__':
                 logger.info('No calibration available. No job submitted.')
 
         elif mode == 'calibrate':
-            q = Queue(qpriority)
+            from rq import Queue
+            from redis import Redis
+
+            q = Queue(qpriority, connection=Redis())
             caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)
             
         elif mode == 'cleanup':
@@ -91,12 +95,14 @@ if __name__ == '__main__':
             rtutils.plot_cand(workdir, fileroot, scans)
 
         elif mode == 'plot_cand':
-            q = Queue(qpriority)
+            from rq import Queue
+            from redis import Redis
+
+            q = Queue(qpriority, connection=Redis())
             plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent 
 
         elif mode == 'plot_pulsar':
-            q = Queue(qpriority, async=False)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=rtutils.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent        
+            rtutils.plot_pulsar(workdir, fileroot, scans)
 
         else:
             logger.info('mode %s not recognized.' % mode)

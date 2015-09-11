@@ -1,4 +1,5 @@
-""" Functions imported by queue system.
+""" Functions used in realfast system.
+Originally a helper script, so strucutre is odd and needs reworking.
 """
 
 import os, glob, time, shutil, subprocess, logging
@@ -8,8 +9,6 @@ import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 import pickle
-from rq import Queue, Connection
-from redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +25,9 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir='/lustre/evla/wcbe/data/bunker'):
     """ Search for transients in all target scans and segments
     """
+
+    from rq import Queue, Connection
+    from redis import Redis
 
     # enqueue jobs
     stateseg = []
@@ -70,20 +72,6 @@ def calibrate(filename, fileroot):
 
     pipe = cp.pipe(filename, fileroot)
     pipe.run()
-
-def calimg(filename, paramfile, scans=[]):
-    """ Search of a small segment of data without dedispersion.
-    Intended to test calibration quality.
-    """
-
-    timescale = 1.  # average to this timescale (sec)
-    joblist = []
-    for scan in scans:
-        state = ps.get_metadata(filename, scan)
-        read_downsample = int(timescale/state['inttime'])
-        state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
-        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
-    return joblist
 
 def cleanup(workdir, fileroot, scans=[]):
     """ Cleanup up noise and cands files.
