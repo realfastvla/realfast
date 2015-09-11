@@ -50,13 +50,13 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
             if njobs > 1:
                 for i in range(njobs-1):
                     state, segment = stateseg[i]
-                    job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=6*3600, result_ttl=24*3600)
+                    job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
             else:
                 job = depends_on
 
             # use second to last job as dependency for last job
             state, segment = stateseg[-1]
-            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=6*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
+            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=24*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob
