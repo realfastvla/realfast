@@ -99,7 +99,7 @@ def cleanup(workdir, fileroot, scans=[]):
 #        except:
 #            logger.exception('')
 
-def plot_summary(workdir, fileroot, scans, remove=[]):
+def plot_summary(workdir, fileroot, scans, remove=[], snrmin=-999, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
     """
@@ -107,7 +107,7 @@ def plot_summary(workdir, fileroot, scans, remove=[]):
     os.chdir(workdir)
 
     try:
-        pc.plot_summary(fileroot, scans, remove=remove)
+        pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
         pc.plot_noise(fileroot, scans, remove=remove)
     except:
         logger.exception('')
