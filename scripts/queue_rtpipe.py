@@ -21,8 +21,8 @@ parser.add_argument("--scans", help="scans to search. comma-delimited integers."
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
 parser.add_argument("--remove", help="List of times to remove plot_summary visualizations", nargs='+', type=float, default=[])
-parser.add_argument("--snrmin", help="Min SNR to include in plot_summary", default=-999)
-parser.add_argument("--snrmax", help="Max SNR to include in plot_summary", default=999)
+parser.add_argument("--snrmin", help="Min SNR to include in plot_summary", default=-999, type=float)
+parser.add_argument("--snrmax", help="Max SNR to include in plot_summary", default=999, type=float)
 args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove; snrmin = args.snrmin; snrmax = args.snrmax
 
 scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, intent='')
