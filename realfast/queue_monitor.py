@@ -14,6 +14,7 @@ conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
+snrmin = 6.0
 bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
@@ -110,7 +111,7 @@ def monitor(qname, triggered, archive, verbose, production):
 
             # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
             try:
-                rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys())
+                rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 removejob(job.id)

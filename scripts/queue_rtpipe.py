@@ -7,10 +7,9 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from rq import Queue, Connection
 import os, argparse, time, shutil
 import sdmreader
-from realfast import rtutils, queue_monitor
+from realfast import rtutils
 
 parser = argparse.ArgumentParser()
 parser.add_argument("filename", help="filename with full path")
@@ -22,7 +21,9 @@ parser.add_argument("--scans", help="scans to search. comma-delimited integers."
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
 parser.add_argument("--remove", help="List of times to remove plot_summary visualizations", nargs='+', type=float, default=[])
-args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove
+parser.add_argument("--snrmin", help="Min SNR to include in plot_summary", default=-999)
+parser.add_argument("--snrmax", help="Max SNR to include in plot_summary", default=999)
+args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove; snrmin = float(args.snrmin); snrmax = float(args.snrmax)
 
 scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, intent='')
 
@@ -48,55 +49,64 @@ if __name__ == '__main__':
         qpriority = 'default'
 
     # connect
-    with Connection():
-        if mode == 'read':
-            q = Queue(qpriority, async=False)  # run locally
-            readjob = q.enqueue_call(func=rtutils.read, args=(filename, paramfile, fileroot, bdfdir), timeout=24*3600, result_ttl=24*3600)
+    if mode == 'read':
+        rtutils.read(filename, paramfile, fileroot, bdfdir)
 
-        elif mode == 'search':
-            q = Queue(qpriority)
-            lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
+    elif mode == 'search':
+        from rq import Queue
+        from redis import Redis
 
-        elif mode == 'rtsearch':
-            """ Real-time search on cbe. First copies sdm into workdir, then looks for telcalfile (optionally waiting with timeout), then queues jobs.
-            """
+        q = Queue(qpriority, connection=Redis())
+        lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
-            # copy data into place
-            rtutils.rsyncsdm(filename, workdir)
-            filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+    elif mode == 'rtsearch':
+        """ Real-time search on cbe. First copies sdm into workdir, then looks for telcalfile (optionally waiting with timeout), then queues jobs.
+        """
 
-            assert 'mchammer' not in filename  # be sure we are not working with pure version
+        import queue_monitor
 
-            # find telcalfile (use timeout to wait for it to be written)
-            telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+        # copy data into place
+        rtutils.rsyncsdm(filename, workdir)
+        filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
 
-            # submit search job and add tail job to monitoring queue
-            if telcalfile:
-                lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost=redishost)
-                queue_monitor.addjob(lastjob.id)
-            else:
-                logger.info('No calibration available. No job submitted.')
+        assert 'mchammer' not in filename  # be sure we are not working with pure version
 
-        elif mode == 'calibrate':
-            q = Queue(qpriority)
-            caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)
-            
-        elif mode == 'cleanup':
-            rtutils.cleanup(workdir, fileroot, scans)
+        # find telcalfile (use timeout to wait for it to be written)
+        telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
 
-        elif mode == 'plot_summary':
-            rtutils.plot_summary(workdir, fileroot, scans, remove)
-
-        elif mode == 'show_cands':
-            rtutils.plot_cand(workdir, fileroot, scans)
-
-        elif mode == 'plot_cand':
-            q = Queue(qpriority)
-            plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent 
-
-        elif mode == 'plot_pulsar':
-            q = Queue(qpriority, async=False)    # ultimately need this to be on queue and depende_on search
-            plotjob = q.enqueue_call(func=rtutils.plot_pulsar, args=(workdir, fileroot, scans), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent        
-
+        # submit search job and add tail job to monitoring queue
+        if telcalfile:
+            lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost=redishost)
+            queue_monitor.addjob(lastjob.id)
         else:
-            logger.info('mode %s not recognized.' % mode)
+            logger.info('No calibration available. No job submitted.')
+
+    elif mode == 'calibrate':
+        from rq import Queue
+        from redis import Redis
+
+        q = Queue(qpriority, connection=Redis())
+        caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)
+            
+    elif mode == 'cleanup':
+        # pack all the segments up into one pkl per scan
+        rtutils.cleanup(workdir, fileroot, scans)
+
+    elif mode == 'plot_summary':
+        rtutils.plot_summary(workdir, fileroot, scans, remove, snrmin=snrmin, snrmax=snrmax)
+
+    elif mode == 'show_cands':
+        rtutils.plot_cand(workdir, fileroot, scans)
+
+    elif mode == 'plot_cand':
+        from rq import Queue
+        from redis import Redis
+        
+        q = Queue(qpriority, connection=Redis())
+        plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent 
+
+    elif mode == 'plot_pulsar':
+        rtutils.plot_pulsar(workdir, fileroot, scans)
+
+    else:
+        logger.info('mode %s not recognized.' % mode)

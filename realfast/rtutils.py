@@ -1,4 +1,5 @@
-""" Functions imported by queue system.
+""" Functions used in realfast system.
+Originally a helper script, so strucutre is odd and needs reworking.
 """
 
 import os, glob, time, shutil, subprocess, logging
@@ -8,8 +9,6 @@ import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 import pickle
-from rq import Queue, Connection
-from redis import Redis
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +25,9 @@ def read(filename, paramfile='', fileroot='', bdfdir='/lustre/evla/wcbe/data/rea
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir='/lustre/evla/wcbe/data/bunker'):
     """ Search for transients in all target scans and segments
     """
+
+    from rq import Queue, Connection
+    from redis import Redis
 
     # enqueue jobs
     stateseg = []
@@ -50,13 +52,13 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
             if njobs > 1:
                 for i in range(njobs-1):
                     state, segment = stateseg[i]
-                    job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=6*3600, result_ttl=24*3600)
+                    job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
             else:
                 job = depends_on
 
             # use second to last job as dependency for last job
             state, segment = stateseg[-1]
-            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=6*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
+            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=24*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob
@@ -70,20 +72,6 @@ def calibrate(filename, fileroot):
 
     pipe = cp.pipe(filename, fileroot)
     pipe.run()
-
-def calimg(filename, paramfile, scans=[]):
-    """ Search of a small segment of data without dedispersion.
-    Intended to test calibration quality.
-    """
-
-    timescale = 1.  # average to this timescale (sec)
-    joblist = []
-    for scan in scans:
-        state = ps.get_metadata(filename, scan)
-        read_downsample = int(timescale/state['inttime'])
-        state = rt.set_pipeline(filename, scan, paramfile=paramfile, nthread=1, nsegments=0, gainfile=gainfile, bpfile=bpfile, dmarr=[0], dtarr=[1], timesub='', candsfile='', noisefile='', read_downsample=read_downsample, fileroot=fileroot)
-        joblist.append(q.enqueue_call(func=rt.pipeline, args=(state, state['nsegments']/2), timeout=24*3600, result_ttl=24*3600, depends_on=depends_on))  # image middle segment
-    return joblist
 
 def cleanup(workdir, fileroot, scans=[]):
     """ Cleanup up noise and cands files.
@@ -99,7 +87,7 @@ def cleanup(workdir, fileroot, scans=[]):
 #        except:
 #            logger.exception('')
 
-def plot_summary(workdir, fileroot, scans, remove=[]):
+def plot_summary(workdir, fileroot, scans, remove=[], snrmin=-999, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
     """
@@ -107,7 +95,7 @@ def plot_summary(workdir, fileroot, scans, remove=[]):
     os.chdir(workdir)
 
     try:
-        pc.plot_summary(fileroot, scans, remove=remove)
+        pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
         pc.plot_noise(fileroot, scans, remove=remove)
     except:
         logger.exception('')
