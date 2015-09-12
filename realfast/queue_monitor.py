@@ -214,10 +214,12 @@ def monitor(qname, triggered, archive, verbose, production):
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
+            logger.info('Removing job %s from tracking queue.' % job.id)
             removejob(job.id)
+            sys.stdout.flush()
 
         sys.stdout.flush()
-        time.sleep(2)
+        time.sleep(1)
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
