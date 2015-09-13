@@ -71,8 +71,13 @@ def monitor(qname, triggered, archive, verbose, production):
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs 
-        # now assumes only RT.pipeline jobs in q
+        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in q
+        badjobs = [jobids[i] for i in range(len(jobids)) if not q.fetch_job(jobids[i])]  # clean up jobids list first
+        if badjobs:
+            logger.info('Cleaning up jobs in tail queue with no counterpart in working queue.')
+            for jobid in badjobs:
+                removejob(jobid)
+
         jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         
         # iterate over list of tail jobs (one expected per scan)
