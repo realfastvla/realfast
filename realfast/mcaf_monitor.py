@@ -46,9 +46,10 @@ class FRBController(object):
         # Check if MCAST message is simply telling us the obs is finished
         if config.obsComplete:
             logger.info("Received finalMessage=True; This observation has completed.")
-#            filename = os.path.join(workdir, os.path.basename(config.sdmLocation))   # new full-path filename
-#            queue_monitor.touch(os.path.join(filename, 'done'))
-            rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
+            # if completing the desired SB, then do a final rsync
+            if self.intent in config.intentString and self.project in config.projectID:
+                logger.info("Final rsync to make workdir copy of SDM %sd complete." % (config.sdmLocation.rstrip('/')))
+                rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
         elif self.intent in config.intentString and self.project in config.projectID:
             logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
