@@ -61,7 +61,7 @@ def monitor(qname, triggered, archive, verbose, production):
             q1hist.append(q1len)
             q0hist = q0hist[-10:]   # keep most recent 10
             q1hist = q1hist[-10:]
-            logger.info('** Queue size history (increasing to right) **')
+            logger.info('** Queue size history (newest to oldest) **')
             logger.info('Worker queue:\t%s' % q0hist[::-1])
             logger.info('Tail queue:\t%s' % q1hist[::-1])
 
