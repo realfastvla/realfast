@@ -61,7 +61,7 @@ def monitor(qname, triggered, archive, verbose, production):
             q1hist.append(q1len)
             q0hist = q0hist[-10:]   # keep most recent 10
             q1hist = q1hist[-10:]
-            logger.info('** Queue size history (increasing to right) **')
+            logger.info('** Queue size history (newest to oldest) **')
             logger.info('Worker queue:\t%s' % q0hist[::-1])
             logger.info('Tail queue:\t%s' % q1hist[::-1])
 
@@ -71,8 +71,13 @@ def monitor(qname, triggered, archive, verbose, production):
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs 
-        # now assumes only RT.pipeline jobs in q
+        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in q
+        badjobs = [jobids[i] for i in range(len(jobids)) if not q.fetch_job(jobids[i])]  # clean up jobids list first
+        if badjobs:
+            logger.info('Cleaning up jobs in tail queue with no counterpart in working queue.')
+            for jobid in badjobs:
+                removejob(jobid)
+
         jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         
         # iterate over list of tail jobs (one expected per scan)
@@ -214,10 +219,12 @@ def monitor(qname, triggered, archive, verbose, production):
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
+            logger.info('Removing job %s from tracking queue.' % job.id)
             removejob(job.id)
+            sys.stdout.flush()
 
         sys.stdout.flush()
-        time.sleep(2)
+        time.sleep(1)
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
