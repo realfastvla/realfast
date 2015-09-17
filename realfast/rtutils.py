@@ -216,14 +216,28 @@ def check_spw(sdmfile, scan):
 
     return len(dfreqneg) <= 1 and not duplicates
 
-def count_candidates(mergefile):
+def find_archivescans(mergefile, threshold=0):
     """ Parses merged cands file and returns list of scans with detections.
+    All scans with cand SNR>threshold are returned as a list.
     Goal for this function is to apply RFI rejection, dm-t island detection, and whatever else we can think of.
     """
-    with open(mergefile, 'rb') as pkl:
-        d = pickle.load(pkl)
-        cands = pickle.load(pkl)
-    return list(set([kk[0] for kk in cands.keys()]))    
+
+    # read metadata and define columns of interest
+    d = pickle.load(open(mergefile, 'r'))
+    scancol = d['featureind'].index('scan')
+    if 'snr2' in d['features']:
+        snrcol = d['features'].index('snr2')
+    elif 'snr1' in d['features']:
+        snrcol = d['features'].index('snr1')
+
+    # read data and define snrs
+    loc, prop = pc.read_candidates(mergefile)
+    snrs = [prop[i][snrcol] for i in range(len(prop))]
+
+    # calculate unique list of scans of interest
+    scans = set([loc[i,scancol] for i in range(len(loc)) if snrs[i] > threshold])
+
+    return scans
 
 def tell_candidates(mergefile, filename):
     """
