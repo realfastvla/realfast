@@ -8,7 +8,6 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 import os, argparse, time, shutil
-import sdmreader
 from realfast import rtutils
 
 parser = argparse.ArgumentParser()
@@ -18,14 +17,15 @@ parser.add_argument("--paramfile", help="parameters for rtpipe using python-like
 parser.add_argument("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
 parser.add_argument("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
 parser.add_argument("--scans", help="scans to search. comma-delimited integers.", default='')
+parser.add_argument("--intent", help="Intent filter for getting scans", default='TARGET')
 parser.add_argument("--queue", help="Force queue priority ('high', 'low')", default='')
 parser.add_argument("--candnum", help="Candidate number to plot", default=-1)
 parser.add_argument("--remove", help="List of times to remove plot_summary visualizations", nargs='+', type=float, default=[])
 parser.add_argument("--snrmin", help="Min SNR to include in plot_summary", default=-999)
 parser.add_argument("--snrmax", help="Max SNR to include in plot_summary", default=999)
-args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove; snrmin = float(args.snrmin); snrmax = float(args.snrmax)
+args = parser.parse_args(); filename = args.filename; sources = args.sources; mode = args.mode; paramfile = args.paramfile; fileroot=args.fileroot; candnum = int(args.candnum); remove = args.remove; snrmin = float(args.snrmin); snrmax = float(args.snrmax); intent=args.intent
 
-scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, intent='')
+scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, intent=intent)
 
 # Define names, paths
 filename = os.path.abspath(filename)
