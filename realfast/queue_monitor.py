@@ -315,7 +315,7 @@ def clean():
         job = qf.fetch_job(jobid)
         jobd = qf.fetch_job(jobid).dependency
         if job.is_failed or jobd.is_failed:
-            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.')
+            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.' % jobid)
             removejob(jobid)
             if job.is_failed:
                 logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
