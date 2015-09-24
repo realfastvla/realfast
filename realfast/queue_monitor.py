@@ -304,6 +304,29 @@ def requeue():
         qf.remove(job)
 
 @click.command()
+def clean():
+    """ Take jobs from tracking queue and clean them from all queues if they or their dependencies have failed
+    """
+
+    q = Queue('default', connection=conn0)
+    qf = Queue('failed', connection=conn0)
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
+    for jobid in jobids:
+        job = qf.fetch_job(jobid)
+        jobd = qf.fetch_job(jobid).dependency
+        if job.is_failed or jobd.is_failed:
+            if job.is_failed:
+                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+                q.remove(job)
+                qf.remove(job)
+            if jobd.is_failed:
+                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (jobd.id, jobd.args[0]['filename'], jobd.args[0]['scan'], str(jobd.args[1])))
+                q.remove(jobd)
+                qf.remove(jobd)
+            logger.info('removing job %s from tracking queue' % jobid)
+            removejob(jobid)
+
+@click.command()
 @click.argument('qname')
 def empty(qname):
     """ Empty qname
