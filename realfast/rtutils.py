@@ -235,9 +235,15 @@ def find_archivescans(mergefile, threshold=0):
     snrs = [prop[i][snrcol] for i in range(len(prop))]
 
     # calculate unique list of scans of interest
-    scans = set([loc[i,scancol] for i in range(len(loc)) if snrs[i] > threshold])
+    sigscans = [loc[i,scancol] for i in range(len(loc)) if snrs[i] > threshold]
+    sigsnrs = [snrs[i] for i in range(len(loc)) if snrs[i] > threshold]
+    siglocs = [list(loc[i]) for i in range(len(loc)) if snrs[i] > threshold]
+    if len(sigscans):
+        logger.info('cands above threshold %.1f for %s: %s' % (threshold, mergefile, str(zip(siglocs, sigsnrs))))
+    else:
+        logger.info('no cands above threshold %.1f for %s' % (threshold, mergefile))
 
-    return scans
+    return set(allscans)
 
 def tell_candidates(mergefile, filename):
     """
