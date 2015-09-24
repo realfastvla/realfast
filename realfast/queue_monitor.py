@@ -239,9 +239,9 @@ def removejob(jobid):
 
     status = conn.delete(jobid)
     if status:
-        logger.info('jobid %s removed' % jobid)
+        logger.info('jobid %s removed from tracking queue' % jobid)
     else:
-        logger.info('jobid %s not removed' % jobid)
+        logger.info('jobid %s not removed from tracking queue' % jobid)
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
@@ -315,6 +315,8 @@ def clean():
         job = qf.fetch_job(jobid)
         jobd = qf.fetch_job(jobid).dependency
         if job.is_failed or jobd.is_failed:
+            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.')
+            removejob(jobid)
             if job.is_failed:
                 logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
                 q.remove(job)
@@ -323,8 +325,6 @@ def clean():
                 logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (jobd.id, jobd.args[0]['filename'], jobd.args[0]['scan'], str(jobd.args[1])))
                 q.remove(jobd)
                 qf.remove(jobd)
-            logger.info('removing job %s from tracking queue' % jobid)
-            removejob(jobid)
 
 @click.command()
 @click.argument('qname')
@@ -354,4 +354,3 @@ def reset():
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     for jobid in jobids:
         removejob(jobid)
-        logger.info('Removed job %s' % jobid)
