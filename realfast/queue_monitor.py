@@ -220,27 +220,27 @@ def movetoarchive(filename, workdir, goodscans=None, production=False):
         #!!!logger.debug('Deleting original SDM %s' % sdmORIG ) #!!! WHEN CASEY SAYS GO
         #!!!shutil.rmtree( sdmORIG ) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
 
-        # Archive the BDF (via hardlink to archdir)
-        for scan in goodscans:
-            bdfFROM = sc[scan]['bdfstr']
-            bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-            if not production:
-                logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
-                touch( bdfFROM + ".archived" )
-            else:
-                logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
-                os.link( bdfFROM, bdfTO )
+    # Archive the BDF (via hardlink to archdir)
+    for scan in goodscans:
+        bdfFROM = sc[scan]['bdfstr']
+        bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
+        if not production:
+            logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+            touch( bdfFROM + ".archived" )
+        else:
+            logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
+            os.link( bdfFROM, bdfTO )
  
-        # Now delete all the hardlinks in our BDF working directory for this SB.
-        for scan in sc.keys():
-            bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-            if not production:
-                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
-                touch( bdfREMOVE + '.delete' )
-            else:
-                logger.debug('Removing BDF %s' % bdfREMOVE )
-                logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
-                #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
+    # Now delete all the hardlinks in our BDF working directory for this SB.
+    for scan in sc.keys():
+        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
+        if not production:
+            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
+            touch( bdfREMOVE + '.delete' )
+        else:
+            logger.debug('Removing BDF %s' % bdfREMOVE )
+            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
+            #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
