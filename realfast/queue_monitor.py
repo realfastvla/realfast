@@ -25,7 +25,8 @@ bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CE
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
-def monitor(qname, triggered, archive, verbose, production):
+@click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
+def monitor(qname, triggered, archive, verbose, production, threshold):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -136,7 +137,7 @@ def monitor(qname, triggered, archive, verbose, production):
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                        goodscans += rtutils.count_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'))
+                        goodscans += rtutils.find_archivescans(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), threshold)
                         #!!! For rate tests: print cand info !!!
                         rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
@@ -238,9 +239,9 @@ def removejob(jobid):
 
     status = conn.delete(jobid)
     if status:
-        logger.info('jobid %s removed' % jobid)
+        logger.info('jobid %s removed from tracking queue' % jobid)
     else:
-        logger.info('jobid %s not removed' % jobid)
+        logger.info('jobid %s not removed from tracking queue' % jobid)
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
@@ -303,6 +304,29 @@ def requeue():
         qf.remove(job)
 
 @click.command()
+def clean():
+    """ Take jobs from tracking queue and clean them from all queues if they or their dependencies have failed
+    """
+
+    q = Queue('default', connection=conn0)
+    qf = Queue('failed', connection=conn0)
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
+    for jobid in jobids:
+        job = qf.fetch_job(jobid)
+        jobd = qf.fetch_job(jobid).dependency
+        if job.is_failed or jobd.is_failed:
+            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.' % jobid)
+            removejob(jobid)
+            if job.is_failed:
+                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+                q.remove(job)
+                qf.remove(job)
+            if jobd.is_failed:
+                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (jobd.id, jobd.args[0]['filename'], jobd.args[0]['scan'], str(jobd.args[1])))
+                q.remove(jobd)
+                qf.remove(jobd)
+
+@click.command()
 @click.argument('qname')
 def empty(qname):
     """ Empty qname
@@ -330,4 +354,3 @@ def reset():
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     for jobid in jobids:
         removejob(jobid)
-        logger.info('Removed job %s' % jobid)

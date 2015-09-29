@@ -47,7 +47,7 @@ class FRBController(object):
         if config.obsComplete:
             logger.info("Received finalMessage=True; This observation has completed.")
             # if completing the desired SB, then do a final rsync
-            if self.intent in config.intentString and self.project in config.projectID:
+            if self.project in config.projectID:
                 logger.info("Final rsync to make workdir copy of SDM %sd complete." % (config.sdmLocation.rstrip('/')))
                 rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 

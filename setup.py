@@ -19,6 +19,7 @@ setup(
         [console_scripts]
         queue_monitor=realfast.queue_monitor:monitor
         queue_empty=realfast.queue_monitor:empty
+        queue_clean=realfast.queue_monitor:clean
         queue_status=realfast.queue_monitor:status
         queue_requeue=realfast.queue_monitor:requeue
         queue_failed=realfast.queue_monitor:failed

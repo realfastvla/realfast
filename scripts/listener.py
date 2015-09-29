@@ -35,7 +35,7 @@ email_suffix = """\n\n====================================\n\n"""
 @click.option('--select', '-s', default='', help='Select lines containing this string. Default is all.')
 @click.option('--destination', '-d', default='log', help='Send lines to either \'stderr\' or \'email\'. Default is log (which is routed via stderr)')
 @click.option('--addresses', '-a', default='caseyjlaw@gmail.com', help='If destination=email, where to send event? (comma-separated list)')
-def main(process, select, destination):
+def main(process, select, destination, addresses):
     for ehead, edata in supervisor_events(sys.stdin, sys.stdout):
         ehead_parsed = get_headers(ehead)
 
