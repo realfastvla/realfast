@@ -230,8 +230,8 @@ def tell_candidates(mergefile, filename):
     Parses merged cands file and prints out candidate information to outfile.
     """
     with open(mergefile, 'rb') as pkl:
-        d = pickle.load(pkl)
-        cands = pickle.load(pkl)
+        d = pickle.load(pkl) # dmlist = d['dmarr'] ; same for dtarr.
+        cands = pickle.load(pkl) # can also read as (loc, prop) to get arrays of each thing.
     with open(filename, 'w') as outfile:
         k = list(cands.keys())
         v = list(cands.values())
