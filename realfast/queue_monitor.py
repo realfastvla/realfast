@@ -9,7 +9,7 @@ import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
 
-# set up
+# set up  
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
