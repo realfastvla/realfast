@@ -15,9 +15,11 @@ conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 snrmin = 6.0
+inttime = '5'  # time to integrate when making slow copy
 bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
+redishost = os.uname()[1]  # assuming we start on redis host
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
@@ -127,8 +129,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold):
             if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 4-0) optionally could check that other scans are in finishedjobs. baseline assumption is that last scan finishes last.
-                        
+                # 4-0) enqueue job to integrate SDM down into MS
+                allscanstr = ','.join(str(s) for s in sc.keys())
+                rtutils.integrate(d['filename'], allscanstr, inttime, redishost)
+
                 # 4-1) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
@@ -267,7 +271,7 @@ def status():
     """ Quick dump of trace for all failed jobs
     """
 
-    for qname in ['default', 'failed']:
+    for qname in ['default', 'slow', 'failed']:
         q = Queue(qname, connection=conn0)
         logger.info('Jobs in queue %s:' % qname)
         for job in q.jobs:
@@ -298,6 +302,7 @@ def requeue():
 
     qf = Queue('failed', connection=conn0)
     q = Queue('default', connection=conn0)
+#    qs = Queue('slow', connection=conn0)  # how to requeue to slow also?
     for job in qf.jobs:
         logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
         q.enqueue_job(job)
@@ -343,7 +348,7 @@ def reset():
     """ Reset queues (both dbs)
     """
 
-    for qname in ['default', 'failed']:
+    for qname in ['default', 'slow', 'failed']:
         q = Queue(qname, connection=conn0)
         logger.info('Emptying queue %s' % qname)
         for job in q.jobs:
