@@ -275,7 +275,11 @@ def status():
         q = Queue(qname, connection=conn0)
         logger.info('Jobs in queue %s:' % qname)
         for job in q.jobs:
-            logger.info('job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+            if isinstance(job.args[0], dict):
+                details = (job.args[0]['filename'], job.args[0]['scan'])
+            elif isinstance(job.args[0], str):
+                details = job.args[0]
+                logger.info('job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
 
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     logger.info('Jobs in tracking queue:')
@@ -340,7 +344,11 @@ def empty(qname):
     q = Queue(qname, connection=conn0)
     logger.info('Emptying queue %s' % qname)
     for job in q.jobs:
-        logger.info('Removed job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        if isinstance(job.args[0], dict):
+            details = (job.args[0]['filename'], job.args[0]['scan'])
+        elif isinstance(job.args[0], str):
+            details = job.args[0]
+        logger.info('Removed job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
         q.remove(job)
 
 @click.command()
