@@ -66,6 +66,18 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         logger.info('No jobs to enqueue')
         return
 
+def integrate(filename, scanstr, inttime, redishost='localhost'):
+    """ Creates MS from SDM and integrates down.
+    filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
+    """
+
+    from rq import Queue, Connection
+    from redis import Redis
+
+    with Connection(Redis(redishost)):
+        q = Queue('slow')
+        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=24*3600, result_ttl=24*3600)
+
 def calibrate(filename, fileroot):
     """ Run calibration pipeline
     """
