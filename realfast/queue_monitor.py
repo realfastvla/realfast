@@ -174,11 +174,14 @@ def monitor(qname, triggered, archive, verbose, production, threshold):
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 def movetoarchive(filename, workdir, goodscans=None, production=False):
     """ Moves sdm and bdf associated with filename to archive.
+    filename is sdmfile. workdir is place with file.
+    goodscans is list, which is optional.
+    production is boolean for production mode.
     """
 
-    sc,sr = sdmreader.read_metadata(filename)
+    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     if not goodscans:
-        goodscans = sc.keys()
+        goodscans = [s for s in sc.keys() if sc[s]['bdfstr']]
 
     logger.debug('Archiving is on.')
     logger.debug('Archiving directory info:')
@@ -232,7 +235,7 @@ def movetoarchive(filename, workdir, goodscans=None, production=False):
             os.link( bdfFROM, bdfTO )
  
     # Now delete all the hardlinks in our BDF working directory for this SB.
-    for scan in sc.keys():
+    for scan in goodscans:
         bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
         if not production:
             logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
