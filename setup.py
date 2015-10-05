@@ -24,6 +24,7 @@ setup(
         queue_requeue=realfast.queue_monitor:requeue
         queue_failed=realfast.queue_monitor:failed
         queue_reset=realfast.queue_monitor:reset
+        queue_movetoarchive=realfast.queue_monitor:movetoarchive
         rqinfo_monitor=realfast.rqinfo_monitor:monitor
         mcaf_monitor=realfast.mcaf_monitor:monitor
     ''',
