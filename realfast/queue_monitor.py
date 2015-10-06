@@ -15,7 +15,6 @@ conn = Redis(db=1)   # db for tracking ids of tail jobs
 timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 snrmin = 6.0
-inttime = '5'  # time to integrate when making slow copy
 bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
@@ -28,7 +27,7 @@ redishost = os.uname()[1]  # assuming we start on redis host
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
-@click.option('--slow', '-s', is_flag=True, help='Create local measurement set of all data integrated to 5 seconds.')
+@click.option('--slow', '-s', help='Create local measurement set of all data integrated to this timescale (in seconds).', default=0.)
 def monitor(qname, triggered, archive, verbose, production, threshold, slow):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
@@ -131,7 +130,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
                 # 4-1) Run slow transients search
-                if slow:
+                if slow > 0:
                     logger.info('Creating measurement set for %s' & d['filename'])
 
                     # Create ASDMBinary directory in our local SDM
@@ -154,8 +153,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
                     # Submit slow-processing job to our alternate queue.
                     allscanstr = ','.join(str(s) for s in sc.keys())
-                    rtutils.integrate(d['filename'], allscanstr, inttime, redishost)
-
+                    rtutils.integrate(d['filename'], allscanstr, slow, redishost)
 
                 # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
@@ -177,71 +175,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
                 # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
-<<<<<<< HEAD
                     movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscans=goodscans, production=production)
-=======
-                    assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
-                    logger.debug('Archiving is on.')
-                    logger.debug('Archiving directory info:')
-                    logger.debug('Workdir: %s' % d['workdir'])
-                    logger.debug('SDMarch: %s' % sdmArchdir)
-                    logger.debug('SDM:     %s' % d['filename'])
-                    logger.debug('BDFarch: %s' % bdfArchdir)
-                    logger.debug('BDFwork: %s' % os.path.dirname(sc[goodscans[0]]['bdfstr']))
-                    
-                    subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
-
-                    # 5) copy new SDM and good BDFs to archive locations
-                    
-                    # Set up names of source/target SDM files
-                    sdmORIG = d['filename'].rstrip('/')
-                    sdmFROM = d['filename'].rstrip('/') + "_edited"
-                    sdmTO   = os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))
-
-                    # Archive edited SDM
-                    if not production:
-                        logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
-                        touch(sdmFROM + ".archived")
-                    else:
-                        logger.info('Archiving SDM %s to %s' % ( sdmFROM, sdmTO ))
-                        rtutils.rsync( sdmFROM, sdmTO )
-
-                    # Remove old SDM and old edited copy
-                    if not production:
-                        logger.info('TEST MODE. Would delete edited SDM %s' % sdmFROM )
-                        logger.info('TEST MODE. Would delete original SDM %s' % sdmORIG )
-                        touch(sdmFROM + ".delete")
-                        touch(sdmORIG + ".delete")
-                    else: 
-                        logger.debug('Deleting edited SDM %s' % sdmFROM )
-                        shutil.rmtree( sdmFROM )
-                        logger.info('***NOTE (%s): not deleting unedited SDM files yet' % sdmORIG )
-                        #!!!logger.debug('Deleting original SDM %s' % sdmORIG ) #!!! WHEN CASEY SAYS GO
-                        #!!!shutil.rmtree( sdmORIG ) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
-
-                    # Archive the BDF (via hardlink to archdir)
-                    for scan in goodscans:
-                        bdfFROM = sc[scan]['bdfstr']
-                        bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-                        if not production:
-                            logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
-                            touch( bdfFROM + ".archived" )
-                        else:
-                            logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
-                            os.link( bdfFROM, bdfTO )
- 
-                    # Now delete all the hardlinks in our BDF working directory for this SB.
-                    for scan in sc.keys():
-                        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-                        if not production:
-                            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
-                            touch( bdfREMOVE + '.delete' )
-                        else:
-                            logger.debug('Removing BDF %s' % bdfREMOVE )
-                            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
-                            #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
-
->>>>>>> slow
                 else:
                     logger.debug('Archiving is off.')                            
  
