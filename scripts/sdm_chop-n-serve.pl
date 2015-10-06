@@ -59,7 +59,7 @@ open(SDMDIR, "ls -1 $sdm_directory |");
 while(<SDMDIR>){
     chomp;
     my $sdm_content = $_;
-    if ($sdm_content !~ /bdfpkls/){
+    if ($sdm_content !~ /bdfpkls/ && $sdm_content !~ /ASDMBinary/){
         system "cp -r $sdm_directory/$sdm_content $target_sdm";
 	chmod 0777, "$target_sdm/$sdm_content";
     }

@@ -28,7 +28,8 @@ redishost = os.uname()[1]  # assuming we start on redis host
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
-def monitor(qname, triggered, archive, verbose, production, threshold):
+@click.option('--slow', '-s', is_flag=True, help='Create local measurement set of all data integrated to 5 seconds.')
+def monitor(qname, triggered, archive, verbose, production, threshold, slow):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -129,11 +130,34 @@ def monitor(qname, triggered, archive, verbose, production, threshold):
             if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 4-0) enqueue job to integrate SDM down into MS
-                allscanstr = ','.join(str(s) for s in sc.keys())
-                rtutils.integrate(d['filename'], allscanstr, inttime, redishost)
+                # 4-1) Run slow transients search
+                if slow:
+                    logger.info('Creating measurement set for %s' & d['filename'])
 
-                # 4-1) if doing triggered recording, get scans to save. otherwise, save all scans.
+                    # Create ASDMBinary directory in our local SDM
+                    ASDMBinarydir = os.path.join(os.path.basename(d['filename'].rstrip('/')),'ASDMBinary'))
+                    if not os.path.exists(ASDMBinarydir):
+                        if not production:
+                            logger.info('TEST MODE. Would create directory %s.' % ASDMBinarydir)
+                        else:
+                            os.makedirs(ASDMBinarydir)
+
+                    # Put BDF softlinks in the ASDMBinary directory to get converted to ms
+                    for scan in sc.keys():
+                        bdfORIG = sc[scan]['bdfstr'].rstrip('/')
+                        bdfLINK = os.path.join(ASDMBinarydir,os.path.basename(bdfORIG))
+                        if not production:
+                            logger.info('TEST MODE. Would create BDF softlink %s to %s' % (bdfLINK,bdfORIG) )
+                        else:
+                            logger.debug('Creating softlink %s to BDF %s' % (bdfLINK,bdfORIG) )
+                            os.symlink(bdfORIG,bdfLINK)
+
+                    # Submit slow-processing job to our alternate queue.
+                    allscanstr = ','.join(str(s) for s in sc.keys())
+                    rtutils.integrate(d['filename'], allscanstr, inttime, redishost)
+
+
+                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
@@ -151,9 +175,73 @@ def monitor(qname, triggered, archive, verbose, production, threshold):
 
                 logger.info('Found the following scans to archive: %s' % ','.join(str(s) for s in goodscans))
 
-                # 4-2) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
+<<<<<<< HEAD
                     movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscans=goodscans, production=production)
+=======
+                    assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+                    logger.debug('Archiving is on.')
+                    logger.debug('Archiving directory info:')
+                    logger.debug('Workdir: %s' % d['workdir'])
+                    logger.debug('SDMarch: %s' % sdmArchdir)
+                    logger.debug('SDM:     %s' % d['filename'])
+                    logger.debug('BDFarch: %s' % bdfArchdir)
+                    logger.debug('BDFwork: %s' % os.path.dirname(sc[goodscans[0]]['bdfstr']))
+                    
+                    subprocess.call(['sdm_chop-n-serve.pl', d['filename'], d['workdir'], scanstring])   # would be nice to make this Python
+
+                    # 5) copy new SDM and good BDFs to archive locations
+                    
+                    # Set up names of source/target SDM files
+                    sdmORIG = d['filename'].rstrip('/')
+                    sdmFROM = d['filename'].rstrip('/') + "_edited"
+                    sdmTO   = os.path.join(sdmArchdir, os.path.basename(d['filename'].rstrip('/')))
+
+                    # Archive edited SDM
+                    if not production:
+                        logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
+                        touch(sdmFROM + ".archived")
+                    else:
+                        logger.info('Archiving SDM %s to %s' % ( sdmFROM, sdmTO ))
+                        rtutils.rsync( sdmFROM, sdmTO )
+
+                    # Remove old SDM and old edited copy
+                    if not production:
+                        logger.info('TEST MODE. Would delete edited SDM %s' % sdmFROM )
+                        logger.info('TEST MODE. Would delete original SDM %s' % sdmORIG )
+                        touch(sdmFROM + ".delete")
+                        touch(sdmORIG + ".delete")
+                    else: 
+                        logger.debug('Deleting edited SDM %s' % sdmFROM )
+                        shutil.rmtree( sdmFROM )
+                        logger.info('***NOTE (%s): not deleting unedited SDM files yet' % sdmORIG )
+                        #!!!logger.debug('Deleting original SDM %s' % sdmORIG ) #!!! WHEN CASEY SAYS GO
+                        #!!!shutil.rmtree( sdmORIG ) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
+
+                    # Archive the BDF (via hardlink to archdir)
+                    for scan in goodscans:
+                        bdfFROM = sc[scan]['bdfstr']
+                        bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
+                        if not production:
+                            logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+                            touch( bdfFROM + ".archived" )
+                        else:
+                            logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
+                            os.link( bdfFROM, bdfTO )
+ 
+                    # Now delete all the hardlinks in our BDF working directory for this SB.
+                    for scan in sc.keys():
+                        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
+                        if not production:
+                            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
+                            touch( bdfREMOVE + '.delete' )
+                        else:
+                            logger.debug('Removing BDF %s' % bdfREMOVE )
+                            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
+                            #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
+
+>>>>>>> slow
                 else:
                     logger.debug('Archiving is off.')                            
  
