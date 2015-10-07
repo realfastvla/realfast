@@ -134,7 +134,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                     logger.info('Creating measurement set for %s' & d['filename'])
 
                     # Create ASDMBinary directory in our local SDM
-                    ASDMBinarydir = os.path.join(os.path.basename(d['filename'].rstrip('/')),'ASDMBinary'))
+                    ASDMBinarydir = os.path.join(os.path.basename(d['filename'].rstrip('/')), 'ASDMBinary')
                     if not os.path.exists(ASDMBinarydir):
                         if not production:
                             logger.info('TEST MODE. Would create directory %s.' % ASDMBinarydir)
