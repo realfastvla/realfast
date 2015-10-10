@@ -195,16 +195,18 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
 @click.command()
 @click.argument('filename')
-@click.argument('workdir')
-@click.option('--goodscans', help='List of scans to archive. Default is to archive all.')
-@click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
-def movetoarchive(filename, workdir, goodscans=None, production=False):
+@click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
+@click.option('--goodscans', '-g', help='List of scans to archive. Default is to archive all.', default=None)
+@click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
+def movetoarchive(filename, workdir, goodscans, production):
     """ Moves sdm and bdf associated with filename to archive.
     filename is sdmfile. workdir is place with file.
     goodscans is list, which is optional.
     production is boolean for production mode.
     """
 
+    if not workdir:
+        workdir = os.getcwd()
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     if not goodscans:
         goodscans = [s for s in sc.keys() if sc[s]['bdfstr']]
