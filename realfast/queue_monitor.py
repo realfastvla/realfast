@@ -106,6 +106,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             except:
                 logger.error('Could not cleanup cands/noise files for fileroot %s and scan %d. Removing from tracking queue.' % (d['fileroot'], d['scan']))
                 removejob(job.id)
+                scans_in_queue.remove(d['scan'])
                 continue
 
             # 2) get metadata (and check that file still available to work with)
@@ -115,6 +116,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             except:
                 logger.error('Could not parse sdm %s. Removing from tracking queue.' % d['filename'])
                 removejob(job.id)
+                scans_in_queue.remove(d['scan'])
                 continue
 
             # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
@@ -123,6 +125,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 removejob(job.id)
+                scans_in_queue.remove(d['scan'])
                 continue
 
             # 4) if last scan of sdm, start end-of-sb processing
@@ -187,6 +190,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             # job is finished, so remove from db
             logger.info('Removing job %s from tracking queue.' % job.id)
             removejob(job.id)
+            scans_in_queue.remove(d['scan'])
             sys.stdout.flush()
 
         sys.stdout.flush()
