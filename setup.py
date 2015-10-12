@@ -27,5 +27,6 @@ setup(
         queue_movetoarchive=realfast.queue_monitor:movetoarchive
         rqinfo_monitor=realfast.rqinfo_monitor:monitor
         mcaf_monitor=realfast.mcaf_monitor:monitor
+        queue_rtpipe=realfast.cli:rtpipe
     ''',
 )

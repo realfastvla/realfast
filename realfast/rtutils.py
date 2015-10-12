@@ -45,20 +45,19 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         logger.info('Enqueuing %d job%s...' % (njobs, 's'[:njobs-1]))
 
         # submit to queue
-        with Connection(Redis(redishost)):
-            q = Queue(qname)
+        q = Queue(qname, connection=Redis(redishost))
 
-            # enqueue all but one
-            if njobs > 1:
-                for i in range(njobs-1):
-                    state, segment = stateseg[i]
-                    job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
-            else:
-                job = depends_on
+        # enqueue all but one
+        if njobs > 1:
+            for i in range(njobs-1):
+                state, segment = stateseg[i]
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+        else:
+            job = depends_on
 
-            # use second to last job as dependency for last job
-            state, segment = stateseg[-1]
-            lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=24*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
+        # use second to last job as dependency for last job
+        state, segment = stateseg[-1]
+        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=24*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob

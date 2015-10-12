@@ -32,8 +32,8 @@ filename = os.path.abspath(filename)
 if paramfile:
     paramfile = os.path.abspath(paramfile)
 
-bdfdir = '/lustre/evla/wcbe/data/realfast' # '/lustre/evla/wcbe/data/bunker'
-sdmdir = '/home/mchammer/evla/mcaf/workspace'
+#bdfdir = '/lustre/evla/wcbe/data/realfast' # '/lustre/evla/wcbe/data/bunker'
+#sdmdir = '/home/mchammer/evla/mcaf/workspace'
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
 
@@ -50,13 +50,9 @@ if __name__ == '__main__':
 
     # connect
     if mode == 'read':
-        rtutils.read(filename, paramfile, fileroot, bdfdir)
+        rtutils.read(filename, paramfile, fileroot)
 
     elif mode == 'search':
-        from rq import Queue
-        from redis import Redis
-
-        q = Queue(qpriority, connection=Redis())
         lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
     elif mode == 'rtsearch':
@@ -110,3 +106,4 @@ if __name__ == '__main__':
 
     else:
         logger.info('mode %s not recognized.' % mode)
+
