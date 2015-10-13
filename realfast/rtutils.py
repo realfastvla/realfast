@@ -8,7 +8,7 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-import pickle
+import cPickle as pickle
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +98,7 @@ def cleanup(workdir, fileroot, scans=[]):
 #        except:
 #            logger.exception('')
 
-def plot_summary(workdir, fileroot, scans, remove=[], snrmin=-999, snrmax=999):
+def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
     """

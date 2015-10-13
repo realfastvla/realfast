@@ -274,8 +274,8 @@ def movetoarchive(filename, workdir, goodscans, production):
             touch( bdfREMOVE + '.delete' )
         else:
             logger.debug('Removing BDF %s' % bdfREMOVE )
-            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
-            #!!! os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
+#            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
+            os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
