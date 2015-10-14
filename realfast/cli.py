@@ -20,22 +20,43 @@ trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor
 @click.option("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
 @click.option("--scans", help="scans to search. comma-delimited integers.", default='')
 @click.option("--intent", help="Intent filter for getting scans", default='TARGET')
+@click.option("--snrmin", help="Min SNR to include in plot_summary", default=0)
+@click.option("--snrmax", help="Max SNR to include in plot_summary", default=999)
+@click.option("--candnum", help="Candidate number to plot", default=-1)
+#@click.option("--remove", help="List of times to remove plot_summary visualizations", default='')
 def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent):
     """ Function for command-line access to queue_rtpipe
     """
 
+    # set up
     qpriority = 'default'
-
     scans = rtutils.getscans(filename, scans=scans, sources=sources, intent=intent)
     filename = os.path.abspath(filename)
     if paramfile:
         paramfile = os.path.abspath(paramfile)
 
+    # select by mode
     if mode == 'read':
         rtutils.read(filename, paramfile, fileroot)
 
     elif mode == 'search':
         lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
+
+    elif mode == 'cleanup':
+        rtutils.cleanup(workdir, fileroot, scans)
+
+    elif mode == 'plot_summary':
+        remove = [] # not yet implemented
+        rtutils.plot_summary(workdir, fileroot, scans, remove, snrmin=snrmin, snrmax=snrmax)
+
+    elif mode == 'plot_cand':
+        rtutils.plot_cand(workdir, fileroot, scans, candnum)
+
+    elif mode == 'plot_pulsar':
+        rtutils.plot_pulsar(workdir, fileroot, scans)
+
+    else:
+        logger.info('mode %s not recognized.' % mode)
 
 @click.command()
 def status():

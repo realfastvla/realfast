@@ -31,6 +31,7 @@ scans = rtutils.getscans(filename, scans=args.scans, sources=args.sources, inten
 filename = os.path.abspath(filename)
 if paramfile:
     paramfile = os.path.abspath(paramfile)
+if not fileroot: fileroot = os.path.basename(filename)
 
 #bdfdir = '/lustre/evla/wcbe/data/realfast' # '/lustre/evla/wcbe/data/bunker'
 #sdmdir = '/home/mchammer/evla/mcaf/workspace'
