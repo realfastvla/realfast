@@ -152,9 +152,9 @@ def reset():
         rtutils.removejob(jobid)
 
 @click.command()
-@click.option('--filename', 'f', help='filename', default=None)
+@click.argument('filename')
 @click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
-@click.option('--goodscans', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
+@click.option('--goodscanstr', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
 @click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
 def manualarchive(filename, workdir, goodscanstr, production):
-    movetoarchive(filenme, workdir, goodscanstr, production)
+    movetoarchive(filename, workdir, goodscanstr, production)
