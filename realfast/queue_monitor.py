@@ -134,7 +134,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
                 # 4-1) Run slow transients search
                 if slow > 0:
-                    logger.info('Creating measurement set for %s' & d['filename'])
+                    logger.info('Creating measurement set for %s' % d['filename'])
 
                     # Create ASDMBinary directory in our local SDM
                     ASDMBinarydir = os.path.join(os.path.basename(d['filename'].rstrip('/')), 'ASDMBinary')
@@ -147,12 +147,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                     # Put BDF softlinks in the ASDMBinary directory to get converted to ms
                     for scan in sc.keys():
                         bdfORIG = sc[scan]['bdfstr'].rstrip('/')
-                        bdfLINK = os.path.join(ASDMBinarydir,os.path.basename(bdfORIG))
+                        bdfLINK = os.path.join(ASDMBinarydir, os.path.basename(bdfORIG))
                         if not production:
                             logger.info('TEST MODE. Would create BDF softlink %s to %s' % (bdfLINK,bdfORIG) )
                         else:
                             logger.debug('Creating softlink %s to BDF %s' % (bdfLINK,bdfORIG) )
-                            os.symlink(bdfORIG,bdfLINK)
+                            if not os.path.exists(bdfLINK):
+                                os.symlink(bdfORIG, bdfLINK)
 
                     # Submit slow-processing job to our alternate queue.
                     allscanstr = ','.join(str(s) for s in sc.keys())
@@ -174,11 +175,12 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                     logger.debug('Triggering is off. Saving all scans.')
                     goodscans = sc.keys()
 
-                logger.info('Found the following scans to archive: %s' % ','.join(str(s) for s in goodscans))
+                goodscanstr= ','.join(str(s) for s in goodscans)
+                logger.info('Found the following scans to archive: %s' % goodscanstr)
 
                 # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
-                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscans=goodscans, production=production)
+                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production)
                 else:
                     logger.debug('Archiving is off.')                            
  
@@ -197,23 +199,27 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
         time.sleep(1)
 
 
-@click.command()
-@click.argument('filename')
-@click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
-@click.option('--goodscans', '-g', help='List of scans to archive. Default is to archive all.', default=None)
-@click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
-def movetoarchive(filename, workdir, goodscans, production):
+#@click.command()
+#@click.option('--filename', 'f', help='filename', default=None)
+#@click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
+#@click.option('--goodscans', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
+#@click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
+def movetoarchive(filename, workdir, goodscanstr, production):
     """ Moves sdm and bdf associated with filename to archive.
     filename is sdmfile. workdir is place with file.
-    goodscans is list, which is optional.
+    goodscans is comma-delimited list, which is optional.
     production is boolean for production mode.
     """
+
+    assert filename, 'Need filename to move to archive'
 
     if not workdir:
         workdir = os.getcwd()
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
-    if not goodscans:
+    if not goodscanstr:
         goodscans = [s for s in sc.keys() if sc[s]['bdfstr']]
+    else:
+        goodscans = [int(s) for s in goodscanstr.split(',')]
 
     logger.debug('Archiving is on.')
     logger.debug('Archiving directory info:')
@@ -221,11 +227,10 @@ def movetoarchive(filename, workdir, goodscans, production):
     logger.debug('SDMarch: %s' % sdmArchdir)
     logger.debug('SDM:     %s' % filename)
     logger.debug('BDFarch: %s' % bdfArchdir)
-    logger.debug('BDFwork: %s' % os.path.dirname(sc[goodscans[0]]['bdfstr']))
-    assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+    logger.debug('BDFwork: %s' % os.path.dirname(sc[sc.keys()[0]]['bdfstr']))
+    assert 'bunker' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
 
-    scanstring = ','.join(str(s) for s in goodscans)
-    subprocess.call(['sdm_chop-n-serve.pl', filename, workdir, scanstring])   # would be nice to make this Python
+    subprocess.call(['sdm_chop-n-serve.pl', filename, workdir, goodscanstr])   # would be nice to make this Python
 
     # 4) copy new SDM and good BDFs to archive locations
                     

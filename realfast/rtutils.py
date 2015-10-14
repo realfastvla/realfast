@@ -254,7 +254,7 @@ def find_archivescans(mergefile, threshold=0):
     else:
         logger.info('no cands above threshold %.1f for %s' % (threshold, mergefile))
 
-    return set(allscans)
+    return set(sigscans)
 
 def tell_candidates(mergefile, filename):
     """
