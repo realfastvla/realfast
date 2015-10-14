@@ -24,16 +24,18 @@ trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor
 @click.option("--snrmax", help="Max SNR to include in plot_summary", default=999)
 @click.option("--candnum", help="Candidate number to plot", default=-1)
 #@click.option("--remove", help="List of times to remove plot_summary visualizations", default='')
-def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent):
+def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent, snrmin, snrmax, candnum):
     """ Function for command-line access to queue_rtpipe
     """
 
     # set up
+    workdir = os.getcwd()
     qpriority = 'default'
     scans = rtutils.getscans(filename, scans=scans, sources=sources, intent=intent)
     filename = os.path.abspath(filename)
     if paramfile:
         paramfile = os.path.abspath(paramfile)
+    if not fileroot: fileroot = os.path.basename(filename)
 
     # select by mode
     if mode == 'read':
