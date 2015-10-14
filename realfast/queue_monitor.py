@@ -79,7 +79,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
         if badjobs:
             logger.info('Cleaning up jobs in tail queue with no counterpart in working queue.')
             for jobid in badjobs:
-                removejob(jobid)
+                rtutils.removejob(jobid)
 
         jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         
@@ -88,6 +88,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
 
+            jobids = conn.scan(cursor=0, count=trackercount)[1]  # refresh jobids to get latest scans_in_queue
             scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids if q.fetch_job(jobid).args[0]['filename'] == d['filename']]
             logger.debug("Scans in queue for filename %s: %s" % (d['filename'], scans_in_queue))
 
@@ -105,7 +106,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 rtutils.cleanup(d['workdir'], d['fileroot'], [d['scan']])
             except:
                 logger.error('Could not cleanup cands/noise files for fileroot %s and scan %d. Removing from tracking queue.' % (d['fileroot'], d['scan']))
-                removejob(job.id)
+                rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
 
@@ -115,7 +116,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 sc,sr = sdmreader.read_metadata(d['filename'], bdfdir=bdfdir)
             except:
                 logger.error('Could not parse sdm %s. Removing from tracking queue.' % d['filename'])
-                removejob(job.id)
+                rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
 
@@ -124,7 +125,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
-                removejob(job.id)
+                rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
 
@@ -191,19 +192,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
             # job is finished, so remove from db
             logger.info('Removing job %s from tracking queue.' % job.id)
-            removejob(job.id)
+            rtutils.removejob(job.id)
             scans_in_queue.remove(d['scan'])
             sys.stdout.flush()
 
         sys.stdout.flush()
         time.sleep(1)
 
-
-#@click.command()
-#@click.option('--filename', 'f', help='filename', default=None)
-#@click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
-#@click.option('--goodscans', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
-#@click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
 def movetoarchive(filename, workdir, goodscanstr, production):
     """ Moves sdm and bdf associated with filename to archive.
     filename is sdmfile. workdir is place with file.
@@ -282,22 +277,6 @@ def movetoarchive(filename, workdir, goodscanstr, production):
 #            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
             os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
 
-def addjob(jobid):
-    """ Adds jobid as key in db. Value = 0.
-    """
-
-    conn.set(jobid, 0)
-
-def removejob(jobid):
-    """ Removes jobid from db.
-    """
-
-    status = conn.delete(jobid)
-    if status:
-        logger.info('jobid %s removed from tracking queue' % jobid)
-    else:
-        logger.info('jobid %s not removed from tracking queue' % jobid)
-
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
     """
@@ -317,104 +296,3 @@ def uniq_sort(lst):
     thelist.sort()
     return thelist
 
-@click.command()
-def status():
-    """ Quick dump of trace for all failed jobs
-    """
-
-    for qname in ['default', 'slow', 'failed']:
-        q = Queue(qname, connection=conn0)
-        logger.info('Jobs in queue %s:' % qname)
-        for job in q.jobs:
-            if isinstance(job.args[0], dict):
-                details = (job.args[0]['filename'], job.args[0]['scan'])
-            elif isinstance(job.args[0], str):
-                details = job.args[0]
-                logger.info('job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
-
-    jobids = conn.scan(cursor=0, count=trackercount)[1]
-    logger.info('Jobs in tracking queue:')
-    q = Queue('default', connection=conn0)
-    for jobid in jobids:
-        job = q.fetch_job(jobid)
-        logger.info('job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
-
-@click.command()
-def failed():
-    """ Quick dump of trace for all failed jobs
-    """
-
-    q = Queue('failed', connection=conn0)
-    for i in range(len(q.jobs)):
-        job = q.jobs[i]
-        logger.info('Failed job %s, filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
-        logger.info('%s' % job.exc_info)
-
-@click.command()
-def requeue():
-    """ Take jobs from failed queue and add them to default queue
-    """
-
-    qf = Queue('failed', connection=conn0)
-    q = Queue('default', connection=conn0)
-#    qs = Queue('slow', connection=conn0)  # how to requeue to slow also?
-    for job in qf.jobs:
-        logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
-        q.enqueue_job(job)
-        qf.remove(job)
-
-@click.command()
-def clean():
-    """ Take jobs from tracking queue and clean them from all queues if they or their dependencies have failed
-    """
-
-    q = Queue('default', connection=conn0)
-    qf = Queue('failed', connection=conn0)
-    jobids = conn.scan(cursor=0, count=trackercount)[1]
-    for jobid in jobids:
-        job = qf.fetch_job(jobid)
-        jobd = qf.fetch_job(jobid).dependency
-        if job.is_failed or jobd.is_failed:
-            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.' % jobid)
-            removejob(jobid)
-            if job.is_failed:
-                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
-                q.remove(job)
-                qf.remove(job)
-            if jobd.is_failed:
-                logger.info('cleaning up job %s: filename %s, scan %d, segments, %s' % (jobd.id, jobd.args[0]['filename'], jobd.args[0]['scan'], str(jobd.args[1])))
-                q.remove(jobd)
-                qf.remove(jobd)
-
-@click.command()
-@click.argument('qname')
-def empty(qname):
-    """ Empty qname
-    """
-
-    q = Queue(qname, connection=conn0)
-    logger.info('Emptying queue %s' % qname)
-    for job in q.jobs:
-        if isinstance(job.args[0], dict):
-            details = (job.args[0]['filename'], job.args[0]['scan'])
-        elif isinstance(job.args[0], str):
-            details = job.args[0]
-        logger.info('Removed job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
-        q.remove(job)
-
-@click.command()
-def reset():
-    """ Reset queues (both dbs)
-    """
-
-    for qname in ['default', 'slow', 'failed']:
-        q = Queue(qname, connection=conn0)
-        logger.info('Emptying queue %s' % qname)
-        for job in q.jobs:
-            q.remove(job)
-            logger.info('Removed job %s' % job.id)
-
-    logger.info('Emptying tracking queue')
-    jobids = conn.scan(cursor=0, count=trackercount)[1]
-    for jobid in jobids:
-        removejob(jobid)

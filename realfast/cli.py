@@ -1,5 +1,16 @@
+import logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 import click, os
 from realfast import rtutils
+from rq import Queue
+from redis import Redis
+from queue_monitor import movetoarchive
+
+# set up  
+conn0 = Redis(db=0)
+conn = Redis(db=1)   # db for tracking ids of tail jobs
+trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 
 @click.command()
 @click.argument('filename')
@@ -26,3 +37,124 @@ def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent):
     elif mode == 'search':
         lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
+@click.command()
+def status():
+    """ Quick dump of trace for all failed jobs
+    """
+
+    for qname in ['default', 'slow', 'failed']:
+        q = Queue(qname, connection=conn0)
+        logger.info('Jobs in queue %s:' % qname)
+        for job in q.jobs:
+            if isinstance(job.args[0], dict):
+                details = (job.args[0]['filename'], job.args[0]['scan'])
+            elif isinstance(job.args[0], str):
+                details = job.args[0]
+                logger.info('job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
+
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
+    logger.info('Jobs in tracking queue:')
+    q = Queue('default', connection=conn0)
+    for jobid in jobids:
+        job = q.fetch_job(jobid)
+        try:
+            logger.info('Job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        except:
+            logger.info('Job %s: %s' % (job.id, job.args))
+
+@click.command()
+def failed():
+    """ Quick dump of trace for all failed jobs
+    """
+
+    q = Queue('failed', connection=conn0)
+    for i in range(len(q.jobs)):
+        job = q.jobs[i]
+        try:
+            logger.info('Failed job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        except:
+            logger.info('Failed job %s: %s' % (job.id, job.args))
+        logger.info('%s' % job.exc_info)
+
+@click.command()
+def requeue():
+    """ Take jobs from failed queue and add them to default queue
+    """
+
+    qf = Queue('failed', connection=conn0)
+    q = Queue('default', connection=conn0)
+#    qs = Queue('slow', connection=conn0)  # how to requeue to slow also?
+    for job in qf.jobs:
+        logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        q.enqueue_job(job)
+        qf.remove(job)
+
+@click.command()
+def clean():
+    """ Take jobs from tracking queue and clean them from all queues if they or their dependencies have failed
+    """
+
+    q = Queue('default', connection=conn0)
+    qf = Queue('failed', connection=conn0)
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
+    for jobid in jobids:
+        job = qf.fetch_job(jobid)
+        jobd = qf.fetch_job(jobid).dependency
+        if job.is_failed or jobd.is_failed:
+            logger.info('Job(s) upstream of %s failed. Removing all dependent jobs from all queues.' % jobid)
+            rtutils.removejob(jobid)
+            if job.is_failed:
+                try:
+                    logger.info('Clearning job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+                except:
+                    logger.info('Clearing job %s: %s' % (job.id, job.args))
+                q.remove(job)
+                qf.remove(job)
+            if jobd.is_failed:
+                try:
+                    logger.info('Clearning job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+                except:
+                    logger.info('Clearing job %s: %s' % (job.id, job.args))
+                q.remove(jobd)
+                qf.remove(jobd)
+
+@click.command()
+@click.argument('qname')
+def empty(qname):
+    """ Empty qname
+    """
+
+    q = Queue(qname, connection=conn0)
+    logger.info('Emptying queue %s' % qname)
+    for job in q.jobs:
+        if isinstance(job.args[0], dict):
+            details = (job.args[0]['filename'], job.args[0]['scan'])
+        elif isinstance(job.args[0], str):
+            details = job.args[0]
+        logger.info('Removed job %s: %s, segments, %s' % (job.id, str(details), str(job.args[1])))
+        q.remove(job)
+
+@click.command()
+def reset():
+    """ Reset queues (both dbs)
+    """
+
+    for qname in ['default', 'slow', 'failed']:
+        q = Queue(qname, connection=conn0)
+        logger.info('Emptying queue %s' % qname)
+        for job in q.jobs:
+            q.remove(job)
+            logger.info('Removed job %s' % job.id)
+
+    logger.info('Emptying tracking queue')
+    jobids = conn.scan(cursor=0, count=trackercount)[1]
+    for jobid in jobids:
+        rtutils.removejob(jobid)
+
+@click.command()
+@click.option('--filename', 'f', help='filename', default=None)
+@click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
+@click.option('--goodscans', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
+@click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
+def manualarchive(filename, workdir, goodscanstr, production):
+    movetoarchive(filenme, workdir, goodscanstr, production)

@@ -98,6 +98,22 @@ def cleanup(workdir, fileroot, scans=[]):
 #        except:
 #            logger.exception('')
 
+def addjob(jobid):
+    """ Adds jobid as key in db. Value = 0.
+    """
+
+    conn.set(jobid, 0)
+
+def removejob(jobid):
+    """ Removes jobid from db.
+    """
+
+    status = conn.delete(jobid)
+    if status:
+        logger.info('jobid %s removed from tracking queue' % jobid)
+    else:
+        logger.info('jobid %s not removed from tracking queue' % jobid)
+
 def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.

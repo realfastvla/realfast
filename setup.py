@@ -18,14 +18,15 @@ setup(
     entry_points='''
         [console_scripts]
         queue_monitor=realfast.queue_monitor:monitor
-        queue_empty=realfast.queue_monitor:empty
-        queue_clean=realfast.queue_monitor:clean
-        queue_status=realfast.queue_monitor:status
-        queue_requeue=realfast.queue_monitor:requeue
-        queue_failed=realfast.queue_monitor:failed
-        queue_reset=realfast.queue_monitor:reset
+        queue_empty=realfast.cli:empty
+        queue_clean=realfast.cli:clean
+        queue_status=realfast.cli:status
+        queue_requeue=realfast.cli:requeue
+        queue_failed=realfast.cli:failed
+        queue_reset=realfast.cli:reset
+        queue_movetoarchive=realfast.cli:manualarchive
         rqinfo_monitor=realfast.rqinfo_monitor:monitor
         mcaf_monitor=realfast.mcaf_monitor:monitor
         queue_rtpipe=realfast.cli:rtpipe
-    ''', #        queue_movetoarchive=realfast.queue_monitor:movetoarchive
+    ''', 
 )
