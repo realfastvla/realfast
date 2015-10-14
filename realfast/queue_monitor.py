@@ -12,8 +12,8 @@ from realfast import rtutils
 # set up  
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
-timeout = 600   # seconds to wait for BDF to finish writing (after final pipeline job completes)
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
+sdmwait = 3600    # timeout in seconds from last update of sdm to assume writing is finished
 snrmin = 6.0
 bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
@@ -52,11 +52,11 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
     jobids0 = []
     q0hist = [0]
     q1hist = [0]
+    sdmlastwritten = {}
     while 1:
         jobids = conn.scan(cursor=0, count=trackercount)[1]
 
-        # track history of queue sizes
-        # if either queue changes size, save value
+        # track history of queue sizes. saves/prints if values change.
         q0len = len(q.jobs)
         q1len = len(jobids)
         if (q0len != q0hist[-1]) or (q1len != q1hist[-1]):
@@ -81,10 +81,16 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             for jobid in badjobs:
                 rtutils.removejob(jobid)
 
-        jobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
+        # update dict of sdm last written times
+        filenames = [q.fetch_job(jobid).args[0]['filename'] for jobid in jobids]
+        for filename in set(filenames):
+            sdmlastwritten[filename] = time.time()
+            logger.info('Updated last written time for %s' % filename)
+
+        finishedjobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         
-        # iterate over list of tail jobs (one expected per scan)
-        for job in jobs:
+        # iterate over list of finished tail jobs (one expected per scan)
+        for job in finishedjobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
 
@@ -129,8 +135,11 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) if last scan of sdm, start end-of-sb processing
-            if all([sc[i]['bdfstr'] for i in sc.keys()]) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+            # 4) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
+            allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
+            sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
+            logging.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
+            if (allbdfwritten or sdmtimeout) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
                 # 4-1) Run slow transients search
