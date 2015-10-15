@@ -91,6 +91,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                     sdmlastwritten[filename] = time.time()
                 sdmcount[filename] = count
             else:  # if no key exists, this one is new, so set initialize
+                logger.info('Initialized last written time for %s' % filename)
                 sdmlastwritten[filename] = time.time()
                 sdmcount[filename] = count
 
