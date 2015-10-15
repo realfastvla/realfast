@@ -108,7 +108,10 @@ def requeue():
     q = Queue('default', connection=conn0)
 #    qs = Queue('slow', connection=conn0)  # how to requeue to slow also?
     for job in qf.jobs:
-        logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        try:
+            logger.info('Requeuing job %s: filename %s, scan %d, segments, %s' % (job.id, job.args[0]['filename'], job.args[0]['scan'], str(job.args[1])))
+        except:
+            logger.info('Requeuing job %s: %s' % (job.id, job.args))
         q.enqueue_job(job)
         qf.remove(job)
 
@@ -181,3 +184,22 @@ def reset():
 @click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
 def manualarchive(filename, workdir, goodscanstr, production):
     movetoarchive(filename, workdir, goodscanstr, production)
+
+@click.command()
+@click.argument('filename')
+@click.option('slow', help='', default=1)
+@click.option('redishost', help='', default=None)
+def slowms(filename, slow, redishost):
+    """ Take SDM filename and create MS with integration timescale of slow for all scans.
+    Queues to 'slow' queue managed by redishost.
+    """
+
+    import sdmreader
+    sc,sr = sdmreader.read_metadata(filename)
+    logger.info('Creating measurement set for %s, scans %s' % (filename, sc.keys()))
+
+    rtutils.linkbdfs(filename, sc)
+
+    # Submit slow-processing job to our alternate queue.
+    allscanstr = ','.join(str(s) for s in sc.keys())
+    rtutils.integrate(filename, allscanstr, slow, redishost)

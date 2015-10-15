@@ -27,7 +27,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
     """ Search for transients in all target scans and segments
     """
 
-    from rq import Queue, Connection
+    from rq import Queue
     from redis import Redis
 
     # enqueue jobs
@@ -66,17 +66,39 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         logger.info('No jobs to enqueue')
         return
 
-def integrate(filename, scanstr, inttime, redishost='localhost'):
+def linkbdfs(filename, scandict=None):
+    """ Takes proto-sdm filename and makes soft links to create true sdm.
+    scandict is optional dictionary from sdmreader that defines scans to link (and the bdf location).
+    """
+
+    if not scandict: scandict, sourcedict = sdmreader.read_metadata(filename)
+
+    # Create ASDMBinary directory in our local SDM
+    ASDMBinarydir = os.path.join(os.path.basename(filename.rstrip('/')), 'ASDMBinary')
+    if not os.path.exists(ASDMBinarydir):
+        os.makedirs(ASDMBinarydir)
+
+    # Put BDF softlinks in the ASDMBinary directory to get converted to ms
+    for scan in scandict.keys():
+        bdfORIG = scandict[scan]['bdfstr'].rstrip('/')
+        bdfLINK = os.path.join(ASDMBinarydir, os.path.basename(bdfORIG))
+        logger.debug('Creating softlink %s to BDF %s' % (bdfLINK,bdfORIG) )
+        if not os.path.exists(bdfLINK):
+            os.symlink(bdfORIG, bdfLINK)
+
+def integrate(filename, scanstr, inttime, redishost=None):
     """ Creates MS from SDM and integrates down.
     filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
     """
 
-    from rq import Queue, Connection
+    from rq import Queue
     from redis import Redis
 
-    with Connection(Redis(redishost)):
-        q = Queue('slow')
+    if redishost:
+        q = Queue('slow', connection=Redis(redishost))
         q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=24*3600, result_ttl=24*3600)
+    else:
+        ps.sdm2ms(filename, filename.rstrip('/')+'.ms', scanstr, inttime)
 
 def calibrate(filename, fileroot):
     """ Run calibration pipeline

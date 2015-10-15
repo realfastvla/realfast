@@ -152,29 +152,11 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
                 # 4-1) Run slow transients search
                 if slow > 0:
                     logger.info('Creating measurement set for %s' % d['filename'])
-
-                    # Create ASDMBinary directory in our local SDM
-                    ASDMBinarydir = os.path.join(os.path.basename(d['filename'].rstrip('/')), 'ASDMBinary')
-                    if not os.path.exists(ASDMBinarydir):
-                        if not production:
-                            logger.info('TEST MODE. Would create directory %s.' % ASDMBinarydir)
-                        else:
-                            os.makedirs(ASDMBinarydir)
-
-                    # Put BDF softlinks in the ASDMBinary directory to get converted to ms
-                    for scan in sc.keys():
-                        bdfORIG = sc[scan]['bdfstr'].rstrip('/')
-                        bdfLINK = os.path.join(ASDMBinarydir, os.path.basename(bdfORIG))
-                        if not production:
-                            logger.info('TEST MODE. Would create BDF softlink %s to %s' % (bdfLINK,bdfORIG) )
-                        else:
-                            logger.debug('Creating softlink %s to BDF %s' % (bdfLINK,bdfORIG) )
-                            if not os.path.exists(bdfLINK):
-                                os.symlink(bdfORIG, bdfLINK)
+                    rtutils.linkbdfs(d['filename'], sc)
 
                     # Submit slow-processing job to our alternate queue.
                     allscanstr = ','.join(str(s) for s in sc.keys())
-                    rtutils.integrate(d['filename'], allscanstr, slow, redishost)
+                    rtutils.integrate(d['filename'], allscanstr, slow, redishost)                    
 
                 # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
