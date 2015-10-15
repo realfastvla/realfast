@@ -52,7 +52,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
     jobids0 = []
     q0hist = [0]
     q1hist = [0]
-    sdmlastwritten = {}
+    sdmlastwritten = {}; sdmcount = {}
     while 1:
         jobids = conn.scan(cursor=0, count=trackercount)[1]
 
@@ -81,11 +81,18 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
             for jobid in badjobs:
                 rtutils.removejob(jobid)
 
-        # update dict of sdm last written times
+        # update dict of sdm last written times whenever new scan appears for that filename
         filenames = [q.fetch_job(jobid).args[0]['filename'] for jobid in jobids]
         for filename in set(filenames):
-            sdmlastwritten[filename] = time.time()
-            logger.info('Updated last written time for %s' % filename)
+            count = filenames.count(filename)
+            if sdmcount.has_key(filename):
+                if count > sdmcount[filename]:  # if new scan added for filename, then update time stamp
+                    logger.info('Updated last written time for %s' % filename)
+                    sdmlastwritten[filename] = time.time()
+                sdmcount[filename] = count
+            else:  # if no key exists, this one is new, so set initialize
+                sdmlastwritten[filename] = time.time()
+                sdmcount[filename] = count
 
         finishedjobs = [q.fetch_job(jobid) for jobid in jobids if q.fetch_job(jobid).is_finished] # and ('RT.pipeline' in q.fetch_job(jobid).func_name)]
         
