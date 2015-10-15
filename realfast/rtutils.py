@@ -102,11 +102,17 @@ def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
     """
 
+    from redis import Redis
+    conn = Redis(db=1)   # db for tracking ids of tail jobs
+
     conn.set(jobid, 0)
 
 def removejob(jobid):
     """ Removes jobid from db.
     """
+
+    from redis import Redis
+    conn = Redis(db=1)   # db for tracking ids of tail jobs
 
     status = conn.delete(jobid)
     if status:
