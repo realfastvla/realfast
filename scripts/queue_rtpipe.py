@@ -74,7 +74,7 @@ if __name__ == '__main__':
         # submit search job and add tail job to monitoring queue
         if telcalfile:
             lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans, telcalfile=telcalfile, redishost=redishost)
-            queue_monitor.addjob(lastjob.id)
+            rtutils.addjob(lastjob.id)
         else:
             logger.info('No calibration available. No job submitted.')
 

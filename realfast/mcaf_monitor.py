@@ -78,7 +78,7 @@ class FRBController(object):
                     if telcalfile:
                         logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
                         lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
-                        queue_monitor.addjob(lastjob.id)
+                        rtutils.addjob(lastjob.id)
                     else:
                         logger.info('No calibration available. No job submitted.')
                 else:
