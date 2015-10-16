@@ -76,9 +76,12 @@ class FRBController(object):
 
                     # 3) submit search job and add tail job to monitoring queue
                     if telcalfile:
-                        logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
-                        lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
-                        rtutils.addjob(lastjob.id)
+                        if os.path.exists(config.bdfLocation):
+                            logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
+                            lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
+                            rtutils.addjob(lastjob.id)
+                        else:
+                            logger.info('***WARNING: BDF is missing for this scan. Will not submit to queue.')
                     else:
                         logger.info('No calibration available. No job submitted.')
                 else:
