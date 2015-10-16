@@ -11,6 +11,7 @@ from queue_monitor import movetoarchive
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
+bdfdir = '/lustre/evla/wcbe/data/no_archive'
 
 @click.command()
 @click.argument('filename')
@@ -195,7 +196,7 @@ def slowms(filename, slow, redishost):
     """
 
     import sdmreader
-    sc,sr = sdmreader.read_metadata(filename)
+    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     logger.info('Creating measurement set for %s, scans %s' % (filename, sc.keys()))
 
     rtutils.linkbdfs(filename, sc)

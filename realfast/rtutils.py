@@ -71,7 +71,7 @@ def linkbdfs(filename, scandict=None):
     scandict is optional dictionary from sdmreader that defines scans to link (and the bdf location).
     """
 
-    if not scandict: scandict, sourcedict = sdmreader.read_metadata(filename)
+    if not scandict: scandict, sourcedict = sdmreader.read_metadata(filename, bdfdir=bdfdir)
 
     # Create ASDMBinary directory in our local SDM
     ASDMBinarydir = os.path.join(os.path.basename(filename.rstrip('/')), 'ASDMBinary')
@@ -412,7 +412,7 @@ def waitforsdm(filename, timeout=300):
     time_filestart = 0
     while 1:
         try:
-            sc,sr = sdmreader.read_metadata(filename)
+            sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
         except RuntimeError:
             logger.info('File %s not found.' % filename)
         except IOError:

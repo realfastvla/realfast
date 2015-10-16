@@ -33,8 +33,6 @@ if paramfile:
     paramfile = os.path.abspath(paramfile)
 if not fileroot: fileroot = os.path.basename(filename)
 
-#bdfdir = '/lustre/evla/wcbe/data/realfast' # '/lustre/evla/wcbe/data/bunker'
-#sdmdir = '/home/mchammer/evla/mcaf/workspace'
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
 
