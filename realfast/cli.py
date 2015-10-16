@@ -11,7 +11,6 @@ from queue_monitor import movetoarchive
 conn0 = Redis(db=0)
 conn = Redis(db=1)   # db for tracking ids of tail jobs
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
-bdfdir = '/lustre/evla/wcbe/data/no_archive'
 
 @click.command()
 @click.argument('filename')
@@ -183,14 +182,16 @@ def reset():
 @click.option('--workdir', '-w', help='Directory to put modified version of filename before archiving.', default=None)
 @click.option('--goodscanstr', '-g', help='Comma-delimited list of scans to archive. Default is to archive all.', default='')
 @click.option('--production', '-p', help='Run code in full production mode (otherwise just runs as test).', is_flag=True, default=False)
-def manualarchive(filename, workdir, goodscanstr, production):
-    movetoarchive(filename, workdir, goodscanstr, production)
+@click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
+def manualarchive(filename, workdir, goodscanstr, production, bdfdir):
+    movetoarchive(filename, workdir, goodscanstr, production, bdfdir)
 
 @click.command()
 @click.argument('filename')
-@click.option('slow', help='', default=1)
-@click.option('redishost', help='', default=None)
-def slowms(filename, slow, redishost):
+@click.option('--slow', help='Time in seconds to integrate to.', default=1)
+@click.option('--redishost', help='name of host of redis server. default will run without rq/redis', default=None)
+@click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
+def slowms(filename, slow, redishost, bdfdir):
     """ Take SDM filename and create MS with integration timescale of slow for all scans.
     Queues to 'slow' queue managed by redishost.
     """

@@ -15,7 +15,6 @@ conn = Redis(db=1)   # db for tracking ids of tail jobs
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 sdmwait = 3600    # timeout in seconds from last update of sdm to assume writing is finished
 snrmin = 6.0
-bdfdir = '/lustre/evla/wcbe/data/no_archive'
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 redishost = os.uname()[1]  # assuming we start on redis host
@@ -28,7 +27,8 @@ redishost = os.uname()[1]  # assuming we start on redis host
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
 @click.option('--slow', '-s', help='Create local measurement set of all data integrated to this timescale (in seconds).', default=0.)
-def monitor(qname, triggered, archive, verbose, production, threshold, slow):
+@click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
+def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdfdir):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -180,7 +180,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
 
                 # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
-                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production)
+                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                 else:
                     logger.debug('Archiving is off.')                            
  
@@ -198,7 +198,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow):
         sys.stdout.flush()
         time.sleep(1)
 
-def movetoarchive(filename, workdir, goodscanstr, production):
+def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     """ Moves sdm and bdf associated with filename to archive.
     filename is sdmfile. workdir is place with file.
     goodscans is comma-delimited list, which is optional.

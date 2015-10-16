@@ -74,7 +74,7 @@ class FRBController(object):
                     # 2) find telcalfile (use timeout to wait for it to be written)
                     telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
 
-                    # 3) submit search job and add tail job to monitoring queue
+                    # 3) if cal available and bdf exists, submit search job and add tail job to monitoring queue
                     if telcalfile:
                         if os.path.exists(config.bdfLocation):
                             logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
