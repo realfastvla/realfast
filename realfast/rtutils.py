@@ -10,10 +10,10 @@ import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 import cPickle as pickle
 
-bdfdir = '/lustre/evla/wcbe/data/no_archive'
+default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
 
-def read(filename, paramfile='', fileroot='', bdfdir=bdfdir):
+def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
     """ Simple parse and return metadata for pipeline for first scan
     """
 
@@ -23,7 +23,7 @@ def read(filename, paramfile='', fileroot='', bdfdir=bdfdir):
     logger.info('Example pipeline:')
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir=bdfdir):
+def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir=default_bdfdir):
     """ Search for transients in all target scans and segments
     """
 
@@ -66,7 +66,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         logger.info('No jobs to enqueue')
         return
 
-def linkbdfs(filename, scandict=None):
+def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
     """ Takes proto-sdm filename and makes soft links to create true sdm.
     scandict is optional dictionary from sdmreader that defines scans to link (and the bdf location).
     """
@@ -182,7 +182,7 @@ def plot_pulsar(workdir, fileroot, scans=[]):
     logger.info('Pulsar plotting for pkllist:', pkllist)
     pc.plot_psrrates(pkllist, outname=os.path.join(workdir, 'plot_' + fileroot + '_psrrates.png'))
 
-def getscans(filename, scans='', sources='', intent='', bdfdir=bdfdir):
+def getscans(filename, scans='', sources='', intent='', bdfdir=default_bdfdir):
     """ Get scan list as ints.
     First tries to parse scans, then sources, then intent.
     """
@@ -438,7 +438,7 @@ def waitforsdm(filename, timeout=300):
             logger.info('All bdfs written. Continuing.')
             break
 
-def sdmascal(filename, calscans='', bdfdir=bdfdir):
+def sdmascal(filename, calscans='', bdfdir=default_bdfdir):
     """ Takes incomplete SDM (on CBE) and creates one corrected for use in calibration.
     optional calscans is casa-like string to select scans
     """

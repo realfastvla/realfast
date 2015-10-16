@@ -153,7 +153,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 # 4-1) Run slow transients search
                 if slow > 0:
                     logger.info('Creating measurement set for %s' % d['filename'])
-                    rtutils.linkbdfs(d['filename'], sc)
+                    rtutils.linkbdfs(d['filename'], sc, bdfdir)
 
                     # Submit slow-processing job to our alternate queue.
                     allscanstr = ','.join(str(s) for s in sc.keys())

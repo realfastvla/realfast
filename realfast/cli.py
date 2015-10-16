@@ -200,7 +200,7 @@ def slowms(filename, slow, redishost, bdfdir):
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     logger.info('Creating measurement set for %s, scans %s' % (filename, sc.keys()))
 
-    rtutils.linkbdfs(filename, sc)
+    rtutils.linkbdfs(filename, sc, bdfdir)
 
     # Submit slow-processing job to our alternate queue.
     allscanstr = ','.join(str(s) for s in sc.keys())
