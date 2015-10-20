@@ -110,7 +110,8 @@ class MCAST_Config(object):
 
     @property
     def bdfLocation(self):
-        return self.sdminfo.bdfLocation
+        bdfdir = '/lustre/evla/wcbe/data/no_archive/'
+        return os.path.join(bdfdir, os.path.basename(self.sdminfo.bdfLocation))
 
     @property
     def sdmLocation(self):

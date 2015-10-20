@@ -26,6 +26,7 @@ telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
 redishost = os.uname()[1]  # assuming we start on redis host
 
+
 class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
