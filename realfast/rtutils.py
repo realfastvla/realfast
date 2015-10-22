@@ -23,8 +23,10 @@ def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
     logger.info('Example pipeline:')
     state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
-def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir=default_bdfdir):
+def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir=default_bdfdir, seggroup=0):
     """ Search for transients in all target scans and segments
+    seggroup defines number of segments to send for each pipeline call. default is all segments in one job/node.
+    last jobid of group is returned
     """
 
     from rq import Queue
@@ -38,8 +40,11 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         assert isinstance(scan, int), 'Scan should be an integer'
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
-        for segment in grouprange(0, state['nsegments'], 3):   # submit three segments at a time to reduce read/prep overhead
-            stateseg.append( (state, segment) )
+        if seggroup:    # submit groups of segments to reduce read/prep overhead
+            for segments in grouprange(0, state['nsegments'], seggroup):
+                stateseg.append( (state, segments) )
+        else:   # all segments in one job/node
+            stateseg.append( (state, range(state['nsegments'])) )
     njobs = len(stateseg)
 
     if njobs:
@@ -51,14 +56,14 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         # enqueue all but one
         if njobs > 1:
             for i in range(njobs-1):
-                state, segment = stateseg[i]
-                job = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+                state, segments = stateseg[i]
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
         else:
             job = depends_on
 
         # use second to last job as dependency for last job
-        state, segment = stateseg[-1]
-        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segment), depends_on=job, at_front=True, timeout=24*3600, result_ttl=24*3600)  # queued after others, but moved to front of queue
+        state, segments = stateseg[-1]
+        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=job, timeout=24*3600, result_ttl=24*3600)  # at_front option makes it hard to predict when jobs will complete
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob
@@ -424,8 +429,8 @@ def waitforsdm(filename, timeout=300):
             if not time_filestart:
                 logger.info('File %s exists. Waiting for it to complete writing.' % filename)
                 time_filestart = time.time()
-
-        # if any bdfstr are not set, then file not finished
+   
+     # if any bdfstr are not set, then file not finished
         if None in bdflocs:
             if time.time() - time_filestart < timeout:
                 logger.info('bdfs not all written yet. Waiting...')
