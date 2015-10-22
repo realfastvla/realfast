@@ -38,7 +38,7 @@ workdir = os.getcwd()  # or set to '/users/claw/lustrecbe/'?
 
 # Job Control
 if __name__ == '__main__':
-    defaultqpriority = {}  # option for function-specific queuing (not yet supported by rq, though)
+    defaultqpriority = {'plot_cand': 'default'}  # option for function-specific queuing (not yet supported by rq, though)
     if mode in defaultqpriority.keys():
         if args.queue:
             qpriority = args.queue
