@@ -22,6 +22,7 @@ from realfast import queue_monitor, rtutils, mcaf_library
 
 # set up
 rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(mcaf_library.__file__)[0])[0], 'conf'), 'rtpipe_cbe.conf') # install system puts conf files here. used by queue_rtpipe.py
+default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
 redishost = os.uname()[1]  # assuming we start on redis host
@@ -79,7 +80,7 @@ class FRBController(object):
                     if telcalfile:
                         if os.path.exists(config.bdfLocation):
                             logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
-                            lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=os.path.dirname(config.bdfLocation.rstrip('/')))
+                            lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
                             rtutils.addjob(lastjob.id)
                         else:
                             logger.info('***WARNING: BDF is missing for this scan. Will not submit to queue.')
@@ -130,8 +131,8 @@ def testrtpipe(filename, paramfile):
     """
 
     import sdmreader
-    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    sc,sr = sdmreader.read_metadata(filename, bdfdir=default_bdfdir)
     scan = sc.keys()[0]
     telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
-    lastjob = rtutils.search('default', filename, paramfile, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=bdfdir)
+    lastjob = rtutils.search('default', filename, paramfile, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
     return lastjob
