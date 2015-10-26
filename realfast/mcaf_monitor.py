@@ -123,3 +123,15 @@ def monitor(intent, project, production, verbose, rtparams):
     except KeyboardInterrupt:
         # Just exit without the trace barf
         logger.info('Escaping mcaf_monitor')
+
+def testrtpipe(filename, paramfile):
+    """ Function for a quick test of rtpipe and queue system
+    filename should have full path.
+    """
+
+    import sdmreader
+    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    scan = sc.keys()[0]
+    telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+    lastjob = rtutils.search('default', filename, paramfile, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=bdfdir)
+    return lastjob
