@@ -110,6 +110,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
 
             # Error check directory usage/settings
             assert 'bunker' not in bdfdir, '*** BDFDIR ERROR: No messing with bunker bdfs!'
+            assert 'telcal' not in bdfdir, '*** BDFDIR ERROR: No messing with telcal bdfs!'
             assert 'mchammer' not in d['workdir'] and 'mctest' not in d['workdir'], '*** WORKDIR ERROR: bunker, mchammer, and mctest are off-limits for writing!'
             assert 'mchammer' not in d['filename'] and 'mctest' not in d['filename'], '*** FILENAME ERROR: bunker, mchammer, and mctest are off-limits for writing!'
 
@@ -168,8 +169,8 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
                         goodscans += rtutils.find_archivescans(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), threshold)
-                        #!!! For rate tests: print cand info !!!
-                        rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
+                        ##!!! For rate tests: print cand info !!!
+                        #rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
                     goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
@@ -184,6 +185,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 else:
                     logger.debug('Archiving is off.')                            
  
+                # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
+                try:
+                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a plot_%s_dmt.png -a plot_%s_dmcount.png -a plot_%s_impeak.png -a plot_%s.noisehist.png -a plot_%s.normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['filename'],d['filename'],d['filename'],d['filename'],d['filename'],d['filename']), shell=True)
+                except:
+                    logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
+                    continue
+
                 # 6) organize cands/noise files?
             else:
                 logger.info('Scan %d is not last scan or %s is not finished writing.' % (d['scan'], d['filename']))
@@ -223,6 +231,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     logger.debug('BDFarch: %s' % bdfArchdir)
     logger.debug('BDFwork: %s' % os.path.dirname(sc[sc.keys()[0]]['bdfstr']))
     assert 'bunker' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+    assert 'telcal' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
 
     subprocess.call(['sdm_chop-n-serve.pl', filename, workdir, goodscanstr])   # would be nice to make this Python
 
