@@ -55,7 +55,7 @@ class FRBController(object):
 
         elif self.intent in config.intentString and self.project in config.projectID:
             logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
-            logger.debug("BDF is in %s\n" % (config.bdfLocation))
+            bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
 
             # If we're not in listening mode, prepare data and submit to queue system
             if self.production:
@@ -65,8 +65,9 @@ class FRBController(object):
                 assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
 
                 # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
-                if rtutils.check_spw(filename, scan):
+                if rtutils.check_spw(filename, scan) and os.path.exists(bdfloc):
                     logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
+                    logger.debug("BDF is in %s\n" % (bdfloc))
 
                     # 1) copy data into place
                     rtutils.rsync(filename, workdir)
@@ -78,17 +79,13 @@ class FRBController(object):
 
                     # 3) if cal available and bdf exists, submit search job and add tail job to monitoring queue
                     if telcalfile:
-                        if os.path.exists(config.bdfLocation):
-                            logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, os.path.dirname(config.bdfLocation.rstrip('/'))))
-                            lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
-                            rtutils.addjob(lastjob.id)
-                        else:
-                            logger.info('***WARNING: BDF is missing for this scan. Will not submit to queue.')
+                        logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, default_bdfdir))
+                        lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
+                        rtutils.addjob(lastjob.id)                            
                     else:
                         logger.info('No calibration available. No job submitted.')
                 else:
-                    logger.info("Not submitting scan %d of sdm %s. spw order strange or duplicates found." % (scan, os.path.basename(filename)))                    
-
+                    logger.info("Not submitting scan %d of sdm %s. bdf not found or cannot be processed by rtpipe." % (scan, os.path.basename(filename)))                    
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
 @click.option('--project', '-p', default='', help='Project name to trigger on')

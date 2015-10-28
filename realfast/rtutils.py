@@ -8,7 +8,8 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-import cPickle as pickle
+#import cPickle as pickle
+import pickle
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
