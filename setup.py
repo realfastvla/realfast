@@ -6,7 +6,7 @@ setup(
     description = 'Python scripts for running real-time data analysis at the VLA',
     author = 'Casey Law + SBS',
     author_email = 'caseyjlaw@gmail.com',
-    version = '0.0',
+    version = '1.0',
     include_package_data=True,
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*.conf'))],
