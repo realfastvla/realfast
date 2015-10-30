@@ -187,7 +187,9 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
  
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:
-                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a plot_%s_dmt.png -a plot_%s_dmcount.png -a plot_%s_impeak.png -a plot_%s.noisehist.png -a plot_%s.normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['filename'],d['filename'],d['filename'],d['filename'],d['filename'],d['filename']), shell=True)
+                    imgbase = os.path.join(d['workdir'], 'plot_' + d['\
+fileroot'])
+                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a %s_dmt.png -a %s_dmcount.png -a %s_impeak.png -a %s.noisehist.png -a %s.normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['fileroot'],imgbase,imgbase,imgbase,imgbase,imgbase), shell=True)
                 except:
                     logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
                     continue
