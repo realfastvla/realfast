@@ -276,7 +276,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
             os.link( bdfFROM, bdfTO )
  
     # Now delete all the hardlinks in our BDF working directory for this SB.
-    for scan in goodscans:
+    for scan in sc.keys():
         bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
         if not production:
             logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
