@@ -159,6 +159,20 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     try:
         pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
         pc.plot_noise(fileroot, scans, remove=remove)
+
+        # try to make interactive plot and copy to ~claw/public_html
+        mergepkl = 'cands_' + fileroot + '_merge.pkl'
+        if os.path.exists(mergepkl):
+            try:
+                pc.plot_interactive(mergepkl)
+                logger.info('Interactive plot made.')
+                mergehtml = 'cands_' + fileroot + '_merge.html'
+                if os.path.exists(mergehtml):
+                    rsync(mergehtml, '/users/claw/public_html/')
+                    logger.info('Interactive plot copied to ~claw/public_html.')
+            except:
+                logger.info('Interactive plot not made.')
+                
     except:
         logger.exception('')
 
