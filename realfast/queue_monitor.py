@@ -210,7 +210,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
 def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     """ Moves sdm and bdf associated with filename to archive.
     filename is sdmfile. workdir is place with file.
-    goodscans is comma-delimited list, which is optional.
+    goodscanstr is comma-delimited list, which is optional.
     production is boolean for production mode.
     """
 
@@ -220,9 +220,8 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
         workdir = os.getcwd()
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     if not goodscanstr:
-        goodscans = [s for s in sc.keys() if sc[s]['bdfstr']]
-    else:
-        goodscans = [int(s) for s in goodscanstr.split(',')]
+        goodscanstr = ','.join([s for s in sc.keys() if sc[s]['bdfstr']])
+    goodscans = [int(s) for s in goodscanstr.split(',')]
 
     logger.debug('Archiving is on.')
     logger.debug('Archiving directory info:')
@@ -231,18 +230,24 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     logger.debug('SDM:     %s' % filename)
     logger.debug('BDFarch: %s' % bdfArchdir)
     logger.debug('BDFwork: %s' % bdfdir)
-    assert 'bunker' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
-    assert 'telcal' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
 
-    subprocess.call(['sdm_chop-n-serve.pl', filename, workdir, goodscanstr])   # would be nice to make this Python
-
-    # 4) copy new SDM and good BDFs to archive locations
-                    
     # Set up names of source/target SDM files
     sdmORIG = filename.rstrip('/')
     sdmFROM = filename.rstrip('/') + "_edited"
     sdmTO   = os.path.join(sdmArchdir, os.path.basename(filename.rstrip('/')))
 
+    # safety checks
+    if not goodscans:
+        raise ValueError, 'No scans found to move to archive (either none provided or none with bdfs).'
+    assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+    assert 'telcal' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
+    assert not os.path.exists(sdmFROM), 'Edited SDM already exists at %s' % sdmFROM
+
+    if production:
+        subprocess.call(['sdm_chop-n-serve.pl', filename, workdir, goodscanstr])   # would be nice to make this Python
+
+    # 4) copy new SDM and good BDFs to archive locations
+                    
     # Archive edited SDM
     if not production:
         logger.info('TEST MODE. Would archive SDM %s to %s' % ( sdmFROM, sdmTO ))
