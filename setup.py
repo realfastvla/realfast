@@ -7,6 +7,7 @@ setup(
     author = 'Casey Law + SBS',
     author_email = 'caseyjlaw@gmail.com',
     version = '1.0',
+    url = 'http://github.com/caseyjlaw/realfast',
     include_package_data=True,
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*.conf'))],
