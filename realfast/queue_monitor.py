@@ -230,7 +230,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     logger.debug('SDMarch: %s' % sdmArchdir)
     logger.debug('SDM:     %s' % filename)
     logger.debug('BDFarch: %s' % bdfArchdir)
-    logger.debug('BDFwork: %s' % os.path.dirname(sc[sc.keys()[0]]['bdfstr']))
+    logger.debug('BDFwork: %s' % bdfdir)
     assert 'bunker' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
     assert 'telcal' not in os.path.dirname(sc[sc.keys()[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
 
