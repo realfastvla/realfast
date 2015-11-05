@@ -188,7 +188,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:
                     imgbase = os.path.join(d['workdir'], 'plot_' + d['fileroot'])
-                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a %s_dmt.png -a %s_dmcount.png -a %s_impeak.png -a %s.noisehist.png -a %s.normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['fileroot'],imgbase,imgbase,imgbase,imgbase,imgbase), shell=True)
+                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a %s_dmt.png -a %s_dmcount.png -a %s_impeak.png -a %s_noisehist.png -a %s_normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['fileroot'],imgbase,imgbase,imgbase,imgbase,imgbase), shell=True)
                 except:
                     logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
                     continue
@@ -277,14 +277,14 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
  
     # Now delete all the hardlinks in our BDF working directory for this SB.
     for scan in sc.keys():
-        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-        if not production:
-            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
-            touch( bdfREMOVE + '.delete' )
-        else:
-            logger.debug('Removing BDF %s' % bdfREMOVE )
-#            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
-            os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
+        bdfREMOVE = sc[scan]['bdfstr']
+        if bdfREMOVE:
+            if not production:
+                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
+                touch( bdfREMOVE.rstrip('/') + '.delete' )
+            else:
+                logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                os.remove( bdfREMOVE.rstrip('/') )
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
