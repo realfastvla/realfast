@@ -165,11 +165,11 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
         if os.path.exists(mergepkl):
             try:
                 pc.plot_interactive(mergepkl)
-                logger.info('Interactive plot made.')
                 mergehtml = 'cands_' + fileroot + '_merge.html'
+                logger.info('Interactive plot made at %s.' % (mergehtml))
                 if os.path.exists(mergehtml):
-                    rsync(mergehtml, '/users/claw/public_html/')
-                    logger.info('Interactive plot copied to ~claw/public_html.')
+                    rsync(mergehtml, '/users/claw/public_html/realfast/')
+                    logger.info('Interactive plot copied to ~claw/public_html/realfast/.')
             except:
                 logger.info('Interactive plot not made.')
                 
