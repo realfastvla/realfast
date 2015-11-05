@@ -276,15 +276,15 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
             os.link( bdfFROM, bdfTO )
  
     # Now delete all the hardlinks in our BDF working directory for this SB.
-    for scan in goodscans:
-        bdfREMOVE = sc[scan]['bdfstr'].rstrip('/')
-        if not production:
-            logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE )
-            touch( bdfREMOVE + '.delete' )
-        else:
-            logger.debug('Removing BDF %s' % bdfREMOVE )
-#            logger.info('***NOTE (%s): not deleting no_archive hardlinks yet' % bdfREMOVE)
-            os.remove( bdfREMOVE ) #!!! WHEN CASEY SAYS GO
+    for scan in sc.keys():
+        bdfREMOVE = sc[scan]['bdfstr']
+        if bdfREMOVE:
+            if not production:
+                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
+                touch( bdfREMOVE.rstrip('/') + '.delete' )
+            else:
+                logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                os.remove( bdfREMOVE.rstrip('/') )
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
