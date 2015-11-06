@@ -8,8 +8,8 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-#import cPickle as pickle
-import pickle
+import rtpipe.candvis as cv
+import cPickle as pickle
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
@@ -164,7 +164,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
         if os.path.exists(mergepkl):
             try:
-                pc.plot_interactive(mergepkl)
+                cv.plot_interactive(mergepkl)
                 mergehtml = 'cands_' + fileroot + '_merge.html'
                 logger.info('Interactive plot made at %s.' % (mergehtml))
                 if os.path.exists(mergehtml):
