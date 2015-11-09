@@ -137,7 +137,8 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
 
             # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
             try:
-                rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
+                if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
+                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 rtutils.removejob(job.id)
