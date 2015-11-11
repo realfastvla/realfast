@@ -74,7 +74,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in q
+        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in queue
         badjobs = [jobids[i] for i in range(len(jobids)) if not q.fetch_job(jobids[i])]  # clean up jobids list first
         if badjobs:
             logger.info('Cleaning up jobs in tail queue with no counterpart in working queue.')
@@ -145,14 +145,19 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
+            # 4) generate candidate plots for cands that exceed threshold
+            candsfile = os.path.join(d['workdir'], prefix + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
+            candloc = rtutils.thresholdcands(candsfile, threshold)
+            rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+
+            # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
             sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
             logging.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
             if (allbdfwritten or sdmtimeout) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 4-1) Run slow transients search
+                # 5-1) Run slow transients search
                 if slow > 0:
                     logger.info('Creating measurement set for %s' % d['filename'])
                     rtutils.linkbdfs(d['filename'], sc, bdfdir)
@@ -161,7 +166,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                     allscanstr = ','.join(str(s) for s in sc.keys())
                     rtutils.integrate(d['filename'], allscanstr, slow, redishost)                    
 
-                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
+                # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
@@ -170,9 +175,9 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
                         goodscans += rtutils.find_archivescans(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), threshold)
-                        ##!!! For rate tests: print cand info !!!
-                        #rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
-                    goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
+                        # rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
+                      
+                    goodscans = sorted(set(goodscans))  # uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
                     goodscans = sc.keys()
@@ -180,7 +185,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 goodscanstr= ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % goodscanstr)
 
-                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                 else:
@@ -303,11 +308,4 @@ def getfinishedjobs(qname='default'):
 def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
-
-# Remove duplicates in a list (NOT order-preserving!)
-def uniq_sort(lst):
-    theset = set(lst)
-    thelist = list(theset)
-    thelist.sort()
-    return thelist
 

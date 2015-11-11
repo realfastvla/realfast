@@ -41,6 +41,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         assert isinstance(scan, int), 'Scan should be an integer'
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
+        assert state['inttime'] > 0, 'inttime parsed as zero from metadata. Try again?'
         if seggroup:    # submit groups of segments to reduce read/prep overhead
             for segments in grouprange(0, state['nsegments'], seggroup):
                 stateseg.append( (state, segments) )
@@ -58,13 +59,13 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         if njobs > 1:
             for i in range(njobs-1):
                 state, segments = stateseg[i]
-                job = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=depends_on, timeout=7*24*3600, result_ttl=7*24*3600)
         else:
             job = depends_on
 
         # use second to last job as dependency for last job
         state, segments = stateseg[-1]
-        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=job, timeout=24*3600, result_ttl=24*3600)  # at_front option makes it hard to predict when jobs will complete
+        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=job, timeout=7*24*3600, result_ttl=7*24*3600)  # at_front option makes it hard to predict when jobs will complete
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob
@@ -97,12 +98,12 @@ def integrate(filename, scanstr, inttime, redishost=None):
     filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
     """
 
-    from rq import Queue
-    from redis import Redis
-
     if redishost:
+        from rq import Queue
+        from redis import Redis
+
         q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=24*3600, result_ttl=24*3600)
+        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=7*24*3600, result_ttl=7*24*3600)
     else:
         ps.sdm2ms(filename, filename.rstrip('/')+'.ms', scanstr, inttime)
 
@@ -178,17 +179,20 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
-def plot_cand(workdir, fileroot, scans=[], candnum=-1):
-    """ Visualize a candidate
+def plot_cand(candsfile, candloc, redishost=None):
+    """ Visualize a candidate as png.
+    Can take merge pkl or from a single scan.
+    if redishost defined, will submit job to its slow queue, else run locally.
     """
 
-    pkllist = []
-    for scan in scans:
-        pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
-        if os.path.exists(pklfile):
-            pkllist.append(pklfile)
+    if redishost:
+        from rq import Queue
+        from redis import Redis
 
-    pc.plot_cand(pkllist, candnum=candnum)
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), timeout=7*24*3600, result_ttl=7*24*3600)
+    else:
+        pc.plot_cand(candsfile, candloc=candloc)
 
 def plot_pulsar(workdir, fileroot, scans=[]):
     """
@@ -291,6 +295,11 @@ def check_spw(sdmfile, scan):
     duplicates = list(set(d['spw_reffreq'])).sort() != d['spw_reffreq'].sort()
 
     return len(dfreqneg) <= 1 and not duplicates
+
+def thresholdcands(candsfile, threshold):
+    """
+    """
+    pass
 
 def find_archivescans(mergefile, threshold=0):
     """ Parses merged cands file and returns list of scans with detections.
