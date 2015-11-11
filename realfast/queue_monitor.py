@@ -146,9 +146,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 continue
 
             # 4) generate candidate plots for cands that exceed threshold
-            candsfile = os.path.join(d['workdir'], prefix + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
-            candloc = rtutils.thresholdcands(candsfile, threshold)
-            rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
+            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
+            for candloc in candloclist:
+                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])

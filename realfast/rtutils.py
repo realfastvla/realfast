@@ -296,10 +296,44 @@ def check_spw(sdmfile, scan):
 
     return len(dfreqneg) <= 1 and not duplicates
 
-def thresholdcands(candsfile, threshold):
+def thresholdcands(candsfile, threshold, numberperscan=1):
     """
     """
-    pass
+
+    # read metadata and define columns of interest
+    d = pickle.load(open(candsfile, 'r'))
+    try:
+        scancol = d['featureind'].index('scan')
+    except ValueError:
+        scancol = -1
+    if 'snr2' in d['features']:
+        snrcol = d['features'].index('snr2')
+    elif 'snr1' in d['features']:
+        snrcol = d['features'].index('snr1')
+
+    # read data and define snrs
+    loc, prop = pc.read_candidates(candsfile)
+    snrs = [prop[i][snrcol] for i in range(len(prop)) if prop[i][snrcol] > threshold]
+
+    # calculate unique list of locs of interest
+    siglocs = [list(loc[i]) for i in range(len(prop)) if prop[i][snrcol] > threshold]
+    siglocssort = sorted(zip([list(ll) for ll in siglocs], snrs), key=lambda stuff: stuff[1], reverse=True)
+
+    if scancol >= 0:
+        scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
+        candlist= []
+        for scan in scanset:
+            count = 0
+            for sigloc in siglocssort:
+                if siglocssort[i][0][scancol] == scan:
+                    candlist.append(sigloc)
+                    count += 1
+                if count >= numberperscan:
+                    break
+    else:
+        candlist = siglocssort[:numberperscan]
+
+    return [loc for loc,snr in candlist]
 
 def find_archivescans(mergefile, threshold=0):
     """ Parses merged cands file and returns list of scans with detections.
