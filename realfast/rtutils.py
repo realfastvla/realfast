@@ -1,7 +1,7 @@
 """ Functions used in realfast system.
 Originally a helper script, so strucutre is odd and needs reworking.
 """
-
+import uuid  # prevents crash due to shared library issue
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
 import rtpipe.RT as rt
@@ -179,20 +179,21 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
-def plot_cand(candsfile, candloc, redishost=None):
+def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """ Visualize a candidate as png.
     Can take merge pkl or from a single scan.
     if redishost defined, will submit job to its slow queue, else run locally.
     """
 
     if redishost:
+        logger.info('kwargs not currently supported when enqueuing jobs')
         from rq import Queue
         from redis import Redis
 
         q = Queue('slow', connection=Redis(redishost))
         q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), timeout=7*24*3600, result_ttl=7*24*3600)
     else:
-        pc.plot_cand(candsfile, candloc=candloc)
+        pc.plot_cand(candsfile, candloc=candloc, **kwargs)
 
 def plot_pulsar(workdir, fileroot, scans=[]):
     """
@@ -297,7 +298,9 @@ def check_spw(sdmfile, scan):
     return len(dfreqneg) <= 1 and not duplicates
 
 def thresholdcands(candsfile, threshold, numberperscan=1):
-    """
+    """ Returns list of significant candidate loc in candsfile.
+    Can define threshold and maximum number of locs per scan.
+    Works on merge or per-scan cands pkls.
     """
 
     # read metadata and define columns of interest
@@ -323,9 +326,11 @@ def thresholdcands(candsfile, threshold, numberperscan=1):
         scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
         candlist= []
         for scan in scanset:
+            logger.debug('looking in scan %d' % scan)
             count = 0
             for sigloc in siglocssort:
-                if siglocssort[i][0][scancol] == scan:
+                if sigloc[0][scancol] == scan:
+                    logger.debug('adding sigloc %s' % str(sigloc))
                     candlist.append(sigloc)
                     count += 1
                 if count >= numberperscan:
@@ -333,6 +338,7 @@ def thresholdcands(candsfile, threshold, numberperscan=1):
     else:
         candlist = siglocssort[:numberperscan]
 
+    logger.debug('Returning %d cands above threshold %.1f' % (len(candlist), threshold))
     return [loc for loc,snr in candlist]
 
 def find_archivescans(mergefile, threshold=0):

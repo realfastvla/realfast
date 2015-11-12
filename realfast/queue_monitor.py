@@ -145,11 +145,20 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) generate candidate plots for cands that exceed threshold
+            # 4-1) generate candidate plots for cands that exceed threshold
             candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
             candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
             for candloc in candloclist:
                 rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+
+            # 4-2) Run slow transients search
+            if slow > 0:
+                logger.info('Creating measurement set for %s' % d['filename'])
+                sc,sr = sdmreader.read_metadata(d['filename'], d['scan'], bdfdir=bdfdir)
+                rtutils.linkbdfs(d['filename'], sc, bdfdir)
+
+                # Submit slow-processing job to our alternate queue.
+                rtutils.integrate(d['filename'], str(d['scan']), slow, redishost)                    
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -158,15 +167,6 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
             if (allbdfwritten or sdmtimeout) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 5-1) Run slow transients search
-                if slow > 0:
-                    logger.info('Creating measurement set for %s' % d['filename'])
-                    rtutils.linkbdfs(d['filename'], sc, bdfdir)
-
-                    # Submit slow-processing job to our alternate queue.
-                    allscanstr = ','.join(str(s) for s in sc.keys())
-                    rtutils.integrate(d['filename'], allscanstr, slow, redishost)                    
-
                 # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
@@ -174,10 +174,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
 
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
-                    if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                        goodscans += rtutils.find_archivescans(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), threshold)
-                        # rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
-                      
+                    mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
+                    if os.path.exists(mergepkl):
+                        goodscans += [sigloc[d['featureind'].index('scan')] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
+                        # rtutils.tell_candidates(mergepkl, os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
                     goodscans = sorted(set(goodscans))  # uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
