@@ -166,11 +166,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
         if os.path.exists(mergepkl):
             try:
                 cv.plot_interactive(mergepkl)
-                mergehtml = 'cands_' + fileroot + '_merge.html'
-                logger.info('Interactive plot made at %s.' % (mergehtml))
-                if os.path.exists(mergehtml):
-                    rsync(mergehtml, '/users/claw/public_html/realfast/')
-                    logger.info('Interactive plot copied to ~claw/public_html/realfast/.')
+                logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
             except:
                 logger.info('Interactive plot not made.')
                 
@@ -248,7 +244,7 @@ def rsync(original, new):
     If new is new file, copies original to that name.
     """
 
-    assert os.path.exists(original), 'Need original file!'
+    assert os.path.exists(original) or '*' in original, 'original file found or is not a wildcard.'
 
     # need to dynamically define whether rsync from has a slash at the end
     if os.path.exists(new):   # new is a directory

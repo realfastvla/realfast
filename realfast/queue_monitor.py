@@ -135,21 +135,28 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
+            # 3) make plots for candidates over threshold, aggregate cands/noise files, and plot summaries
+            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
+            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
+            for candloc in candloclist:
+                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
-                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
+                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4-1) generate candidate plots for cands that exceed threshold
-            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
-            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
-            for candloc in candloclist:
-                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+            # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed)
+            mergehtml = 'cands_' + d['fileroot'] + '_merge.html'
+            if os.path.exists(mergehtml):
+                rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
+                logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
+                rtutils.rsync(mergehtml.rstrip('.html') + '*.png', '/users/claw/public_html/realfast/plots/')
+                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
 
             # 4-2) Run slow transients search
             if slow > 0:
@@ -199,6 +206,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 except:
                     logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
                     continue
+
+                # final rsync to get html and cand plots out for inspection
+                if os.path.exists(mergehtml):
+                    rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
+                    logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
+                    rtutils.rsync(mergehtml.rstrip('.html') + '*.png', '/users/claw/public_html/realfast/plots/')
+                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
 
                 # 6) organize cands/noise files?
             else:
