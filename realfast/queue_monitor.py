@@ -26,9 +26,8 @@ redishost = os.uname()[1]  # assuming we start on redis host
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
-@click.option('--slow', '-s', help='Create local measurement set of all data integrated to this timescale (in seconds).', default=0.)
 @click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
-def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdfdir):
+def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -150,22 +149,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed)
+            # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
             mergehtml = 'cands_' + d['fileroot'] + '_merge.html'
             if os.path.exists(mergehtml):
                 rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
                 logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
                 rtutils.rsync(mergehtml.rstrip('.html') + '*.png', '/users/claw/public_html/realfast/plots/')
                 logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-
-            # 4-2) Run slow transients search
-            if slow > 0:
-                logger.info('Creating measurement set for %s' % d['filename'])
-                sc,sr = sdmreader.read_metadata(d['filename'], d['scan'], bdfdir=bdfdir)
-                rtutils.linkbdfs(d['filename'], sc, bdfdir)
-
-                # Submit slow-processing job to our alternate queue.
-                rtutils.integrate(d['filename'], str(d['scan']), slow, redishost)                    
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -177,7 +167,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
-                    goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
+                    goodscans = [s for s in sc.keys() if 'CALIBRATE' in sc[s]['intent']]  # minimal set to save
 
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
@@ -198,6 +188,9 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                     movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                 else:
                     logger.debug('Archiving is off.')                            
+
+                # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
+                rtutils.mergems(d['filename'], sc.keys())
  
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:

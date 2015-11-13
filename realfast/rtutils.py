@@ -93,20 +93,6 @@ def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
         if not os.path.exists(bdfLINK):
             os.symlink(bdfORIG, bdfLINK)
 
-def integrate(filename, scanstr, inttime, redishost=None):
-    """ Creates MS from SDM and integrates down.
-    filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
-    """
-
-    if redishost:
-        from rq import Queue
-        from redis import Redis
-
-        q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=7*24*3600, result_ttl=7*24*3600)
-    else:
-        ps.sdm2ms(filename, filename.rstrip('/')+'.ms', scanstr, inttime)
-
 def calibrate(filename, fileroot):
     """ Run calibration pipeline
     """
@@ -149,6 +135,48 @@ def removejob(jobid):
         logger.info('jobid %s removed from tracking queue' % jobid)
     else:
         logger.info('jobid %s not removed from tracking queue' % jobid)
+
+def mergems(filename, scans, redishost=None, outfile=None):
+    import tasklib
+
+    if not outfile: outfile = filename.rstrip('/') + '_slow.ms'
+
+    # first find scans available as ms files
+    msscans = []; filelist = []
+    for s in scans:
+        msfile = filename.rstrip('/') + '_sc' + str(s) + '.ms'
+        if os.path.exists(msfile):
+            filelist.append(msfile)
+            msscans.append(s)
+        else:
+            logger.debug('Scan %d has no MS' % s)
+
+    msscanstr= ','.join(str(s) for s in msscans)
+    logger.info('Merging slow MS files for scans %s into %s' % (msscanstr, outfile))
+
+    if redishost:
+        from rq import Queue
+        from redis import Redis
+
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=tasklib.concat, args=(filelist, outfile), timeout=24*3600, result_ttl=24*3600)
+    else:
+        tasklib.concat(filelist, outfile)
+
+def integrate(filename, scanstr, inttime, redishost=None):
+    """ Creates MS from SDM and integrates down.
+    filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
+    filename should be full path, if running job in queue.
+    """
+
+    if redishost:
+        from rq import Queue
+        from redis import Redis
+
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime), timeout=7*24*3600, result_ttl=7*24*3600)
+    else:
+        ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
 
 def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot

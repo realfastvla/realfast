@@ -32,13 +32,14 @@ class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, intent='', project='', production=False, verbose=False, rtparams=''):
+    def __init__(self, intent='', project='', production=False, verbose=False, rtparams='', slow=0):
         # Mode can be project, intent
         self.intent = intent
         self.project = project
         self.production = production
         self.verbose = verbose
         self.rtparams = rtparams
+        self.slow = slow
 
     def add_sdminfo(self, sdminfo):
         config = mcaf_library.MCAST_Config(sdminfo=sdminfo)
@@ -53,46 +54,56 @@ class FRBController(object):
                 logger.info("Final rsync to make workdir copy of SDM %sd complete." % (config.sdmLocation.rstrip('/')))
                 rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
-        elif self.intent in config.intentString and self.project in config.projectID:
-            logger.info("Scan %d has desired intent (%s) and project (%s)" % (config.scan, self.intent, self.project))
-            bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
+        elif self.project in config.projectID:  # project of interest
+            filename = config.sdmLocation.rstrip('/')
+            scan = int(config.scan)
 
-            # If we're not in listening mode, prepare data and submit to queue system
-            if self.production:
-                filename = config.sdmLocation.rstrip('/')
-                scan = int(config.scan)
+            if self.intent in config.intentString:
+                logger.info("Scan %d has desired intent (%s) and project (%s)" % (scan, self.intent, self.project))
+                bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
 
-                assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
+                # If we're not in listening mode, prepare data and submit to queue system
+                if self.production:
+                    assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
 
-                # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
-                if rtutils.check_spw(filename, scan) and os.path.exists(bdfloc):
-                    logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
-                    logger.debug("BDF is in %s\n" % (bdfloc))
+                    # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
+                    if rtutils.check_spw(filename, scan) and os.path.exists(bdfloc):
+                        logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
+                        logger.debug("BDF is in %s\n" % (bdfloc))
 
-                    # 1) copy data into place
-                    rtutils.rsync(filename, workdir)
-                    filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
-                    assert 'mchammer' not in filename, 'filename %s is SDM original!'
+                        # 1) copy data into place
+                        rtutils.rsync(filename, workdir)
+                        filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+                        assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
-                    # 2) find telcalfile (use timeout to wait for it to be written)
-                    telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
+                        # 2) find telcalfile (use timeout to wait for it to be written)
+                        telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
 
-                    # 3) if cal available and bdf exists, submit search job and add tail job to monitoring queue
-                    if telcalfile:
-                        logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, default_bdfdir))
-                        lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
-                        rtutils.addjob(lastjob.id)                            
+                        # 3) if cal available and bdf exists, submit search job and add tail job to monitoring queue
+                        if telcalfile:
+                            logger.info('Submitting job to rtutils.search with args: %s %s %s %s %s %s %s %s' % ('default', filename, self.rtparams, '', str([scan]), telcalfile, redishost, default_bdfdir))
+                            lastjob = rtutils.search('default', filename, self.rtparams, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
+                            rtutils.addjob(lastjob.id)                            
+                        else:
+                            logger.info('No calibration available. No job submitted.')
                     else:
-                        logger.info('No calibration available. No job submitted.')
-                else:
-                    logger.info("Not submitting scan %d of sdm %s. bdf not found or cannot be processed by rtpipe." % (scan, os.path.basename(filename)))                    
+                        logger.info("Not submitting scan %d of sdm %s. bdf not found or cannot be processed by rtpipe." % (scan, os.path.basename(filename)))                    
+
+            # each CAL and TARGET scan gets integrated to MS for slow transients search, if in production mode and slow timescale set
+            if (self.slow > 0) and ( ('CALIBRATE' in config.intentString) or ('TARGET' in config.intentString) and self.production):
+                logger.info('Creating measurement set for %s scan %d' % (filename, scan))
+                sc,sr = sdmreader.read_metadata(filename, scan, bdfdir=default_bdfdir)
+                rtutils.linkbdfs(filename, sc, default_bdfdir)
+                rtutils.integrate(filename, str(scan), self.slow, redishost)                    
+                    
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
 @click.option('--project', '-p', default='', help='Project name to trigger on')
 @click.option('--production', help='Run the code (not just print, etc)', is_flag=True)
 @click.option('--verbose', '-v', help='More verbose output', is_flag=True)
 @click.option('--rtparams', help='Parameter file for rtpipe. Default is rtpipe_cbe_conf.', default=rtparams_default)
-def monitor(intent, project, production, verbose, rtparams):
+@click.option('--slow', help='Integrate scans to MS with ints of this many seconds.', default=0)
+def monitor(intent, project, production, verbose, rtparams, slow):
     """ Monitor of mcaf observation files. 
     Scans that match intent and project are searched (if in production mode).
     Blocking function.
@@ -114,7 +125,7 @@ def monitor(intent, project, production, verbose, rtparams):
         logger.info('Running in production mode')
 
     # This starts the receiving/handling loop
-    controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, rtparams=rtparams)
+    controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, rtparams=rtparams, slow=slow)
     sdminfo_client = mcaf_library.SdminfoClient(controller)
     try:
         asyncore.loop()
