@@ -187,13 +187,17 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     try:
         pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
-        pc.plot_noise(fileroot, scans, remove=remove)
+        pc.plot_noise(fileroot, scans)
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
+        if os.path.exists('noise_' + fileroot + '_merge.pkl'):
+            noisepkl = 'noise_' + fileroot + '_merge.pkl'
+        else:
+            noisepkl = ''
         if os.path.exists(mergepkl):
             try:
-                cv.plot_interactive(mergepkl)
+                cv.plot_interactive(mergepkl, noisepkl=noisepkl)
                 logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
             except:
                 logger.info('Interactive plot not made.')
