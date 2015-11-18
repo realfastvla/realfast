@@ -214,7 +214,7 @@ def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """
 
     if redishost:
-        logger.info('kwargs not currently supported when enqueuing jobs')
+        logger.debug('kwargs not currently supported when enqueuing jobs')
         from rq import Queue
         from redis import Redis
 
