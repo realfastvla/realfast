@@ -56,6 +56,7 @@ class FRBController(object):
 
         elif self.project in config.projectID:  # project of interest
             filename = config.sdmLocation.rstrip('/')
+            filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
             scan = int(config.scan)
 
             if self.intent in config.intentString:
@@ -68,12 +69,11 @@ class FRBController(object):
 
                     # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
                     if rtutils.check_spw(filename, scan) and os.path.exists(bdfloc):
-                        logger.info("Processing sdm %s, scan %d..." % (os.path.basename(filename), scan))
+                        logger.info("Processing sdm %s, scan %d..." % (filename, scan))
                         logger.debug("BDF is in %s\n" % (bdfloc))
 
                         # 1) copy data into place
                         rtutils.rsync(filename, workdir)
-                        filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
                         assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
                         # 2) find telcalfile (use timeout to wait for it to be written)
