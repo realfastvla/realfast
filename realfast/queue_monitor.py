@@ -4,7 +4,7 @@ logger = logging.getLogger(__name__)
 from redis import Redis
 from rq.queue import Queue
 from rq.registry import FinishedJobRegistry
-import time, sys, os
+import time, sys, os, glob
 import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
@@ -18,6 +18,7 @@ snrmin = 6.0
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 redishost = os.uname()[1]  # assuming we start on redis host
+scanind = 0  # available in state dict, but setting here since is stable and faster this way
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
@@ -47,6 +48,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
     logger.debug('Monitoring queue running in verbose/debug mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
+    qs = Queue('slow', connection=conn0)
 
     jobids0 = []
     q0hist = [0]
@@ -100,6 +102,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
         for job in finishedjobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
+            readytoarchive = True # default assumption is that this file is ready to move to archive and clear from tracking queue
 
             jobids = conn.scan(cursor=0, count=trackercount)[1]  # refresh jobids to get latest scans_in_queue
             scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids if q.fetch_job(jobid).args[0]['filename'] == d['filename']]
@@ -154,8 +157,12 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
             if os.path.exists(mergehtml):
                 rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
                 logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-                rtutils.rsync(mergehtml.rstrip('.html') + '*.png', '/users/claw/public_html/realfast/plots/')
+            candsroot = mergehtml.rstrip('merge.html') + '*.png'
+            if glob.glob(candsroot):
+                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
                 logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+            else:
+                logger.info('No candidate plots found to rsync to web page.')
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -173,7 +180,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
                     if os.path.exists(mergepkl):
-                        goodscans += [sigloc[d['featureind'].index('scan')] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
+                        goodscans += [sigloc[scanind] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
                         # rtutils.tell_candidates(mergepkl, os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
                     goodscans = sorted(set(goodscans))  # uniq'd scan list in increasing order
                 else:
@@ -185,12 +192,20 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
 
                 # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
-                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
+                    # first determine if this filename is still being worked on by slow queue
+                    slowjobids = getstartedjobs('slow') + qs.job_ids  # working and queued for slow queue
+                    slowfilenames = [qs.fetch_job(slowjobid).args[0]['filename'] for slowjobid in slowjobids]
+                    if d['filename'] not in slowfilenames:  # slow queue done!
+                        movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
+                    else:  # slow queue needs more time
+                        logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
+                        readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+                        continue
                 else:
                     logger.debug('Archiving is off.')                            
 
                 # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
-                rtutils.mergems(d['filename'], sc.keys())
+                rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
  
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:
@@ -204,8 +219,12 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 if os.path.exists(mergehtml):
                     rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
                     logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-                    rtutils.rsync(mergehtml.rstrip('.html') + '*.png', '/users/claw/public_html/realfast/plots/')
+                candsroot = mergehtml.rstrip('merge.html') + '*.png'
+                if glob.glob(candsroot):
+                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
                     logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+                else:
+                    logger.info('No candidate plots found to rsync to web page.')
 
                 # 6) organize cands/noise files?
             else:
@@ -213,10 +232,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
-            logger.info('Removing job %s from tracking queue.' % job.id)
-            rtutils.removejob(job.id)
-            scans_in_queue.remove(d['scan'])
-            sys.stdout.flush()
+            if readytoarchive:  # will be false is slow queue not yet empty of relevant jobs
+                logger.info('Removing job %s from tracking queue.' % job.id)
+                rtutils.removejob(job.id)
+                scans_in_queue.remove(d['scan'])
+                sys.stdout.flush()
+            else:
+                logger.info('Keeping job %s from tracking queue.' % job.id)
 
         sys.stdout.flush()
         time.sleep(1)
@@ -311,6 +333,13 @@ def getfinishedjobs(qname='default'):
 
     q = Queue(qname, connection=conn0)
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
+
+def getstartedjobs(qname='default'):
+    """ Get list of job ids in started registry.
+    """
+
+    q = Queue(qname, connection=conn0)
+    return StartedJobRegistry(name=q.name, connection=conn0).get_job_ids()
 
 # Temporary method for creating an empty file.
 def touch(path):

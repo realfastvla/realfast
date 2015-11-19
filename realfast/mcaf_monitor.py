@@ -56,8 +56,8 @@ class FRBController(object):
                 rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
         elif self.project in config.projectID:  # project of interest
-            filename = config.sdmLocation.rstrip('/')
-            filename = os.path.join(workdir, os.path.basename(filename))   # new full-path filename
+            sdmlocation = config.sdmLocation.rstrip('/')
+            filename = os.path.join(workdir, os.path.basename(sdmlocation))   # new full-path filename
             scan = int(config.scan)
 
             if self.intent in config.intentString:
@@ -66,16 +66,16 @@ class FRBController(object):
 
                 # If we're not in listening mode, prepare data and submit to queue system
                 if self.production:
-                    assert len(filename) and isinstance(filename, str), 'Filename empty or not a string?'
+                    assert len(sdmlocation) and isinstance(sdmlocation, str), 'sdmlocation empty or not a string?'
+                    assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
                     # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
-                    if rtutils.check_spw(filename, scan) and os.path.exists(bdfloc):
+                    if rtutils.check_spw(sdmlocation, scan) and os.path.exists(bdfloc):
+                        # 1) copy data into place
+                        rtutils.rsync(sdmlocation, workdir)
+
                         logger.info("Processing sdm %s, scan %d..." % (filename, scan))
                         logger.debug("BDF is in %s\n" % (bdfloc))
-
-                        # 1) copy data into place
-                        rtutils.rsync(filename, workdir)
-                        assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
                         # 2) find telcalfile (use timeout to wait for it to be written)
                         telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
@@ -88,10 +88,11 @@ class FRBController(object):
                         else:
                             logger.info('No calibration available. No job submitted.')
                     else:
-                        logger.info("Not submitting scan %d of sdm %s. bdf not found or cannot be processed by rtpipe." % (scan, os.path.basename(filename)))                    
+                        logger.info("Not submitting scan %d of sdm %s. bdf not found or cannot be processed by rtpipe." % (scan, os.path.basename(sdmlocation)))                    
 
             # each CAL and TARGET scan gets integrated to MS for slow transients search, if in production mode and slow timescale set
             if (self.slow > 0) and ( ('CALIBRATE' in config.intentString) or ('TARGET' in config.intentString) and self.production):
+                rtutils.rsync(sdmlocation, workdir)
                 logger.info('Creating measurement set for %s scan %d' % (filename, scan))
                 sc,sr = sdmreader.read_metadata(filename, scan, bdfdir=default_bdfdir)
                 rtutils.linkbdfs(filename, sc, default_bdfdir)
