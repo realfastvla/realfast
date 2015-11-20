@@ -8,15 +8,15 @@
     <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <title>Realfast by caseyjlaw</title>
+    <title>realfast by caseyjlaw</title>
   </head>
 
   <body>
 
     <header>
       <div class="container">
-        <h1>Realfast</h1>
-        <h2>Tools for real-time data analysis at the Very Large Array</h2>
+        <h1>realfast</h1>
+        <h2>real-time transient searches at the Very Large Array</h2>
 
         <section id="downloads">
           <a href="https://github.com/caseyjlaw/realfast/zipball/master" class="btn">Download as .zip</a>
@@ -29,10 +29,39 @@
     <div class="container">
       <section id="main_content">
         <h1>
-<a id="realfast-a-set-of-tools-for-real-time-data-analysis-at-the-very-large-array" class="anchor" href="#realfast-a-set-of-tools-for-real-time-data-analysis-at-the-very-large-array" aria-hidden="true"><span class="octicon octicon-link"></span></a>realfast: a set of tools for real-time data analysis at the Very Large Array</h1>
+<a id="realfast-real-time-transient-searches-at-the-very-large-array" class="anchor" href="#realfast-real-time-transient-searches-at-the-very-large-array" aria-hidden="true"><span class="octicon octicon-link"></span></a>realfast: real-time transient searches at the Very Large Array</h1>
+
+<h3>
+<a id="context" class="anchor" href="#context" aria-hidden="true"><span class="octicon octicon-link"></span></a>Context</h3>
+
+<p>We are developing a set of enhancements to the Jansky Very Large Array (VLA) to enable real-time, commensal surveys for fast radio transients. We use the term <code>realfast</code> to refer to the project and the <a href="http://github.com/caseyjlaw/realfast">software</a>.</p>
+
+<p>As the most sensitive cm-wavelength radio interferometer on earth, the VLA will revolutionize this field with its ability to form sensitive images with arcsecond spatial resolution. Interferometric imaging will do pioneering science with a mysterious new class of radio transients known as <a href="https://en.wikipedia.org/wiki/Fast_radio_burst">fast radio bursts</a>. VLA imaging can make the first arcsecond localization of a burst and can detect many events per year. Similarly, the interferometric discovery and localization of other classes of millisecond transient will address topics ranging from the missing baryon problem to (sub)stellar magnetism to the search for exotic binary pulsar systems.</p>
+
+<p>The challenge is that millisecond imaging produces 1 TB of data per hour (in our current standard VLA observing mode) and requires forming many thousands of images per second. New software and significant computational support are needed to process this massive data stream in real time. However, by integrating real-time processing with a the VLA observing system, we can turn observation into a fast transient survey, ultimately encompassing thousands of hours per year. Real-time, commensal analysis creates discovery potential by searching an otherwise inaccessible data stream. Developing this system at the VLA will produce multiplicative improvement to scientific productivity for this already powerful telescope.</p>
+
+<h3>
+<a id="approach" class="anchor" href="#approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>Approach</h3>
+
+<p><code>realfast</code> will do this through a series of algorithmic, software, and hardware developments. The principal algorithmic development is presented in <a href="http://github.com/caseyjlaw/rtpipe"><code>rtpipe</code></a>, a library for building fast transient detection pipelines for radio interferometric data. The largest scale implementation of <code>rtpipe</code> <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2015ApJ...807...16L">was a 200-hour, 200-TB VLA imaging survey for FRBs</a>.</p>
+
+<p>The current (late 2015) implementation of <code>realfast</code> performs real-time fast imaging to trigger recording of data in a dedicated observation. This system is demonstrating the concepts of "data triage" that are critical to the long-term goal of a commensal system that operates 24/7 and can efficiently excise data around the most promising candidate transients.</p>
+
+<h3>
+<a id="visualizations" class="anchor" href="#visualizations" aria-hidden="true"><span class="octicon octicon-link"></span></a>Visualizations</h3>
       </section>
     </div>
 
-    
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-3920334-4");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
   </body>
 </html>
