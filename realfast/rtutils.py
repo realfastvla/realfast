@@ -110,7 +110,7 @@ def cleanup(workdir, fileroot, scans=[]):
     # merge cands/noise files per scan
     for scan in scans:
 #try:
-        pc.merge_segments(fileroot, scan, cleanup=True)
+        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=10.)
 #        except:
 #            logger.exception('')
 
