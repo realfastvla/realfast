@@ -3,7 +3,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 from redis import Redis
 from rq.queue import Queue
-from rq.registry import FinishedJobRegistry
+from rq.registry import FinishedJobRegistry, StartedJobRegistry
 import time, sys, os, glob
 import subprocess, click, shutil
 import sdmreader
@@ -167,8 +167,8 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
             sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
-            logging.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
-            if (allbdfwritten or sdmtimeout) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+            logger.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
+            if (sdmtimeout or allbdfwritten) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
                 # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
@@ -226,7 +226,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 else:
                     logger.info('No candidate plots found to rsync to web page.')
 
-                # 6) organize cands/noise files?
+            elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+                logger.info('Not all bdf written yet. Keeping last scan of %f in tracking queue.' % d['filename'])
+                readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+
             else:
                 logger.info('Scan %d is not last scan or %s is not finished writing.' % (d['scan'], d['filename']))
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
