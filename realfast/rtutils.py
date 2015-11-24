@@ -1,15 +1,15 @@
 """ Functions used in realfast system.
 Originally a helper script, so strucutre is odd and needs reworking.
 """
-
+import uuid  # prevents crash due to shared library issue
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-#import cPickle as pickle
-import pickle
+import rtpipe.candvis as cv
+import cPickle as pickle
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
@@ -41,6 +41,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         assert isinstance(scan, int), 'Scan should be an integer'
         scanind = scans.index(scan)
         state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
+        assert state['inttime'] > 0, 'inttime parsed as zero from metadata. Try again?'
         if seggroup:    # submit groups of segments to reduce read/prep overhead
             for segments in grouprange(0, state['nsegments'], seggroup):
                 stateseg.append( (state, segments) )
@@ -58,13 +59,13 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         if njobs > 1:
             for i in range(njobs-1):
                 state, segments = stateseg[i]
-                job = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=depends_on, timeout=24*3600, result_ttl=24*3600)
+                job = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=depends_on, timeout=7*24*3600, result_ttl=7*24*3600)
         else:
             job = depends_on
 
         # use second to last job as dependency for last job
         state, segments = stateseg[-1]
-        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=job, timeout=24*3600, result_ttl=24*3600)  # at_front option makes it hard to predict when jobs will complete
+        lastjob = q.enqueue_call(func=rt.pipeline, args=(state, segments), depends_on=job, timeout=7*24*3600, result_ttl=7*24*3600)  # at_front option makes it hard to predict when jobs will complete
 
         logger.info('Jobs enqueued. Returning last job with id %s.' % lastjob.id)
         return lastjob
@@ -92,20 +93,6 @@ def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
         if not os.path.exists(bdfLINK):
             os.symlink(bdfORIG, bdfLINK)
 
-def integrate(filename, scanstr, inttime, redishost=None):
-    """ Creates MS from SDM and integrates down.
-    filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
-    """
-
-    from rq import Queue
-    from redis import Redis
-
-    if redishost:
-        q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/')+'.ms', scanstr, inttime), timeout=24*3600, result_ttl=24*3600)
-    else:
-        ps.sdm2ms(filename, filename.rstrip('/')+'.ms', scanstr, inttime)
-
 def calibrate(filename, fileroot):
     """ Run calibration pipeline
     """
@@ -123,7 +110,7 @@ def cleanup(workdir, fileroot, scans=[]):
     # merge cands/noise files per scan
     for scan in scans:
 #try:
-        pc.merge_segments(fileroot, scan, cleanup=True)
+        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=10.)
 #        except:
 #            logger.exception('')
 
@@ -149,6 +136,48 @@ def removejob(jobid):
     else:
         logger.info('jobid %s not removed from tracking queue' % jobid)
 
+def mergems(filename, scans, redishost=None, outfile=None):
+    import tasklib
+
+    if not outfile: outfile = filename.rstrip('/') + '_slow.ms'
+
+    # first find scans available as ms files
+    msscans = []; filelist = []
+    for s in scans:
+        msfile = filename.rstrip('/') + '_sc' + str(s) + '.ms'
+        if os.path.exists(msfile):
+            filelist.append(msfile)
+            msscans.append(s)
+        else:
+            logger.debug('Scan %d has no MS' % s)
+
+    msscanstr= ','.join(str(s) for s in msscans)
+    logger.info('Merging slow MS files for scans %s into %s' % (msscanstr, outfile))
+
+    if redishost:
+        from rq import Queue
+        from redis import Redis
+
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=tasklib.concat, args=(filelist, outfile), timeout=24*3600, result_ttl=24*3600)
+    else:
+        tasklib.concat(filelist, outfile)
+
+def integrate(filename, scanstr, inttime, redishost=None):
+    """ Creates MS from SDM and integrates down.
+    filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
+    filename should be full path, if running job in queue.
+    """
+
+    if redishost:
+        from rq import Queue
+        from redis import Redis
+
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=ps.sdm2ms, args=(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime), timeout=7*24*3600, result_ttl=7*24*3600)
+    else:
+        ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
+
 def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
@@ -162,14 +191,14 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
+        if os.path.exists('noise_' + fileroot + '_merge.pkl'):
+            noisepkl = 'noise_' + fileroot + '_merge.pkl'
+        else:
+            noisepkl = ''
         if os.path.exists(mergepkl):
             try:
-                pc.plot_interactive(mergepkl)
-                mergehtml = 'cands_' + fileroot + '_merge.html'
-                logger.info('Interactive plot made at %s.' % (mergehtml))
-                if os.path.exists(mergehtml):
-                    rsync(mergehtml, '/users/claw/public_html/realfast/')
-                    logger.info('Interactive plot copied to ~claw/public_html/realfast/.')
+                cv.plot_interactive(mergepkl, noisepkl=noisepkl)
+                logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
             except:
                 logger.info('Interactive plot not made.')
                 
@@ -178,17 +207,21 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
-def plot_cand(workdir, fileroot, scans=[], candnum=-1):
-    """ Visualize a candidate
+def plot_cand(candsfile, candloc, redishost=None, **kwargs):
+    """ Visualize a candidate as png.
+    Can take merge pkl or from a single scan.
+    if redishost defined, will submit job to its slow queue, else run locally.
     """
 
-    pkllist = []
-    for scan in scans:
-        pklfile = os.path.join(workdir, 'cands_' + fileroot + '_sc' + str(scan) + '.pkl')
-        if os.path.exists(pklfile):
-            pkllist.append(pklfile)
+    if redishost:
+        logger.debug('kwargs not currently supported when enqueuing jobs')
+        from rq import Queue
+        from redis import Redis
 
-    pc.plot_cand(pkllist, candnum=candnum)
+        q = Queue('slow', connection=Redis(redishost))
+        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), timeout=7*24*3600, result_ttl=7*24*3600)
+    else:
+        pc.plot_cand(candsfile, candloc=candloc, **kwargs)
 
 def plot_pulsar(workdir, fileroot, scans=[]):
     """
@@ -243,7 +276,7 @@ def rsync(original, new):
     If new is new file, copies original to that name.
     """
 
-    assert os.path.exists(original), 'Need original file!'
+    assert os.path.exists(original) or '*' in original, 'original file found or is not a wildcard.'
 
     # need to dynamically define whether rsync from has a slash at the end
     if os.path.exists(new):   # new is a directory
@@ -291,6 +324,50 @@ def check_spw(sdmfile, scan):
     duplicates = list(set(d['spw_reffreq'])).sort() != d['spw_reffreq'].sort()
 
     return len(dfreqneg) <= 1 and not duplicates
+
+def thresholdcands(candsfile, threshold, numberperscan=1):
+    """ Returns list of significant candidate loc in candsfile.
+    Can define threshold and maximum number of locs per scan.
+    Works on merge or per-scan cands pkls.
+    """
+
+    # read metadata and define columns of interest
+    d = pickle.load(open(candsfile, 'r'))
+    try:
+        scancol = d['featureind'].index('scan')
+    except ValueError:
+        scancol = -1
+    if 'snr2' in d['features']:
+        snrcol = d['features'].index('snr2')
+    elif 'snr1' in d['features']:
+        snrcol = d['features'].index('snr1')
+
+    # read data and define snrs
+    loc, prop = pc.read_candidates(candsfile)
+    snrs = [prop[i][snrcol] for i in range(len(prop)) if prop[i][snrcol] > threshold]
+
+    # calculate unique list of locs of interest
+    siglocs = [list(loc[i]) for i in range(len(prop)) if prop[i][snrcol] > threshold]
+    siglocssort = sorted(zip([list(ll) for ll in siglocs], snrs), key=lambda stuff: stuff[1], reverse=True)
+
+    if scancol >= 0:
+        scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
+        candlist= []
+        for scan in scanset:
+            logger.debug('looking in scan %d' % scan)
+            count = 0
+            for sigloc in siglocssort:
+                if sigloc[0][scancol] == scan:
+                    logger.debug('adding sigloc %s' % str(sigloc))
+                    candlist.append(sigloc)
+                    count += 1
+                if count >= numberperscan:
+                    break
+    else:
+        candlist = siglocssort[:numberperscan]
+
+    logger.debug('Returning %d cands above threshold %.1f' % (len(candlist), threshold))
+    return [loc for loc,snr in candlist]
 
 def find_archivescans(mergefile, threshold=0):
     """ Parses merged cands file and returns list of scans with detections.

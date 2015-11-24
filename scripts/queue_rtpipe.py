@@ -3,6 +3,7 @@
 # split job into nsegment pieces and queue all up with rq
 # each job is independent but shares file system. one worker per node.
 
+import uuid # workaround for cbe crash
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -81,7 +82,7 @@ if __name__ == '__main__':
         from redis import Redis
 
         q = Queue(qpriority, connection=Redis())
-        caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=24*3600, result_ttl=24*3600)
+        caljob = q.enqueue_call(func=rtutils.calibrate, args=(filename, fileroot), timeout=7*24*3600, result_ttl=7*24*3600)
             
     elif mode == 'cleanup':
         # pack all the segments up into one pkl per scan
@@ -98,7 +99,7 @@ if __name__ == '__main__':
         from redis import Redis
         
         q = Queue(qpriority, connection=Redis())
-        plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=24*3600, result_ttl=24*3600)    # default TARGET intent 
+        plotjob = q.enqueue_call(func=rtutils.plot_cand, args=(workdir, fileroot, scans, candnum), timeout=7*24*3600, result_ttl=7*24*3600)    # default TARGET intent 
 
     elif mode == 'plot_pulsar':
         rtutils.plot_pulsar(workdir, fileroot, scans)

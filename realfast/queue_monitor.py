@@ -3,8 +3,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 from redis import Redis
 from rq.queue import Queue
-from rq.registry import FinishedJobRegistry
-import time, sys, os
+from rq.registry import FinishedJobRegistry, StartedJobRegistry
+import time, sys, os, glob
 import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
@@ -18,6 +18,7 @@ snrmin = 6.0
 sdmArchdir = '/home/mchammer/evla/sdm/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE. # dummy dir: /home/cbe-master/realfast/fake_archdir
 bdfArchdir = '/lustre/evla/wcbe/data/archive/' #!!! THIS NEEDS TO BE SET BY A CENTRALIZED SETUP/CONFIG FILE.
 redishost = os.uname()[1]  # assuming we start on redis host
+scanind = 0  # available in state dict, but setting here since is stable and faster this way
 
 @click.command()
 @click.option('--qname', default='default', help='Name of queue to monitor')
@@ -26,9 +27,8 @@ redishost = os.uname()[1]  # assuming we start on redis host
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
-@click.option('--slow', '-s', help='Create local measurement set of all data integrated to this timescale (in seconds).', default=0.)
 @click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
-def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdfdir):
+def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -48,6 +48,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
     logger.debug('Monitoring queue running in verbose/debug mode.')
     logger.info('Monitoring queue %s in %s recording mode...' % (qname, ['all', 'triggered'][triggered]))
     q = Queue(qname, connection=conn0)
+    qs = Queue('slow', connection=conn0)
 
     jobids0 = []
     q0hist = [0]
@@ -74,7 +75,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
             sys.stdout.flush()
             jobids0 = jobids
 
-        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in q
+        # filter all jobids to those that are finished pipeline jobs. now assumes only RT.pipeline jobs in queue
         badjobs = [jobids[i] for i in range(len(jobids)) if not q.fetch_job(jobids[i])]  # clean up jobids list first
         if badjobs:
             logger.info('Cleaning up jobs in tail queue with no counterpart in working queue.')
@@ -101,6 +102,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
         for job in finishedjobs:
             d, segments = job.args
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
+            readytoarchive = True # default assumption is that this file is ready to move to archive and clear from tracking queue
 
             jobids = conn.scan(cursor=0, count=trackercount)[1]  # refresh jobids to get latest scans_in_queue
             scans_in_queue = [q.fetch_job(jobid).args[0]['scan'] for jobid in jobids if q.fetch_job(jobid).args[0]['filename'] == d['filename']]
@@ -135,43 +137,52 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) aggregate cands/noise files and plot available so far. creates/overwrites the merge pkl
+            # 3) make plots for candidates over threshold, aggregate cands/noise files, and plot summaries
+            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
+            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
+            for candloc in candloclist:
+                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+
             try:
-                rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)
+                if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
+                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
+            # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
+            mergehtml = 'cands_' + d['fileroot'] + '_merge.html'
+            if os.path.exists(mergehtml):
+                rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
+                logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
+            candsroot = mergehtml.rstrip('merge.html') + '*.png'
+            if glob.glob(candsroot):
+                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
+                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+            else:
+                logger.info('No candidate plots found to rsync to web page.')
+
+            # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
             sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
-            logging.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
-            if (allbdfwritten or sdmtimeout) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+            logger.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
+            if (sdmtimeout or allbdfwritten) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 4-1) Run slow transients search
-                if slow > 0:
-                    logger.info('Creating measurement set for %s' % d['filename'])
-                    rtutils.linkbdfs(d['filename'], sc, bdfdir)
-
-                    # Submit slow-processing job to our alternate queue.
-                    allscanstr = ','.join(str(s) for s in sc.keys())
-                    rtutils.integrate(d['filename'], allscanstr, slow, redishost)                    
-
-                # 4-2) if doing triggered recording, get scans to save. otherwise, save all scans.
+                # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
-                    goodscans = [s for s in sc.keys() if 'CALIB' in sc[s]['intent']]  # minimal set to save
+                    goodscans = [s for s in sc.keys() if 'CALIBRATE' in sc[s]['intent']]  # minimal set to save
 
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
-                    if os.path.exists(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')):
-                        goodscans += rtutils.find_archivescans(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), threshold)
-                        ##!!! For rate tests: print cand info !!!
-                        #rtutils.tell_candidates(os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl'), os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist'))
-                    goodscans = uniq_sort(goodscans) #uniq'd scan list in increasing order
+                    mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
+                    if os.path.exists(mergepkl):
+                        goodscans += [sigloc[scanind] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
+                        # rtutils.tell_candidates(mergepkl, os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
+                    goodscans = sorted(set(goodscans))  # uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')
                     goodscans = sc.keys()
@@ -179,11 +190,22 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                 goodscanstr= ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % goodscanstr)
 
-                # 4-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
-                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
+                    # first determine if this filename is still being worked on by slow queue
+                    slowjobids = getstartedjobs('slow') + qs.job_ids  # working and queued for slow queue
+                    slowfilenames = [qs.fetch_job(slowjobid).args[0]['filename'] for slowjobid in slowjobids]
+                    if d['filename'] not in slowfilenames:  # slow queue done!
+                        movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
+                    else:  # slow queue needs more time
+                        logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
+                        readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+                        continue
                 else:
                     logger.debug('Archiving is off.')                            
+
+                # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
+                rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
  
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:
@@ -193,16 +215,33 @@ def monitor(qname, triggered, archive, verbose, production, threshold, slow, bdf
                     logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
                     continue
 
-                # 6) organize cands/noise files?
+                # final rsync to get html and cand plots out for inspection
+                if os.path.exists(mergehtml):
+                    rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
+                    logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
+                candsroot = mergehtml.rstrip('merge.html') + '*.png'
+                if glob.glob(candsroot):
+                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
+                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+                else:
+                    logger.info('No candidate plots found to rsync to web page.')
+
+            elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
+                logger.info('Not all bdf written yet. Keeping last scan of %f in tracking queue.' % d['filename'])
+                readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+
             else:
                 logger.info('Scan %d is not last scan or %s is not finished writing.' % (d['scan'], d['filename']))
                 logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
 
             # job is finished, so remove from db
-            logger.info('Removing job %s from tracking queue.' % job.id)
-            rtutils.removejob(job.id)
-            scans_in_queue.remove(d['scan'])
-            sys.stdout.flush()
+            if readytoarchive:  # will be false is slow queue not yet empty of relevant jobs
+                logger.info('Removing job %s from tracking queue.' % job.id)
+                rtutils.removejob(job.id)
+                scans_in_queue.remove(d['scan'])
+                sys.stdout.flush()
+            else:
+                logger.info('Keeping job %s from tracking queue.' % job.id)
 
         sys.stdout.flush()
         time.sleep(1)
@@ -298,15 +337,15 @@ def getfinishedjobs(qname='default'):
     q = Queue(qname, connection=conn0)
     return FinishedJobRegistry(name=q.name, connection=conn0).get_job_ids()
 
+def getstartedjobs(qname='default'):
+    """ Get list of job ids in started registry.
+    """
+
+    q = Queue(qname, connection=conn0)
+    return StartedJobRegistry(name=q.name, connection=conn0).get_job_ids()
+
 # Temporary method for creating an empty file.
 def touch(path):
     with open(path, 'a'):
         os.utime(path, None)
-
-# Remove duplicates in a list (NOT order-preserving!)
-def uniq_sort(lst):
-    theset = set(lst)
-    thelist = list(theset)
-    thelist.sort()
-    return thelist
 
