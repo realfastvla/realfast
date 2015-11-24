@@ -158,7 +158,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     try:
         pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
-        pc.plot_noise(fileroot, scans, remove=remove)
+        pc.plot_noise(fileroot, scans)
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
