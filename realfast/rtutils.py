@@ -214,12 +214,11 @@ def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """
 
     if redishost:
-        logger.debug('kwargs not currently supported when enqueuing jobs')
         from rq import Queue
         from redis import Redis
 
         q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), timeout=7*24*3600, result_ttl=7*24*3600)
+        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), kwargs=kwargs, timeout=7*24*3600, result_ttl=7*24*3600)
     else:
         pc.plot_cand(candsfile, candloc=candloc, **kwargs)
 

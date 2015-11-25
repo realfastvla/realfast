@@ -141,7 +141,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
             candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
             candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
             for candloc in candloclist:
-                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+                rtutils.plot_cand(candsfile, candloc, redishost=redishost, nthread=2)
 
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
