@@ -270,13 +270,15 @@ def grouprange(start, size, step):
     arr = range(start,start+size)
     return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
 
-def rsync(original, new):
+def rsync(original, new, mode='-a'):
     """ Uses subprocess.call to rsync from 'filename' to 'new'
     If new is directory, copies original in.
     If new is new file, copies original to that name.
+    mode '-a' for archiving (recursively). '-ptgo' better for files or when using wildcard.
     """
 
     assert os.path.exists(original) or '*' in original, 'original file found or is not a wildcard.'
+    assert mode[0] == '-', 'Mode is an option for rsync and must start with \'-\''
 
     # need to dynamically define whether rsync from has a slash at the end
     if os.path.exists(new):   # new is a directory
@@ -285,7 +287,7 @@ def rsync(original, new):
     else:   # new is a new file. fill it with contents of original
         trailing = '/'
 
-    subprocess.call(["rsync", "-ar", original.rstrip('/') + trailing, new.rstrip('/')])
+    subprocess.call(["rsync", mode, original.rstrip('/') + trailing, new.rstrip('/')])
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
