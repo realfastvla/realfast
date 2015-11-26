@@ -74,7 +74,7 @@ def status():
                 details = (job.args[0]['filename'], job.args[0]['scan'])
             else:
                 details = job.args
-                logger.info('job %s: %s, args: %s' % (job.id, str(details)))
+                logger.info('job %s, args: %s' % (job.id, str(details)))
 
     jobids = conn.scan(cursor=0, count=trackercount)[1]
     logger.info('Jobs in tracking queue:')
@@ -158,7 +158,7 @@ def empty(qname):
             details = (job.args[0]['filename'], job.args[0]['scan'])
         else:
             details = job.args
-        logger.info('Removed job %s: %s, args: %s' % (job.id, str(details)))
+        logger.info('Removed job %s:, args: %s' % (job.id, str(details)))
         q.remove(job)
 
 @click.command()
