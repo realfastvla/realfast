@@ -197,6 +197,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     remaining = [jobid for jobid in slowjobids if d['filename'] in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
 
                     if len(remaining) == 0:
+                        logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
                         movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                     else:  # slow queue needs more time
                         logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
