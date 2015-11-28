@@ -159,7 +159,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
             candsroot = mergehtml.rstrip('merge.html') + '*.png'
             if glob.glob(candsroot):
-                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
+                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/', mode='-ptgo')
                 logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
             else:
                 logger.info('No candidate plots found to rsync to web page.')
@@ -233,7 +233,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     logger.info('No candidate plots found to rsync to web page.')
 
             elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
-                logger.info('Not all bdf written yet. Keeping last scan of %f in tracking queue.' % d['filename'])
+                logger.info('Not all bdf written yet. Keeping last scan of %s in tracking queue.' % d['filename'])
                 readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
 
             else:
