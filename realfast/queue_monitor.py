@@ -193,8 +193,8 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     # first determine if this filename is still being worked on by slow queue
-                    slowjobids = getstartedjobs('slow') + qs.job_ids  # working and queued for slow queue
-                    remaining = [jobid for jobid in slowjobids if d['filename'] in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
+                    slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
+                    remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
 
                     if len(remaining) == 0:
                         logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
