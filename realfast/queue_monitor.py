@@ -138,10 +138,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 continue
 
             # 3) make plots for candidates over threshold, aggregate cands/noise files, and plot summaries
-            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
-            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
-            for candloc in candloclist:
-                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
+#            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
+#            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
+#            for candloc in candloclist:
+#                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
 
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
@@ -157,12 +157,12 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
             if os.path.exists(mergehtml):
                 rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
                 logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-            candsroot = mergehtml.rstrip('merge.html') + '*.png'
-            if glob.glob(candsroot):
-                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
-                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-            else:
-                logger.info('No candidate plots found to rsync to web page.')
+#            candsroot = mergehtml.rstrip('merge.html') + '*.png'
+#            if glob.glob(candsroot):
+#                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
+#                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+#            else:
+#                logger.info('No candidate plots found to rsync to web page.')
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -219,12 +219,12 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 if os.path.exists(mergehtml):
                     rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
                     logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-                candsroot = mergehtml.rstrip('merge.html') + '*.png'
-                if glob.glob(candsroot):
-                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
-                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-                else:
-                    logger.info('No candidate plots found to rsync to web page.')
+#                candsroot = mergehtml.rstrip('merge.html') + '*.png'
+#                if glob.glob(candsroot):
+#                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
+#                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
+#                else:
+#                    logger.info('No candidate plots found to rsync to web page.')
 
             elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('Not all bdf written yet. Keeping last scan of %f in tracking queue.' % d['filename'])
