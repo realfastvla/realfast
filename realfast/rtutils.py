@@ -1,15 +1,15 @@
 """ Functions used in realfast system.
 Originally a helper script, so strucutre is odd and needs reworking.
 """
-import uuid  # prevents crash due to shared library issue
-import os, glob, time, shutil, subprocess, logging
-import sdmreader
+import uuid
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 import rtpipe.candvis as cv
 import cPickle as pickle
+import os, glob, time, shutil, subprocess, logging
+import sdmreader
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
