@@ -295,16 +295,18 @@ def moveplots(fileroot, destination='/users/claw/public_html/realfast/'):
 
     mergehtml = 'cands_' + fileroot + '_merge.html'
     if os.path.exists(mergehtml):
-        rtutils.rsync(mergehtml, destination)
-        logger.info('Interactive plot rsync\'d to %s.' % destination)
+        shutil.copy(mergehtml, destination)
+        logger.info('Interactive plot copied to %s.' % destination)
     else:
-        logger.warn('No interactive plot found.')
+        logger.warn('No interactive plot found to copy.')
 
-    candfiles = glob.glob(mergehtml.rstrip('merge.html') + '*.png'):
+    candfiles = glob.glob(mergehtml.rstrip('merge.html') + '*.png')
     for candfile in candfiles:
         shutil.copy(candfile, os.path.join(destination, 'plots'))
     if candfiles:
-        logger.info('Candidate plots rsync\'d to %s/plots' % destination)
+        logger.info('Candidate plots copied to %s/plots' % destination)
+    else:
+        logger.warn('No candidate plots found to copy.')
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
