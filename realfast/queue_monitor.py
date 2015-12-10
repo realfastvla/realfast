@@ -137,12 +137,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) make plots for candidates over threshold, aggregate cands/noise files, and plot summaries
-            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
-            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
-            for candloc in candloclist:
-                rtutils.plot_cand(candsfile, candloc, redishost=redishost, nthread=2, nologfile=True)
-
+            # 3) make summary plots
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
                     rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
