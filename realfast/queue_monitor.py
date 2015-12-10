@@ -148,16 +148,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 continue
 
             # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
-            mergehtml = 'cands_' + d['fileroot'] + '_merge.html'
-            if os.path.exists(mergehtml):
-                rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
-                logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-            candsroot = mergehtml.rstrip('merge.html') + '*.png'
-            if glob.glob(candsroot):
-                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/', mode='-ptgo')
-                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-            else:
-                logger.info('No candidate plots found to rsync to web page.')
+            try:
+                rtutils.moveplots(d['fileroot'])
+            except:
+                logger.error('Failed to move cand plots and interactive plot out')
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -217,15 +211,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     continue
 
                 # final rsync to get html and cand plots out for inspection
-                if os.path.exists(mergehtml):
-                    rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
-                    logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-                candsroot = mergehtml.rstrip('merge.html') + '*.png'
-                if glob.glob(candsroot):
-                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/', mode='-ptgo')
-                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-                else:
-                    logger.info('No candidate plots found to rsync to web page.')
+                try:
+                    rtutils.moveplots(d['fileroot'])
+                except:
+                    logger.error('Failed to move cand plots and interactive plot out')
 
             elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('Not all bdf written yet. Keeping last scan of %s in tracking queue.' % d['filename'])

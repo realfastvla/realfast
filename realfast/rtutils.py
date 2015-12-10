@@ -288,6 +288,24 @@ def rsync(original, new, mode='-a'):
 
     subprocess.call(["rsync", mode, original.rstrip('/') + trailing, new.rstrip('/')])
 
+def moveplots(fileroot, destination='/users/claw/public_html/realfast/'):
+    """ For given fileroot, move cand html plot and candidate plots out
+    html to destination, candplots to destination/plots
+    """
+
+    mergehtml = 'cands_' + fileroot + '_merge.html'
+    if os.path.exists(mergehtml):
+        rtutils.rsync(mergehtml, destination)
+        logger.info('Interactive plot rsync\'d to %s.' % destination)
+    else:
+        logger.warn('No interactive plot found.')
+
+    candfiles = glob.glob(mergehtml.rstrip('merge.html') + '*.png'):
+    for candfile in candfiles:
+        shutil.copy(candfile, os.path.join(destination, 'plots'))
+    if candfiles:
+        logger.info('Candidate plots rsync\'d to %s/plots' % destination)
+
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
     """
