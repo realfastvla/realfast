@@ -1,15 +1,15 @@
 """ Functions used in realfast system.
 Originally a helper script, so strucutre is odd and needs reworking.
 """
-import uuid  # prevents crash due to shared library issue
-import os, glob, time, shutil, subprocess, logging
-import sdmreader
+import uuid
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
 import rtpipe.candvis as cv
 import cPickle as pickle
+import os, glob, time, shutil, subprocess, logging
+import sdmreader
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
@@ -110,7 +110,7 @@ def cleanup(workdir, fileroot, scans=[]):
     # merge cands/noise files per scan
     for scan in scans:
 #try:
-        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=10.)
+        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=2.)
 #        except:
 #            logger.exception('')
 
@@ -214,12 +214,11 @@ def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """
 
     if redishost:
-        logger.debug('kwargs not currently supported when enqueuing jobs')
         from rq import Queue
         from redis import Redis
 
         q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), timeout=7*24*3600, result_ttl=7*24*3600)
+        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), kwargs=kwargs, timeout=7*24*3600, result_ttl=7*24*3600)
     else:
         pc.plot_cand(candsfile, candloc=candloc, **kwargs)
 
@@ -270,13 +269,15 @@ def grouprange(start, size, step):
     arr = range(start,start+size)
     return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
 
-def rsync(original, new):
+def rsync(original, new, mode='-a'):
     """ Uses subprocess.call to rsync from 'filename' to 'new'
     If new is directory, copies original in.
     If new is new file, copies original to that name.
+    mode '-a' for archiving (recursively). '-ptgo' better for files or when using wildcard.
     """
 
     assert os.path.exists(original) or '*' in original, 'original file found or is not a wildcard.'
+    assert mode[0] == '-', 'Mode is an option for rsync and must start with \'-\''
 
     # need to dynamically define whether rsync from has a slash at the end
     if os.path.exists(new):   # new is a directory
@@ -285,7 +286,27 @@ def rsync(original, new):
     else:   # new is a new file. fill it with contents of original
         trailing = '/'
 
-    subprocess.call(["rsync", "-ar", original.rstrip('/') + trailing, new.rstrip('/')])
+    subprocess.call(["rsync", mode, original.rstrip('/') + trailing, new.rstrip('/')])
+
+def moveplots(fileroot, destination='/users/claw/public_html/realfast/'):
+    """ For given fileroot, move cand html plot and candidate plots out
+    html to destination, candplots to destination/plots
+    """
+
+    mergehtml = 'cands_' + fileroot + '_merge.html'
+    if os.path.exists(mergehtml):
+        shutil.copy(mergehtml, destination)
+        logger.info('Interactive plot copied to %s.' % destination)
+    else:
+        logger.warn('No interactive plot found to copy.')
+
+    candfiles = glob.glob(mergehtml.rstrip('merge.html') + '*.png')
+    for candfile in candfiles:
+        shutil.copy(candfile, os.path.join(destination, 'plots'))
+    if candfiles:
+        logger.info('Candidate plots copied to %s/plots' % destination)
+    else:
+        logger.warn('No candidate plots found to copy.')
 
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir

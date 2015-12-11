@@ -137,12 +137,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) make plots for candidates over threshold, aggregate cands/noise files, and plot summaries
-#            candsfile = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_sc' + str(d['scan']) + '.pkl')
-#            candloclist = rtutils.thresholdcands(candsfile, threshold, numberperscan=1)
-#            for candloc in candloclist:
-#                rtutils.plot_cand(candsfile, candloc, redishost=redishost)
-
+            # 3) make summary plots
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
                     rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
@@ -153,16 +148,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 continue
 
             # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
-            mergehtml = 'cands_' + d['fileroot'] + '_merge.html'
-            if os.path.exists(mergehtml):
-                rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
-                logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-#            candsroot = mergehtml.rstrip('merge.html') + '*.png'
-#            if glob.glob(candsroot):
-#                rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
-#                logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-#            else:
-#                logger.info('No candidate plots found to rsync to web page.')
+            try:
+                rtutils.moveplots(d['fileroot'])
+            except:
+                logger.error('Failed to move cand plots and interactive plot out')
 
             # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
@@ -193,19 +182,25 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     # first determine if this filename is still being worked on by slow queue
-                    slowjobids = getstartedjobs('slow') + qs.job_ids  # working and queued for slow queue
-                    slowfilenames = [qs.fetch_job(slowjobid).args[0]['filename'] for slowjobid in slowjobids]
-                    if d['filename'] not in slowfilenames:  # slow queue done!
+                    slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
+                    remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
+
+                    if len(remaining) == 0:
+                        logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
                         movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                     else:  # slow queue needs more time
                         logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
+                        logger.debug('remaining jobids: %s' % str(remaining))
                         readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
                         continue
                 else:
                     logger.debug('Archiving is off.')                            
 
                 # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
-                rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
+                try:
+                    rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
+                except:
+                    logger.info('Failed to merge slow MS files. Continuing...')
  
                 # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
                 try:
@@ -216,18 +211,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     continue
 
                 # final rsync to get html and cand plots out for inspection
-                if os.path.exists(mergehtml):
-                    rtutils.rsync(mergehtml, '/users/claw/public_html/realfast/')
-                    logger.info('Interactive plot rsync\'d to ~claw/public_html/realfast/.')
-#                candsroot = mergehtml.rstrip('merge.html') + '*.png'
-#                if glob.glob(candsroot):
-#                    rtutils.rsync(candsroot, '/users/claw/public_html/realfast/plots/')
-#                    logger.info('Candidate plots rsync\'d to ~claw/public_html/realfast/plots/.')
-#                else:
-#                    logger.info('No candidate plots found to rsync to web page.')
+                try:
+                    rtutils.moveplots(d['fileroot'])
+                except:
+                    logger.error('Failed to move cand plots and interactive plot out')
 
             elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
-                logger.info('Not all bdf written yet. Keeping last scan of %f in tracking queue.' % d['filename'])
+                logger.info('Not all bdf written yet. Keeping last scan of %s in tracking queue.' % d['filename'])
                 readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
 
             else:
