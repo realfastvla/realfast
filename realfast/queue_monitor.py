@@ -249,7 +249,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
         workdir = os.getcwd()
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
     if not goodscanstr:
-        goodscanstr = ','.join([s for s in sc.keys() if sc[s]['bdfstr']])
+        goodscanstr = ','.join([str(s) for s in sc.keys() if sc[s]['bdfstr']])
     goodscans = [int(s) for s in goodscanstr.split(',')]
 
     logger.debug('Archiving is on.')
