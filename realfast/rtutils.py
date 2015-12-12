@@ -151,17 +151,20 @@ def mergems(filename, scans, redishost=None, outfile=None):
         else:
             logger.debug('Scan %d has no MS' % s)
 
-    msscanstr= ','.join(str(s) for s in msscans)
-    logger.info('Merging slow MS files for scans %s into %s' % (msscanstr, outfile))
+    if filelist:
+        msscanstr= ','.join(str(s) for s in msscans)
+        logger.info('Merging slow MS files for scans %s into %s' % (msscanstr, outfile))
 
-    if redishost:
-        from rq import Queue
-        from redis import Redis
+        if redishost:
+            from rq import Queue
+            from redis import Redis
 
-        q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=tasklib.concat, args=(filelist, outfile), timeout=24*3600, result_ttl=24*3600)
+            q = Queue('slow', connection=Redis(redishost))
+            q.enqueue_call(func=tasklib.concat, args=(filelist, outfile), timeout=24*3600, result_ttl=24*3600)
+        else:
+            tasklib.concat(filelist, outfile)
     else:
-        tasklib.concat(filelist, outfile)
+        logger.info('No ms files found to merge.')
 
 def integrate(filename, scanstr, inttime, redishost=None):
     """ Creates MS from SDM and integrates down.
