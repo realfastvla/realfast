@@ -288,6 +288,23 @@ def rsync(original, new, mode='-a'):
 
     subprocess.call(["rsync", mode, original.rstrip('/') + trailing, new.rstrip('/')])
 
+
+def make_notebook(fileroot):
+    """ Uses template python file to pre-fill 
+    a Jupyter notebook for candidate analysis.
+    """
+
+    import realfast
+    from nbformat.v3 import nbpy
+#    import nbconvert  # if we need v4 notebook
+
+    nb = nbpy.read(open(os.path.join('/'.join(realfast.__file__.split('/')[:-2]),
+                                     'conf', 'notebook_template'), 'r'))
+#    nb4 = nbformat.convert(nb, 4)
+
+    nbpy.write(nb, open('{}.ipynb'.format(fileroot), 'w'))
+
+
 def moveplots(fileroot, destination='/users/claw/public_html/realfast/'):
     """ For given fileroot, move cand html plot and candidate plots out
     html to destination, candplots to destination/plots
