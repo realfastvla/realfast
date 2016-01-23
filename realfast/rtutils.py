@@ -629,7 +629,7 @@ def gethtmlcontents(directory):
             for ff in filenames]
     sizes = [os.stat(ff).st_size/(1024**2)
              for ff in filenames]
-    contents = zip(mjds, filenames, sizes)
+    contents = zip(mjds, [os.path.basename(ff) for ff in filenames], sizes)
     return sorted(contents, key=lambda ff: ff[0])
 
 
@@ -637,5 +637,5 @@ def writehtml(directory, outname='contents.html'):
     contents = gethtmlcontents(directory)
     contentshtml = Environment().from_string(HTML).render(contents=contents, title='List of Contents')
 
-    with open(outname, 'w') as f:
+    with open(os.path.join(directory, outname), 'w') as f:
         f.write(contentshtml)
