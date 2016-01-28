@@ -204,9 +204,8 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
-        if os.path.exists('noise_' + fileroot + '_merge.pkl'):
-
-        else:
+        noisepkl = 'noise_' + fileroot + '_merge.pkl'
+        if not os.path.exists(noisepkl):
             noisepkl = ''
         if os.path.exists(mergepkl):
             try:
