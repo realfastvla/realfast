@@ -6,7 +6,7 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-import rtpipe.candvis as cv
+import rtpipe.interactive as interactive
 import cPickle as pickle
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
@@ -209,7 +209,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
             noisepkl = ''
         if os.path.exists(mergepkl):
             try:
-                cv.plot_interactive(mergepkl, noisepkl=noisepkl)
+                interactive.plot_interactive(mergepkl, noisepkl=noisepkl)
                 logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
             except:
                 logger.warn('Interactive plot not made.')
