@@ -6,10 +6,14 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-import rtpipe.candvis as cv
+import rtpipe.interactive as interactive
 import cPickle as pickle
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
+try:
+    from jinja2 import Environment
+except ImportError:
+    print('Jinja2 not available')
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
@@ -189,21 +193,26 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     os.chdir(workdir)
 
     try:
-        pc.plot_summary(fileroot, scans, remove=remove, snrmin=snrmin, snrmax=snrmax)
-        pc.plot_noise(fileroot, scans)
+        pkllist = [ff for ff in
+                   ['cands_{0}_sc{1}.pkl'.format(fileroot, scan)
+                    for scan in scans] if os.path.exists(ff)]
+        pc.merge_cands(pkllist, outroot=fileroot, remove=remove, snrmin=snrmin, snrmax=snrmax)
+        pkllist = [ff for ff in
+                   ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
+                    for scan in scans] if os.path.exists(ff)]
+        pc.merge_noises(pkllist, fileroot)
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
-        if os.path.exists('noise_' + fileroot + '_merge.pkl'):
-            noisepkl = 'noise_' + fileroot + '_merge.pkl'
-        else:
+        noisepkl = 'noise_' + fileroot + '_merge.pkl'
+        if not os.path.exists(noisepkl):
             noisepkl = ''
         if os.path.exists(mergepkl):
             try:
-                cv.plot_interactive(mergepkl, noisepkl=noisepkl)
+                interactive.plot_interactive(mergepkl, noisepkl=noisepkl)
                 logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
             except:
-                logger.info('Interactive plot not made.')
+                logger.warn('Interactive plot not made.')
                 
     except:
         logger.exception('')
@@ -618,3 +627,37 @@ def sdmasorig(filename):
     shutil.move(os.path.join(filename, 'Main.xml'), os.path.join(filename, 'Main_cal.xml'))
     shutil.move(os.path.join(filename, 'Main_orig.xml'), os.path.join(filename, 'Main.xml'))
     shutil.move(os.path.join(filename, 'ASDMBinary'), os.path.join(filename, 'ASDMBinary_cal'))
+
+
+# stuff for jinja2 template for index to browse cand summary plots
+
+HTML = """
+<html>
+<body>
+
+ <ul>
+ {% for item in contents %}
+  <li><a href="{{ item[1] }}" target="frame">{{ item[0] }}</a> ({{ item[2] }} MB)</li>
+ {% endfor %}
+ </ul>
+
+</body>
+</html>
+"""
+
+def gethtmlcontents(directory):
+    filenames = glob.glob(os.path.join(directory, 'cands*_merge.html'))
+    mjds = ['.'.join(ff.rstrip('_merge.html').split('.')[-2:])
+            for ff in filenames]
+    sizes = [os.stat(ff).st_size/(1024**2)
+             for ff in filenames]
+    contents = zip(mjds, [os.path.basename(ff) for ff in filenames], sizes)
+    return sorted(contents, key=lambda ff: ff[0])
+
+
+def writehtml(directory, outname='contents.html'):
+    contents = gethtmlcontents(directory)
+    contentshtml = Environment().from_string(HTML).render(contents=contents, title='List of Contents')
+
+    with open(os.path.join(directory, outname), 'w') as f:
+        f.write(contentshtml)
