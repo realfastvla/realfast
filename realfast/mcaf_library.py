@@ -62,7 +62,7 @@ class SdminfoClient(McastClient):
 
     def parse(self):
         sdminfo = sdminfoxml_parser.parseString(self.read)
-        logger.info("Read sdminfo datasetID='%s' scanNo=%d intents=%s" % (sdminfo.datasetID,
+        logger.info("Read sdminfo projectID='%s' scanNo=%d intents=%s" % (sdminfo.projectID,
             sdminfo.scanNumber, str(sdminfo.scanIntents)))
         if self.controller is not None:
             self.controller.add_sdminfo(sdminfo)
