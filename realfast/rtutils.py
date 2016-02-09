@@ -6,7 +6,7 @@ import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-import rtpipe.interactive as interactive
+from rtpipe import interactive, reproduce
 import cPickle as pickle
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
@@ -230,9 +230,9 @@ def plot_cand(candsfile, candloc, redishost=None, **kwargs):
         from redis import Redis
 
         q = Queue('slow', connection=Redis(redishost))
-        q.enqueue_call(func=pc.plot_cand, args=(candsfile, candloc), kwargs=kwargs, timeout=7*24*3600, result_ttl=7*24*3600)
+        q.enqueue_call(func=reproduce.plot_cand, args=(candsfile, candloc), kwargs=kwargs, timeout=7*24*3600, result_ttl=7*24*3600)
     else:
-        pc.plot_cand(candsfile, candloc=candloc, **kwargs)
+        reproduce.plot_cand(candsfile, candloc=candloc, **kwargs)
 
 def plot_pulsar(workdir, fileroot, scans=[]):
     """
