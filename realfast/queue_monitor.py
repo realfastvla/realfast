@@ -141,15 +141,9 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
             # 4) move products into subdirectory "archivedir" and compile notebook
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
+
                     # create merge files and notebook products
-                    pkllist = [ff for ff in
-                               [os.path.join(d['workdir'], 'cands_{0}_sc{1}.pkl'.format(d['fileroot'], scan))
-                                for scan in sc.keys()] if os.path.exists(ff)]
-                    pc.merge_cands(pkllist, outroot=d['fileroot'], snrmin=snrmin)
-                    pkllist = [ff for ff in
-                               [os.path.join(d['workdir'], 'noise_{0}_sc{1}.pkl'.format(d['fileroot'], scan))
-                                for scan in sc.keys()] if os.path.exists(ff)]
-                    pc.merge_noises(pkllist, d['fileroot'])
+                    rtutils.merge_scans(d['workdir'], d['fileroot'], sc.keys())
                     mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
                     noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
 

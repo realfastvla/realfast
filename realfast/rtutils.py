@@ -185,6 +185,23 @@ def integrate(filename, scanstr, inttime, redishost=None):
     else:
         ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
 
+
+def merge_scans(workdir, fileroot, scans):
+    """ Merge cands/noise files over all scans """
+
+    os.chdir(workdir)
+
+    pkllist = [ff for ff in
+               ['cands_{0}_sc{1}.pkl'.format(fileroot, scan)
+                for scan in scans] if os.path.exists(ff)]
+    pc.merge_cands(pkllist, outroot=fileroot, remove=remove, snrmin=snrmin, snrmax=snrmax)
+
+    pkllist = [ff for ff in
+               ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
+                for scan in scans] if os.path.exists(ff)]
+    pc.merge_noises(pkllist, fileroot)
+
+
 def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
@@ -193,14 +210,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     os.chdir(workdir)
 
     try:
-        pkllist = [ff for ff in
-                   ['cands_{0}_sc{1}.pkl'.format(fileroot, scan)
-                    for scan in scans] if os.path.exists(ff)]
-        pc.merge_cands(pkllist, outroot=fileroot, remove=remove, snrmin=snrmin, snrmax=snrmax)
-        pkllist = [ff for ff in
-                   ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
-                    for scan in scans] if os.path.exists(ff)]
-        pc.merge_noises(pkllist, fileroot)
+        merge_scans(workdir, fileroot, scans)
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
