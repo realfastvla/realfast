@@ -153,7 +153,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                     mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
                     noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
 
-                    rtutil.compilenotebook(d['workdir'], d['fileroot'])
+                    rtutils.compilenotebook(d['workdir'], d['fileroot'])
                     notebook = os.path.join(d['workdir'], d['fileroot'] + '.ipynb')
                     notebookhtml = os.path.join(d['workdir'], d['fileroot'] + '.html')
 
