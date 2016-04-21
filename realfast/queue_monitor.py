@@ -137,20 +137,25 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) make summary plots
+            # 3) move products into subdirectory "archivedir" and compile notebook
             mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
             noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
-                    archivedir = '.'.join(d['fileroot'].split('.')[-2:])
-                    if not archivedir.replace('.', '').isdigit():
-                        logger.warn('archivedir not parsed correctly. Will not move final products into subdirectory.')
-                    if not os.path.exists(archivedir):
-                        os.mkdir(archivedir)
+                    archivestr = '.'.join(d['fileroot'].split('.')[-2:])
+                    if not archivestr.replace('.', '').isdigit():  # should have gotten decimal mjd
+                        logger.warn('archivestr not parsed correctly ({0}). Will not move final products into subdirectory.'.format(archivestr))
+                    else:
+                        archivedir = os.path.join(d['workdir'], archivestr)
+                        if not os.path.exists(archivedir):
+                            os.mkdir(archivedir)
+                            logger.info('Creating local archive directory at {0}'.format(archivedir))
                         shutil.move(mergepkl, archivedir)
                         shutil.move(noisepkl, archivedir)
+                        logger.info('Moved merged products into local archive directory {0}'.format(archivedir))
                         # maybe copy GN file in too?
                         rtutil.compilenotebook(archivedir)
+# old way
 #                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
