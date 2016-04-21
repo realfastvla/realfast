@@ -219,6 +219,26 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
 
     logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
+
+def compilenotebook(archivedir):
+    """ Run analysis pipeline from jupyter base notebook and save as notebook and html. """
+
+    os.environ['sdmdir'] = archivedir
+    cmd = 'jupyter nbconvert baseinteract.ipynb --output {0}.ipynb --to notebook --execute --allow-errors --ExecutePreprocessor.timeout=3600'.format(directory).split(
+' ')
+
+    logger.info('Running nbconvert...')
+    status = subprocess.call(cmd)
+
+    cmd = 'jupyter trust {0}/{0}.ipynb'.format(directory).split(' ')
+    status = subprocess.call(cmd)
+
+    cmd = 'jupyter nbconvert {0}/{0}.ipynb --to html --output {0}.html'.format(directory).split(' ')
+    status = subprocess.call(cmd)
+
+    print('Done with {0}'.format(directory))
+
+
 def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """ Visualize a candidate as png.
     Can take merge pkl or from a single scan.

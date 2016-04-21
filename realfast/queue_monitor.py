@@ -138,9 +138,20 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 continue
 
             # 3) make summary plots
+            mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
+            noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
-                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
+                    archivedir = '.'.join(d['fileroot'].split('.')[-2:])
+                    if not archivedir.replace('.', '').isdigit():
+                        logger.warn('archivedir not parsed correctly. Will not move final products into subdirectory.')
+                    if not os.path.exists(archivedir):
+                        os.mkdir(archivedir)
+                        shutil.move(mergepkl, archivedir)
+                        shutil.move(noisepkl, archivedir)
+                        # maybe copy GN file in too?
+                        rtutil.compilenotebook(archivedir)
+#                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 rtutils.removejob(job.id)
@@ -167,7 +178,6 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
 
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
-                    mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
                     if os.path.exists(mergepkl):
                         goodscans += [sigloc[scanind] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
                         # rtutils.tell_candidates(mergepkl, os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
