@@ -220,23 +220,21 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
 
-def compilenotebook(archivedir):
+def compilenotebook(workdir, fileroot):
     """ Run analysis pipeline from jupyter base notebook and save as notebook and html. """
 
-    os.environ['sdmdir'] = archivedir
-    cmd = 'jupyter nbconvert baseinteract.ipynb --output {0}.ipynb --to notebook --execute --allow-errors --ExecutePreprocessor.timeout=3600'.format(directory).split(
+    os.chdir(workdir)
+
+    os.environ['fileroot'] = fileroot
+    cmd = 'jupyter nbconvert baseinteract.ipynb --output {0}.ipynb --to notebook --execute --allow-errors --ExecutePreprocessor.timeout=3600'.format(fileroot).split(
 ' ')
-
-    logger.info('Running nbconvert...')
     status = subprocess.call(cmd)
 
-    cmd = 'jupyter trust {0}/{0}.ipynb'.format(directory).split(' ')
+    cmd = 'jupyter trust {0}/{0}.ipynb'.format(fileroot).split(' ')
     status = subprocess.call(cmd)
 
-    cmd = 'jupyter nbconvert {0}/{0}.ipynb --to html --output {0}.html'.format(directory).split(' ')
+    cmd = 'jupyter nbconvert {0}/{0}.ipynb --to html --output {0}.html'.format(fileroot).split(' ')
     status = subprocess.call(cmd)
-
-    print('Done with {0}'.format(directory))
 
 
 def plot_cand(candsfile, candloc, redishost=None, **kwargs):

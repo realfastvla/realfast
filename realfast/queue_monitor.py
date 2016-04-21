@@ -137,11 +137,27 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 3) move products into subdirectory "archivedir" and compile notebook
-            mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
-            noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
+            # 3) merge candidate and noise files from scans to merge
+            # 4) move products into subdirectory "archivedir" and compile notebook
             try:
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
+                    # create merge files and notebook products
+                    pkllist = [ff for ff in
+                               [os.path.join(d['workdir'], 'cands_{0}_sc{1}.pkl'.format(d['fileroot'], scan))
+                                for scan in sc.keys()] if os.path.exists(ff)]
+                    pc.merge_cands(pkllist, outroot=d['fileroot'], snrmin=snrmin)
+                    pkllist = [ff for ff in
+                               [os.path.join(d['workdir'], 'noise_{0}_sc{1}.pkl'.format(d['fileroot'], scan))
+                                for scan in sc.keys()] if os.path.exists(ff)]
+                    pc.merge_noises(pkllist, d['fileroot'])
+                    mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
+                    noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
+
+                    rtutil.compilenotebook(d['workdir'], d['fileroot'])
+                    notebook = os.path.join(d['workdir'], d['fileroot'] + '.ipynb')
+                    notebookhtml = os.path.join(d['workdir'], d['fileroot'] + '.html')
+
+                    # push off to archivedir
                     archivestr = '.'.join(d['fileroot'].split('.')[-2:])
                     if not archivestr.replace('.', '').isdigit():  # should have gotten decimal mjd
                         logger.warn('archivestr not parsed correctly ({0}). Will not move final products into subdirectory.'.format(archivestr))
@@ -150,11 +166,13 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                         if not os.path.exists(archivedir):
                             os.mkdir(archivedir)
                             logger.info('Creating local archive directory at {0}'.format(archivedir))
+
                         shutil.move(mergepkl, archivedir)
                         shutil.move(noisepkl, archivedir)
+                        shutil.move(notebook, archivedir)
+                        shutil.move(notebookhtml, archivedir)
                         logger.info('Moved merged products into local archive directory {0}'.format(archivedir))
                         # maybe copy GN file in too?
-                        rtutil.compilenotebook(archivedir)
 # old way
 #                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
@@ -163,20 +181,20 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 scans_in_queue.remove(d['scan'])
                 continue
 
-            # 4) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
+            # 5) rsync the interactive html and associated candidate plots out for inspection (note: cand plots may be delayed, so final rsync needed)
             try:
                 rtutils.moveplots(d['fileroot'])
             except:
                 logger.error('Failed to move cand plots and interactive plot out')
 
-            # 5) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
+            # 6) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
             allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
             sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
             logger.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
             if (sdmtimeout or allbdfwritten) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
                 logger.info('This job processed scan %d, the last scan in the queue for %s.' % (d['scan'], d['filename']))
 
-                # 5-2) if doing triggered recording, get scans to save. otherwise, save all scans.
+                # 6-2) if doing triggered recording, get scans to save. otherwise, save all scans.
                 if triggered:
                     logger.debug('Triggering is on. Saving cal scans and those with candidates.')
                     goodscans = [s for s in sc.keys() if 'CALIBRATE' in sc[s]['intent']]  # minimal set to save
@@ -194,7 +212,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 goodscanstr= ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % goodscanstr)
 
-                # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+                # 6-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
                 if archive:
                     # first determine if this filename is still being worked on by slow queue
                     slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
@@ -211,7 +229,7 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 else:
                     logger.debug('Archiving is off.')                            
 
-                # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
+                # 6-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
                 try:
                     rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
                 except:
