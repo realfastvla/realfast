@@ -230,10 +230,10 @@ def compilenotebook(workdir, fileroot):
 ' ')
     status = subprocess.call(cmd)
 
-    cmd = 'jupyter trust {0}/{0}.ipynb'.format(fileroot).split(' ')
+    cmd = 'jupyter trust {0}.ipynb'.format(fileroot).split(' ')
     status = subprocess.call(cmd)
 
-    cmd = 'jupyter nbconvert {0}/{0}.ipynb --to html --output {0}.html'.format(fileroot).split(' ')
+    cmd = 'jupyter nbconvert {0}.ipynb --to html --output {0}.html'.format(fileroot).split(' ')
     status = subprocess.call(cmd)
 
 
