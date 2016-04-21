@@ -455,11 +455,10 @@ def tell_candidates(mergefile, filename):
     with open(mergefile, 'rb') as pkl:
         d = pickle.load(pkl) # dmlist = d['dmarr'] ; same for dtarr.
         cands = pickle.load(pkl) # can also read as (loc, prop) to get arrays of each thing.
+        loc,prop=cands
     with open(filename, 'w') as outfile:
-        k = list(cands.keys())
-        v = list(cands.values())
-        for i in range(0,len(k)):            
-            outfile.write('\t'.join(map(str,k[i]))+'\t'.join(map(str,v[i]))+"\n")
+        for i in range(0,len(loc)):
+            outfile.write('\t'.join(map(str,loc[i]))+'\t'.join(map(str,prop[i]))+"\n")
     return
 
 def gettelcalfile(telcaldir, filename, timeout=0):
