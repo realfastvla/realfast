@@ -202,14 +202,6 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 except:
                     logger.info('Failed to merge slow MS files. Continuing...')
  
-                # Email Sarah the plots from this SB so she remembers to look at them in a timely manner.
-                try:
-                    imgbase = os.path.join(d['workdir'], 'plot_' + d['fileroot'])
-                    subprocess.call("""echo "%d of %d scans archived.\nScans archived: %s\n" | mailx -s 'REALFAST: block %s finished processing.' -a %s_dmt.png -a %s_dmcount.png -a %s_impeak.png -a %s_noisehist.png -a %s_normprob.png sarahbspolaor@gmail.com""" % (len(goodscans),len(sc.keys()),goodscanstr,d['fileroot'],imgbase,imgbase,imgbase,imgbase,imgbase), shell=True)
-                except:
-                    logger.error("Something's wrong with sarah's mailx subprocess call; plots not emailed.")
-                    continue
-
                 # final rsync to get html and cand plots out for inspection
                 try:
                     rtutils.moveplots(d['fileroot'])
