@@ -458,7 +458,7 @@ def tell_candidates(mergefile, filename):
         loc,prop=cands
     with open(filename, 'w') as outfile:
         for i in range(0,len(loc)):
-            outfile.write('\t'.join(map(str,loc[i]))+'\t'.join(map(str,prop[i]))+"\n")
+            outfile.write('\t'.join(map(str,loc[i]))+' '+'\t'.join(map(str,prop[i]))+"\n")
     return
 
 def gettelcalfile(telcaldir, filename, timeout=0):
