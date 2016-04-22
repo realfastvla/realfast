@@ -186,7 +186,7 @@ def integrate(filename, scanstr, inttime, redishost=None):
         ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
 
 
-def merge_scans(workdir, fileroot, scans):
+def merge_scans(workdir, fileroot, scans, snrmin=0, snrmax=999):
     """ Merge cands/noise files over all scans """
 
     os.chdir(workdir)
@@ -194,7 +194,7 @@ def merge_scans(workdir, fileroot, scans):
     pkllist = [ff for ff in
                ['cands_{0}_sc{1}.pkl'.format(fileroot, scan)
                 for scan in scans] if os.path.exists(ff)]
-    pc.merge_cands(pkllist, outroot=fileroot, remove=remove, snrmin=snrmin, snrmax=snrmax)
+    pc.merge_cands(pkllist, outroot=fileroot, snrmin=snrmin, snrmax=snrmax)
 
     pkllist = [ff for ff in
                ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
@@ -202,7 +202,7 @@ def merge_scans(workdir, fileroot, scans):
     pc.merge_noises(pkllist, fileroot)
 
 
-def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
+def plot_summary(workdir, fileroot, scans, snrmin=0, snrmax=999):
     """ Make summary plots for cands/noise files with fileroot
     Uses only given scans.
     """
@@ -210,7 +210,7 @@ def plot_summary(workdir, fileroot, scans, remove=[], snrmin=0, snrmax=999):
     os.chdir(workdir)
 
     try:
-        merge_scans(workdir, fileroot, scans)
+        merge_scans(workdir, fileroot, scans, snrmin=snrmin, snrmax=snrmax)
 
         # try to make interactive plot and copy to ~claw/public_html
         mergepkl = 'cands_' + fileroot + '_merge.pkl'
