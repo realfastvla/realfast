@@ -165,6 +165,8 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                         if not os.path.exists(archivedir):
                             os.mkdir(archivedir)
                             logger.info('Creating local archive directory at {0}'.format(archivedir))
+                        else:
+                            logger.info('Using local archive directory at {0}'.format(archivedir))
 
                         shutil.move(mergepkl, archivedir)
                         shutil.move(noisepkl, archivedir)
@@ -176,6 +178,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
 #                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
+                logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
