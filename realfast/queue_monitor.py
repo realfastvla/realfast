@@ -1,3 +1,20 @@
+"""
+Here I'm testing an "otherproject" type mode where we ourselves
+hardlink a copy of the BDFs to no_archive and then at the end just
+delete all the ones from no_archive - never touching the stuff in the
+other bunker or archive directories. This would allow us to test on
+other datasets, too, without interruption to anyone else.
+
+For this, the following changes are needed:
+X - Add option to mcaf_monitor and to queue_monitor.
+X - In mcaf_monitor (?), determine BDF list and hardlink them from bunker.
+X - In queue_monitor, don't hardlink to archive, just remove BDFs.
+X - Error-check for input tags, i.e. make sure mcaf_mon and queue_mon both have the same option set, and make sure that we're not setting both "archive_all" and "handsoff_archive"
+X - Throughout ensure compatibility with test and production versions.
+X - TEST these!
+---------------------------------------------------------------------------------                                                                                      
+"""
+
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -25,10 +42,11 @@ scanind = 0  # available in state dict, but setting here since is stable and fas
 @click.option('--triggered/--all', default=False, help='Triggered recording of scans or save all? (default: all)')
 @click.option('--archive', '-a', is_flag=True, help='After search defines goodscans, set this to create new sdm and archive it.')
 @click.option('--verbose', '-v', help='More verbose (e.g. debugging) output', is_flag=True)
+@click.option('--nrao_controls_archiving', '-N', help='NRAO controls archiving; i.e. we make our own BDF hardlinks to no_archive and do no archiving at the end. If this is selected, mcaf_monitor MUST ALSO be run with this same option set.', is_flag=True)
 @click.option('--production', help='Run code in full production mode (otherwise just runs as test)', is_flag=True)
 @click.option('--threshold', help='Detection threshold used to trigger scan archiving (if --triggered set).', type=float, default=0.)
 @click.option('--bdfdir', help='Directory to look for bdfs.', default='/lustre/evla/wcbe/data/no_archive')
-def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
+def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, production, threshold, bdfdir):
     """ Blocking loop that prints the jobs currently being tracked in queue 'qname'.
     Can optionally be set to do triggered data recording (archiving).
     """
@@ -37,6 +55,10 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
         logger.setLevel(logging.DEBUG)
     else:
         logger.setLevel(logging.INFO)
+
+    if nrao_controls_archiving:
+        logger.info('***WARNING: NRAO WILL CONTROL ARCHIVING. This option must also be set in mcaf_monitor!!!')
+        assert not archive, '*** INPUT ERROR: "archive" and "nrao_controls_archiving" inputs are incompatible!'
 
     if production:
         logger.info('***WARNING: Running the production version of the code.***')
@@ -180,21 +202,25 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
                 logger.info('Found the following scans to archive: %s' % goodscanstr)
 
                 # 5-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                if archive:
-                    # first determine if this filename is still being worked on by slow queue
-                    slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
-                    remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
+                # first determine if this filename is still being worked on by slow queue
+                slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
+                remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
 
-                    if len(remaining) == 0:
-                        logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
-                        movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
-                    else:  # slow queue needs more time
-                        logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
-                        logger.debug('remaining jobids: %s' % str(remaining))
-                        readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
-                        continue
+                if len(remaining) == 0:
+                    logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
+                else:  # slow queue needs more time
+                    logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
+                    logger.debug('remaining jobids: %s' % str(remaining))
+                    readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+                    continue
+
+                # Once slow queue is finished, either 
+                if archive:
+                    movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
+                elif nrao_controls_archiving:
+                    removebdfs(d['filename'], d['workdir'].rstrip('/'), production, bdfdir)
                 else:
-                    logger.debug('Archiving is off.')                            
+                    logger.debug('Archiving is off.')
 
                 # 5-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
                 try:
@@ -235,6 +261,35 @@ def monitor(qname, triggered, archive, verbose, production, threshold, bdfdir):
 
         sys.stdout.flush()
         time.sleep(1)
+
+def removebdfs(filename, workdir, production, bdfdir):
+    """ Moves sdm and bdf associated with filename to archive.
+    filename is sdmfile. workdir is place with file.
+    goodscanstr is comma-delimited list, which is optional.
+    production is boolean for production mode.
+    """
+
+    assert filename, 'Need filename to move to archive'
+
+    if not workdir:
+        workdir = os.getcwd()
+    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+
+    # System safety checks
+    assert 'bunker' not in os.path.dirname(sc[0]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+    assert 'telcal' not in os.path.dirname(sc[0]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
+
+    # Clean up all the hardlinks in no_archive for this SB.
+    for scan in sc.keys():
+        bdfREMOVE = sc[scan]['bdfstr']
+        if bdfREMOVE:
+            if not production:
+                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
+                touch( bdfREMOVE.rstrip('/') + '.delete' )
+            else:
+                logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                os.remove( bdfREMOVE.rstrip('/') )
+
 
 def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     """ Moves sdm and bdf associated with filename to archive.
@@ -298,7 +353,8 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
         #!!!logger.debug('Deleting original SDM %s' % sdmORIG ) #!!! WHEN CASEY SAYS GO
         #!!!shutil.rmtree( sdmORIG ) #!!! PUT THIS LINE IN WHEN CASEY SAYS GO
 
-    # Archive the BDF (via hardlink to archdir)
+
+    # Archive the BDF (via hardlink to archdir) only if we are controlling the archiving.
     for scan in goodscans:
         bdfFROM = sc[scan]['bdfstr']
         bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
@@ -308,8 +364,9 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
         else:
             logger.debug('Hardlinking %s to %s' % ( bdfFROM, bdfTO ))
             os.link( bdfFROM, bdfTO )
- 
+
     # Now delete all the hardlinks in our BDF working directory for this SB.
+    # Could also use removebdfs() here.
     for scan in sc.keys():
         bdfREMOVE = sc[scan]['bdfstr']
         if bdfREMOVE:
