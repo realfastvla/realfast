@@ -118,8 +118,8 @@ class FRBController(object):
                 if self.nrao_controls_archiving:
                     # Link from bunker to no_archive
                     bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
-                    bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-                    logger.debug("Note BDF autostring from MCAF is %s" % config.bdfLocation)
+                    bdfTO   = bdfloc
+                    logger.info("Note BDF autostring from MCAF is %s" % config.bdfLocation)
                     if not production:
                         logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
                         touch( bdfTO + ".test" )
