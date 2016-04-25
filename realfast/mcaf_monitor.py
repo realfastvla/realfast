@@ -119,15 +119,14 @@ class FRBController(object):
                     # Link from bunker to no_archive
                     bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
                     bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
-                    print "Note BDF autostring from MCAF is %s" & config.bdfLocation
+                    logger.debug("Note BDF autostring from MCAF is %s" % config.bdfLocation)
                     if not production:
                         logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
                         touch( bdfTO + ".test" )
                     else:
                         logger.debug('Hardlinking %s to %s for parallel use by realfast.' % ( bdfFROM, bdfTO ))
-                        logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -noarch TURNED ON!!!')
+                        logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -N TURNED ON!!!')
                         os.link( bdfFROM, bdfTO )
-
 
                 # If we're not in listening mode, prepare data and submit to queue system
                 if self.production:
