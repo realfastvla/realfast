@@ -9,6 +9,47 @@
 # are recieved.
 #
 
+"""
+This branch of the code is testing the addition of an option that
+archives data as soon as it comes into the CBE, rather than at the end
+in queue_monitor.
+
+Need to take care of:
+
+ - Will need no_archive to be functioning so scripts need to include
+   this option.
+
+ - Do NOT do any hardlinking at the end in q_m -- otherwise there will
+   be double copies pushed into the archive.
+
+ - Delete all BDFs in no_archive at the end.
+
+ - Do not touch bunker or archive.
+
+
+---------------------- THIS IS THE VERSION I'M DOING -----------------------------
+
+OTHERWISE we can run in an otherproject mode where we ourselves
+hardlink a copy of the BDFs to no_archive and then at the end just
+delete all the ones from no_archive - never touching the stuff in the
+other bunker or archive directories. This would allow us to test on
+other datasets, too, without interruption to anyone else.
+
+For this, the following changes are needed:
+
+ - Add option to mcaf_monitor and to queue_monitor.
+
+ - In mcaf_monitor (?), determine BDF list and hardlink them from bunker.
+
+ - In queue_monitor, don't hardlink to archive, just remove BDFs.
+
+ - Error-check for input tags, i.e. make sure mcaf_mon and queue_mon both have the same option set, and make sure that we're not setting both "archive_all" and "handsoff_archive"
+
+ - Throughout ensure compatibility with test and production versions.
+
+ ---------------------------------------------------------------------------------
+"""
+
 import datetime
 import os
 import asyncore
@@ -33,11 +74,12 @@ class FRBController(object):
     """Listens for OBS packets and tells FRB processing about any
     notable scans."""
 
-    def __init__(self, intent='', project='', production=False, verbose=False, rtparams='', slow=0):
+    def __init__(self, intent='', project='', production=False, verbose=False, nrao_controls_archiving=False, rtparams='', slow=0):
         # Mode can be project, intent
         self.intent = intent
         self.project = project
         self.production = production
+        self.nrao_controls_archiving = nrao_controls_archiving
         self.verbose = verbose
         self.rtparams = rtparams
         self.slow = slow
@@ -51,10 +93,11 @@ class FRBController(object):
         if config.obsComplete:
             logger.info("Received finalMessage=True; This observation has completed.")
             # if completing the desired SB, then do a final rsync
-            if self.project in config.projectID:
+            if self.project in config.projectID and self.production:
                 logger.info("Final rsync to make workdir copy of SDM %sd complete." % (config.sdmLocation.rstrip('/')))
                 rtutils.rsync(config.sdmLocation.rstrip('/'), workdir)  # final transfer to ensure complete SDM in workdir
 
+        # Otherwise check if project is the one we want.
         elif self.project in config.projectID:  # project of interest
             sdmlocation = config.sdmLocation.rstrip('/')
             filename = os.path.join(workdir, os.path.basename(sdmlocation))   # new full-path filename
@@ -63,6 +106,28 @@ class FRBController(object):
             if self.intent in config.intentString:
                 logger.info("Scan %d has desired intent (%s) and project (%s)" % (scan, self.intent, self.project))
                 bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
+
+                # If we're not controlling the archiving (as would
+                # occur if we wanted to make BDFs instantly flowing to
+                # the archive, or if we wanted to e.g. test by
+                # piggybacking on another (NON-SCIENCE!)
+                # observation...
+                #
+                # We need to then make our own copy in no_archive of
+                # the BDF.
+                if self.nrao_controls_archiving:
+                    # Link from bunker to no_archive
+                    bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
+                    bdfTO   = os.path.join(bdfArchdir, os.path.basename(bdfFROM))
+                    print "Note BDF autostring from MCAF is %s" & config.bdfLocation
+                    if not production:
+                        logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+                        touch( bdfTO + ".test" )
+                    else:
+                        logger.debug('Hardlinking %s to %s for parallel use by realfast.' % ( bdfFROM, bdfTO ))
+                        logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -noarch TURNED ON!!!')
+                        os.link( bdfFROM, bdfTO )
+
 
                 # If we're not in listening mode, prepare data and submit to queue system
                 if self.production:
@@ -103,9 +168,10 @@ class FRBController(object):
 @click.option('--project', '-p', default='', help='Project name to trigger on')
 @click.option('--production', help='Run the code (not just print, etc)', is_flag=True)
 @click.option('--verbose', '-v', help='More verbose output', is_flag=True)
+@click.option('--nrao_controls_archiving', '-N', help='NRAO controls archiving; i.e. we make our own BDF hardlinks to no_archive and do no archiving at the end. If this is selected, queue_monitor MUST ALSO be run with this same option set.', is_flag=True)
 @click.option('--rtparams', help='Parameter file for rtpipe. Default is rtpipe_cbe_conf.', default=rtparams_default)
 @click.option('--slow', help='Integrate scans to MS with ints of this many seconds.', default=0)
-def monitor(intent, project, production, verbose, rtparams, slow):
+def monitor(intent, project, production, verbose, nrao_controls_archiving, rtparams, slow):
     """ Monitor of mcaf observation files. 
     Scans that match intent and project are searched (if in production mode).
     Blocking function.
@@ -125,6 +191,10 @@ def monitor(intent, project, production, verbose, rtparams, slow):
         logger.info('Running in test mode')
     else:
         logger.info('Running in production mode')
+
+    if nrao_controls_archiving:
+        logger.info('*** NRAO CONTROLLING ARCHIVING. ***')
+        logger.info('*** Will link and clean BDFs in no_archive directory without ever touching archive directory.')
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, rtparams=rtparams, slow=slow)
