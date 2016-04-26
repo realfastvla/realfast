@@ -102,30 +102,31 @@ class FRBController(object):
             sdmlocation = config.sdmLocation.rstrip('/')
             filename = os.path.join(workdir, os.path.basename(sdmlocation))   # new full-path filename
             scan = int(config.scan)
+            bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
+
+            
+            # If we're not controlling the archiving (as would
+            # occur if we wanted to make BDFs instantly flowing to
+            # the archive, or if we wanted to e.g. test by
+            # piggybacking on another (NON-SCIENCE!)
+            # observation...
+            #
+            # We need to then make our own copy in no_archive of
+            # the BDF.
+            if self.nrao_controls_archiving:
+                # Link from bunker to no_archive
+                bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
+                bdfTO   = bdfloc
+                if self.production:
+                    logger.debug('Hardlinking %s to %s for parallel use by realfast.' % ( bdfFROM, bdfTO ))
+                    logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -N TURNED ON!!!')
+                    os.link( bdfFROM, bdfTO )
+                else:
+                    logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+                    touch( bdfTO + ".test" )
 
             if self.intent in config.intentString:
                 logger.info("Scan %d has desired intent (%s) and project (%s)" % (scan, self.intent, self.project))
-                bdfloc = os.path.join(default_bdfdir, os.path.basename(config.bdfLocation))
-
-                # If we're not controlling the archiving (as would
-                # occur if we wanted to make BDFs instantly flowing to
-                # the archive, or if we wanted to e.g. test by
-                # piggybacking on another (NON-SCIENCE!)
-                # observation...
-                #
-                # We need to then make our own copy in no_archive of
-                # the BDF.
-                if self.nrao_controls_archiving:
-                    # Link from bunker to no_archive
-                    bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
-                    bdfTO   = bdfloc
-                    if self.production:
-                        logger.debug('Hardlinking %s to %s for parallel use by realfast.' % ( bdfFROM, bdfTO ))
-                        logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -N TURNED ON!!!')
-                        os.link( bdfFROM, bdfTO )
-                    else:
-                        logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
-                        touch( bdfTO + ".test" )
 
                 # If we're not in listening mode, prepare data and submit to queue system
                 if self.production:
