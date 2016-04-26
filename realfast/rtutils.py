@@ -345,19 +345,19 @@ def make_notebook(fileroot):
     nbpy.write(nb, open('{}.ipynb'.format(fileroot), 'w'))
 
 
-def moveplots(fileroot, destination='/users/claw/public_html/realfast/'):
+def moveplots(fileroot, destination='/users/claw/public_html/realfast'):
     """ For given fileroot, move cand html plot and candidate plots out
     html to destination, candplots to destination/plots
     """
 
-    mergehtml = 'cands_' + fileroot + '_merge.html'
+    mergehtml = fileroot + '.html'
     if os.path.exists(mergehtml):
         shutil.copy(mergehtml, destination)
-        logger.info('Interactive plot copied to %s.' % destination)
+        logger.info('Copied html summary to %s.' % destination)
     else:
         logger.warn('No interactive plot found to copy.')
 
-    candfiles = glob.glob(mergehtml.rstrip('merge.html') + '*.png')
+    candfiles = glob.glob('cands_{0}*.png'.format(fileroot))
     for candfile in candfiles:
         shutil.copy(candfile, os.path.join(destination, 'plots'))
     if candfiles:

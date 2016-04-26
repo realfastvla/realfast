@@ -168,15 +168,11 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                         else:
                             logger.info('Using local archive directory at {0}'.format(archivedir))
 
-                        print "Moving %s to %s" % (mergepkl, archivedir)
                         shutil.copy(mergepkl, archivedir)
-                        print "Moving %s to %s" % (noisepkl, archivedir)
                         shutil.copy(noisepkl, archivedir)
-                        print "Moving %s to %s" % (notebook, archivedir)
                         shutil.copy(notebook, archivedir)
-                        print "Moving %s to %s" % (notebookhtml, archivedir)
                         shutil.copy(notebookhtml, archivedir)
-                        logger.info('Moved merged products into local archive directory {0}'.format(archivedir))
+                        logger.info('Copied merged products into local archive directory {0}'.format(archivedir))
                         # maybe copy GN file in too?
 # old way
 #                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
@@ -242,10 +238,10 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                     logger.debug('Archiving is off.')
 
                 # 6-4) Combine MS files from slow integration into single file. Merges only MS files it finds from provided scan list.
-                try:
-                    rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
-                except:
-                    logger.info('Failed to merge slow MS files. Continuing...')
+#                try:
+#                    rtutils.mergems(d['filename'], sc.keys(), redishost=redishost)
+#                except:
+#                    logger.info('Failed to merge slow MS files. Continuing...')
  
                 # final rsync to get html and cand plots out for inspection
                 try:
