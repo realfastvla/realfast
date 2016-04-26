@@ -40,7 +40,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
         logger.setLevel(logging.INFO)
 
     if nrao_controls_archiving:
-        logger.info('***WARNING: NRAO WILL CONTROL ARCHIVING. This option must also be set in mcaf_monitor!!!')
+        logger.info('***WARNING: NRAO WILL CONTROL ARCHIVING. Check to make sure that this option is also set in mcaf_monitor!!')
         assert not archive, '*** INPUT ERROR: "archive" and "nrao_controls_archiving" inputs are incompatible!'
 
     if production:
@@ -168,10 +168,14 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                         else:
                             logger.info('Using local archive directory at {0}'.format(archivedir))
 
-                        shutil.move(mergepkl, archivedir)
-                        shutil.move(noisepkl, archivedir)
-                        shutil.move(notebook, archivedir)
-                        shutil.move(notebookhtml, archivedir)
+                        print "Moving %s to %s" % (mergepkl, archivedir)
+                        shutil.copy(mergepkl, archivedir)
+                        print "Moving %s to %s" % (noisepkl, archivedir)
+                        shutil.copy(noisepkl, archivedir)
+                        print "Moving %s to %s" % (notebook, archivedir)
+                        shutil.copy(notebook, archivedir)
+                        print "Moving %s to %s" % (notebookhtml, archivedir)
+                        shutil.copy(notebookhtml, archivedir)
                         logger.info('Moved merged products into local archive directory {0}'.format(archivedir))
                         # maybe copy GN file in too?
 # old way
@@ -214,23 +218,25 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                 goodscanstr= ','.join(str(s) for s in goodscans)
                 logger.info('Found the following scans to archive: %s' % goodscanstr)
 
-                # 6-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
-                # first determine if this filename is still being worked on by slow queue
-                slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
-                remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
-
-                if len(remaining) == 0:
-                    logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
-                else:  # slow queue needs more time
-                    logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
-                    logger.debug('remaining jobids: %s' % str(remaining))
-                    readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
-                    continue
+# SLOW QUEUE ON THE SHELF FOR NOW...
+#                # 6-3) Edit SDM to remove no-cand scans. Perl script takes SDM work dir, and target directory to place edited SDM.
+#                # first determine if this filename is still being worked on by slow queue
+#                slowjobids = qs.job_ids # + getstartedjobs('slow')  # working and queued for slow queue
+#                remaining = [jobid for jobid in slowjobids if os.path.basename(d['filename']).rstrip('.pkl') in qs.fetch_job(jobid).args[0]]  # these jobs are still open for this file
+#
+#                if len(remaining) == 0:
+#                    logger.info('No jobs for file %s in slow queue. Moving candidate scan data to archive.' % (d['filename']))
+#                else:  # slow queue needs more time
+#                    logger.info('File %s is still being worked on in slow queue. Will not move to archive yet.' % d['filename'])
+#                    logger.debug('remaining jobids: %s' % str(remaining))
+#                    readytoarchive = False  # looks like we're not ready! use this below to keep file in tracking queue
+#                    continue
 
                 # Once slow queue is finished, either 
                 if archive:
                     movetoarchive(d['filename'], d['workdir'].rstrip('/'), goodscanstr, production, bdfdir)
                 elif nrao_controls_archiving:
+                    logger.debug('Will remove BDFs')
                     removebdfs(d['filename'], d['workdir'].rstrip('/'), production, bdfdir)
                 else:
                     logger.debug('Archiving is off.')
@@ -280,19 +286,19 @@ def removebdfs(filename, workdir, production, bdfdir):
         workdir = os.getcwd()
     sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
 
-    # System safety checks
-    assert 'bunker' not in os.path.dirname(sc[0]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
-    assert 'telcal' not in os.path.dirname(sc[0]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
 
     # Clean up all the hardlinks in no_archive for this SB.
     for scan in sc.keys():
+        # System safety checks
+        assert 'bunker' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+        assert 'telcal' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
         bdfREMOVE = sc[scan]['bdfstr']
         if bdfREMOVE:
             if not production:
                 logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
                 touch( bdfREMOVE.rstrip('/') + '.delete' )
             else:
-                logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                logger.info('Removing BDF %s' % bdfREMOVE.rstrip('/') )
                 os.remove( bdfREMOVE.rstrip('/') )
 
 
