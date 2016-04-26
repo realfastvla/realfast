@@ -119,14 +119,13 @@ class FRBController(object):
                     # Link from bunker to no_archive
                     bdfFROM = os.path.join('/lustre/evla/wcbe/data/bunker/',os.path.basename(config.bdfLocation))
                     bdfTO   = bdfloc
-                    logger.debug("Note BDF autostring from MCAF is %s" % config.bdfLocation)
-                    if not production:
-                        logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
-                        touch( bdfTO + ".test" )
-                    else:
+                    if self.production:
                         logger.debug('Hardlinking %s to %s for parallel use by realfast.' % ( bdfFROM, bdfTO ))
                         logger.debug('***********WARNING: QUEUE_MONITOR SHOULD HAVE -N TURNED ON!!!')
                         os.link( bdfFROM, bdfTO )
+                    else:
+                        logger.info('TEST MODE. Would hardlink %s to %s' % ( bdfFROM, bdfTO ))
+                        touch( bdfTO + ".test" )
 
                 # If we're not in listening mode, prepare data and submit to queue system
                 if self.production:
@@ -196,7 +195,7 @@ def monitor(intent, project, production, verbose, nrao_controls_archiving, rtpar
         logger.info('*** Will link and clean BDFs in no_archive directory without ever touching archive directory.')
 
     # This starts the receiving/handling loop
-    controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, rtparams=rtparams, slow=slow)
+    controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, nrao_controls_archiving=nrao_controls_archiving, rtparams=rtparams, slow=slow)
     sdminfo_client = mcaf_library.SdminfoClient(controller)
     try:
         asyncore.loop()
@@ -215,3 +214,8 @@ def testrtpipe(filename, paramfile):
     telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
     lastjob = rtutils.search('default', filename, paramfile, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)
     return lastjob
+
+# Temporary method for creating an empty file.                                                                                                                
+def touch(path):
+    with open(path, 'a'):
+        os.utime(path, None)
