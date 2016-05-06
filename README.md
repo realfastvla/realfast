@@ -1,25 +1,23 @@
 # realfast
 
 Library and scripts for real-time transient search of data at the Very Large Array.
-Designed to run on correlator backend (CBE, a compute cluster). Not for general use (yet).
+Designed to run on correlator backend (CBE, a compute cluster).
 Goal is to detect incoming data, define fast transient search pipeline, and queue search jobs on nodes of cluster.
 
 Requirements:
 ---
 * Python 2.7 and scientific python stuff (numpy, etc.)
-* [rtpipe](http://github.com/caseyjlaw/rtpipe)
+* [rtpipe](http://github.com/caseyjlaw/rtpipe) (and thus pwkit via anaconda installer)
 * [rq](http://python-rq.org)
 * [redis](http://redis.io)
 * [supervisor](http://supervisord.org)
 * [click](http://click.pocoo.org/)
-* [pwkit](http://github.com/pkgw/pwkit) (used for CASA library access)
-* [pyfftw](https://pypi.python.org/pypi/pyFFTW) (optional, accelerated FFTs)
-* [sdmreader](http://github.com/caseyjlaw/sdmreader) (optional, for reading SDM format data from VLA archive)
-* [sdmpy](http://github.com/caseyjlaw/sdmpy) (optional, for reading SDM format data from VLA archive)
 
 Install
 ---
     python setup.py install
+or
+    pip install realfast
 
 Contributors:
 ---
