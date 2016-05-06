@@ -8,6 +8,7 @@ import time, sys, os, glob
 import subprocess, click, shutil
 import sdmreader
 from realfast import rtutils
+import rtpipe.parsecands as pc
 
 # set up  
 conn0 = Redis(db=0)
@@ -125,7 +126,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
 
             # 1) merge segments. removes segment pkls, if successfully merged.
             try:
-                rtutils.cleanup(d['workdir'], d['fileroot'], [d['scan']])
+                pc.cleanup(d['workdir'], d['fileroot'], [d['scan']])
             except:
                 logger.error('Could not cleanup cands/noise files for fileroot %s and scan %d. Removing from tracking queue.' % (d['fileroot'], d['scan']))
                 rtutils.removejob(job.id)
@@ -148,11 +149,11 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                 if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
 
                     # create merge files and notebook products
-                    rtutils.merge_scans(d['workdir'], d['fileroot'], sc.keys())
+                    pc.merge_scans(d['workdir'], d['fileroot'], sc.keys())
                     mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
                     noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
 
-                    rtutils.compilenotebook(d['workdir'], d['fileroot'])
+                    pc.nbcompile(d['workdir'], d['fileroot'])
                     notebook = os.path.join(d['workdir'], d['fileroot'] + '.ipynb')
                     notebookhtml = os.path.join(d['workdir'], d['fileroot'] + '.html')
 
@@ -174,8 +175,6 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                         shutil.copy(notebookhtml, archivedir)
                         logger.info('Copied merged products into local archive directory {0}'.format(archivedir))
                         # maybe copy GN file in too?
-# old way
-#                    rtutils.plot_summary(d['workdir'], d['fileroot'], sc.keys(), snrmin=snrmin)  # creates/overwrites the merge pkl
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
@@ -204,8 +203,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                     # if merged cands available, identify scans to archive.
                     # ultimately, this could be much more clever than finding non-zero count scans.
                     if os.path.exists(mergepkl):
-                        goodscans += [sigloc[scanind] for sigloc in rtutils.thresholdcands(mergepkl, threshold, numberperscan=1)]
-                        # rtutils.tell_candidates(mergepkl, os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.snrlist')) # for rate tests
+                        goodscans += [sigloc[scanind] for sigloc in pc.thresholdcands(mergepkl, threshold, numberperscan=1)]
                     goodscans = sorted(set(goodscans))  # uniq'd scan list in increasing order
                 else:
                     logger.debug('Triggering is off. Saving all scans.')

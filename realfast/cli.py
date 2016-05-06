@@ -7,6 +7,7 @@ from realfast import rtutils
 from rq import Queue
 from redis import Redis
 from queue_monitor import movetoarchive
+import rtpipe.parsecands as pc
 
 # set up  
 conn0 = Redis(db=0)
@@ -15,7 +16,7 @@ trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor
 
 @click.command()
 @click.argument('filename')
-@click.option('--mode', help="'read', 'search'", default='read')
+@click.argument('mode', help="'search', 'cleanup'")
 @click.option("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 @click.option("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
 @click.option("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
@@ -39,18 +40,11 @@ def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent, snrmin, 
     if not fileroot: fileroot = os.path.basename(filename)
 
     # select by mode
-    if mode == 'read':
-        rtutils.read(filename, paramfile, fileroot)
-
-    elif mode == 'search':
+    if mode == 'search':
         lastjob = rtutils.search(qpriority, filename, paramfile, fileroot, scans=scans)  # default TARGET intent
 
     elif mode == 'cleanup':
-        rtutils.cleanup(workdir, fileroot, scans)
-
-    elif mode == 'plot_summary':
-        remove = [] # not yet implemented
-        rtutils.plot_summary(workdir, fileroot, scans, snrmin=snrmin, snrmax=snrmax)
+        pc.cleanup(workdir, fileroot, scans)
 
     elif mode == 'plot_cand':
         rtutils.plot_cand(workdir, fileroot, scans, candnum)

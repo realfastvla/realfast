@@ -1,32 +1,18 @@
 """ Functions used in realfast system.
 Originally a helper script, so strucutre is odd and needs reworking.
 """
-import uuid
 import rtpipe.RT as rt
 import rtpipe.calpipe as cp
 import rtpipe.parsesdm as ps
 import rtpipe.parsecands as pc
-from rtpipe import interactive, reproduce
+from rtpipe import reproduce
 import cPickle as pickle
 import os, glob, time, shutil, subprocess, logging
 import sdmreader
-try:
-    from jinja2 import Environment
-except ImportError:
-    print('Jinja2 not available')
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
 
-def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
-    """ Simple parse and return metadata for pipeline for first scan
-    """
-
-    sc, sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
-    logger.info('Scans, Target names:')
-    logger.info('%s' % str([(ss, sc[ss]['source']) for ss in sc]))
-    logger.info('Example pipeline:')
-    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
 
 def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redishost='localhost', depends_on=None, bdfdir=default_bdfdir, seggroup=0):
     """ Search for transients in all target scans and segments
@@ -77,6 +63,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
         logger.info('No jobs to enqueue')
         return
 
+
 def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
     """ Takes proto-sdm filename and makes soft links to create true sdm.
     scandict is optional dictionary from sdmreader that defines scans to link (and the bdf location).
@@ -97,6 +84,7 @@ def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
         if not os.path.exists(bdfLINK):
             os.symlink(bdfORIG, bdfLINK)
 
+
 def calibrate(filename, fileroot):
     """ Run calibration pipeline
     """
@@ -104,19 +92,6 @@ def calibrate(filename, fileroot):
     pipe = cp.pipe(filename, fileroot)
     pipe.run()
 
-def cleanup(workdir, fileroot, scans=[]):
-    """ Cleanup up noise and cands files.
-    Finds all segments in each scan and merges them into single cand/noise file per scan.
-    """
-
-    os.chdir(workdir)
-
-    # merge cands/noise files per scan
-    for scan in scans:
-#try:
-        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=2.)
-#        except:
-#            logger.exception('')
 
 def addjob(jobid):
     """ Adds jobid as key in db. Value = 0.
@@ -126,6 +101,7 @@ def addjob(jobid):
     conn = Redis(db=1)   # db for tracking ids of tail jobs
 
     conn.set(jobid, 0)
+
 
 def removejob(jobid):
     """ Removes jobid from db.
@@ -139,6 +115,7 @@ def removejob(jobid):
         logger.info('jobid %s removed from tracking queue' % jobid)
     else:
         logger.info('jobid %s not removed from tracking queue' % jobid)
+
 
 def mergems(filename, scans, redishost=None, outfile=None):
     import tasklib
@@ -170,6 +147,7 @@ def mergems(filename, scans, redishost=None, outfile=None):
     else:
         logger.info('No ms files found to merge.')
 
+
 def integrate(filename, scanstr, inttime, redishost=None):
     """ Creates MS from SDM and integrates down.
     filename is sdm, scanstr is comma-delimited string of scans, inttime is time in s (no label).
@@ -186,6 +164,28 @@ def integrate(filename, scanstr, inttime, redishost=None):
         ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
 
 
+#### deprecated: moving to rtpipe
+def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
+    """ Simple parse and return metadata for pipeline for first scan
+    """
+
+    sc, sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    logger.info('Scans, Target names:')
+    logger.info('%s' % str([(ss, sc[ss]['source']) for ss in sc]))
+    logger.info('Example pipeline:')
+    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
+
+def cleanup(workdir, fileroot, scans=[]):
+    """ Cleanup up noise and cands files.
+    Finds all segments in each scan and merges them into single cand/noise file per scan.
+    """
+
+    os.chdir(workdir)
+
+    # merge cands/noise files per scan
+    for scan in scans:
+        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=2.)
+
 def merge_scans(workdir, fileroot, scans, snrmin=0, snrmax=999):
     """ Merge cands/noise files over all scans """
 
@@ -200,34 +200,6 @@ def merge_scans(workdir, fileroot, scans, snrmin=0, snrmax=999):
                ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
                 for scan in scans] if os.path.exists(ff)]
     pc.merge_noises(pkllist, fileroot)
-
-
-def plot_summary(workdir, fileroot, scans, snrmin=0, snrmax=999):
-    """ Make summary plots for cands/noise files with fileroot
-    Uses only given scans.
-    """
-
-    os.chdir(workdir)
-
-    try:
-        merge_scans(workdir, fileroot, scans, snrmin=snrmin, snrmax=snrmax)
-
-        # try to make interactive plot and copy to ~claw/public_html
-        mergepkl = 'cands_' + fileroot + '_merge.pkl'
-        noisepkl = 'noise_' + fileroot + '_merge.pkl'
-        if not os.path.exists(noisepkl):
-            noisepkl = ''
-        if os.path.exists(mergepkl):
-            try:
-                interactive.plot_interactive(mergepkl, noisepkl=noisepkl)
-                logger.info('Interactive plot made at %s.' % ('cands_' + fileroot + '_merge.html'))
-            except:
-                logger.warn('Interactive plot not made.')
-                
-    except:
-        logger.exception('')
-
-    logger.info('Completed plotting for fileroot %s with all scans available (from %s).' % (fileroot, str(scans)))
 
 
 def compilenotebook(workdir, fileroot):
@@ -246,6 +218,51 @@ def compilenotebook(workdir, fileroot):
     cmd = 'jupyter nbconvert {0}.ipynb --to html --output {0}.html'.format(fileroot).split(' ')
     status = subprocess.call(cmd)
 
+def thresholdcands(candsfile, threshold, numberperscan=1):
+    """ Returns list of significant candidate loc in candsfile.
+    Can define threshold and maximum number of locs per scan.
+    Works on merge or per-scan cands pkls.
+    """
+
+    # read metadata and define columns of interest
+    d = pickle.load(open(candsfile, 'r'))
+    try:
+        scancol = d['featureind'].index('scan')
+    except ValueError:
+        scancol = -1
+    if 'snr2' in d['features']:
+        snrcol = d['features'].index('snr2')
+    elif 'snr1' in d['features']:
+        snrcol = d['features'].index('snr1')
+
+    # read data and define snrs
+    loc, prop = pc.read_candidates(candsfile)
+    snrs = [prop[i][snrcol] for i in range(len(prop)) if prop[i][snrcol] > threshold]
+
+    # calculate unique list of locs of interest
+    siglocs = [list(loc[i]) for i in range(len(prop)) if prop[i][snrcol] > threshold]
+    siglocssort = sorted(zip([list(ll) for ll in siglocs], snrs), key=lambda stuff: stuff[1], reverse=True)
+
+    if scancol >= 0:
+        scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
+        candlist= []
+        for scan in scanset:
+            logger.debug('looking in scan %d' % scan)
+            count = 0
+            for sigloc in siglocssort:
+                if sigloc[0][scancol] == scan:
+                    logger.debug('adding sigloc %s' % str(sigloc))
+                    candlist.append(sigloc)
+                    count += 1
+                if count >= numberperscan:
+                    break
+    else:
+        candlist = siglocssort[:numberperscan]
+
+    logger.debug('Returning %d cands above threshold %.1f' % (len(candlist), threshold))
+    return [loc for loc,snr in candlist]
+
+#### moving to rtpipe
 
 def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """ Visualize a candidate as png.
@@ -262,6 +279,7 @@ def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     else:
         reproduce.plot_cand(candsfile, candloc=candloc, **kwargs)
 
+
 def plot_pulsar(workdir, fileroot, scans=[]):
     """
     Assumes 3 or 4 input pulsar scans (centered then offset pointings).
@@ -273,6 +291,7 @@ def plot_pulsar(workdir, fileroot, scans=[]):
 
     logger.info('Pulsar plotting for pkllist:', pkllist)
     pc.plot_psrrates(pkllist, outname=os.path.join(workdir, 'plot_' + fileroot + '_psrrates.png'))
+
 
 def getscans(filename, scans='', sources='', intent='', bdfdir=default_bdfdir):
     """ Get scan list as ints.
@@ -305,9 +324,11 @@ def getscans(filename, scans='', sources='', intent='', bdfdir=default_bdfdir):
 
     return scans
 
+
 def grouprange(start, size, step):
     arr = range(start,start+size)
     return [arr[ss:ss+step] for ss in range(0, len(arr), step)]
+
 
 def rsync(original, new, mode='-a'):
     """ Uses subprocess.call to rsync from 'filename' to 'new'
@@ -365,6 +386,7 @@ def moveplots(fileroot, destination='/users/claw/public_html/realfast'):
     else:
         logger.warn('No candidate plots found to copy.')
 
+
 def copysdm(filename, workdir):
     """ Copies sdm from filename (full path) to workdir
     """
@@ -378,6 +400,7 @@ def copysdm(filename, workdir):
     else:
         logger.info('File %s already in %s. Using that one...' % (fname, workdir))
     filename = newfileloc
+
 
 def copyDirectory(src, dest):
     try:
@@ -403,49 +426,6 @@ def check_spw(sdmfile, scan):
 
     return len(dfreqneg) <= 1 and not duplicates
 
-def thresholdcands(candsfile, threshold, numberperscan=1):
-    """ Returns list of significant candidate loc in candsfile.
-    Can define threshold and maximum number of locs per scan.
-    Works on merge or per-scan cands pkls.
-    """
-
-    # read metadata and define columns of interest
-    d = pickle.load(open(candsfile, 'r'))
-    try:
-        scancol = d['featureind'].index('scan')
-    except ValueError:
-        scancol = -1
-    if 'snr2' in d['features']:
-        snrcol = d['features'].index('snr2')
-    elif 'snr1' in d['features']:
-        snrcol = d['features'].index('snr1')
-
-    # read data and define snrs
-    loc, prop = pc.read_candidates(candsfile)
-    snrs = [prop[i][snrcol] for i in range(len(prop)) if prop[i][snrcol] > threshold]
-
-    # calculate unique list of locs of interest
-    siglocs = [list(loc[i]) for i in range(len(prop)) if prop[i][snrcol] > threshold]
-    siglocssort = sorted(zip([list(ll) for ll in siglocs], snrs), key=lambda stuff: stuff[1], reverse=True)
-
-    if scancol >= 0:
-        scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
-        candlist= []
-        for scan in scanset:
-            logger.debug('looking in scan %d' % scan)
-            count = 0
-            for sigloc in siglocssort:
-                if sigloc[0][scancol] == scan:
-                    logger.debug('adding sigloc %s' % str(sigloc))
-                    candlist.append(sigloc)
-                    count += 1
-                if count >= numberperscan:
-                    break
-    else:
-        candlist = siglocssort[:numberperscan]
-
-    logger.debug('Returning %d cands above threshold %.1f' % (len(candlist), threshold))
-    return [loc for loc,snr in candlist]
 
 def find_archivescans(mergefile, threshold=0):
     """ Parses merged cands file and returns list of scans with detections.
@@ -476,6 +456,7 @@ def find_archivescans(mergefile, threshold=0):
 
     return set(sigscans)
 
+
 def tell_candidates(mergefile, filename):
     """
     Parses merged cands file and prints out candidate information to outfile.
@@ -488,6 +469,7 @@ def tell_candidates(mergefile, filename):
         for i in range(0,len(loc)):
             outfile.write('\t'.join(map(str,loc[i]))+' '+'\t'.join(map(str,prop[i]))+"\n")
     return
+
 
 def gettelcalfile(telcaldir, filename, timeout=0):
     """ Looks for telcal file with name filename.GN in typical telcal directories
@@ -543,6 +525,7 @@ def gettelcalfile(telcaldir, filename, timeout=0):
 
     return telcalfile
 
+
 def lookforfile(lookdir, subname, changesonly=False):
     """ Look for and return a file with subname in lookdir.
     changesonly means it will wait for changes. default looks only once.
@@ -576,6 +559,7 @@ def lookforfile(lookdir, subname, changesonly=False):
 
     logger.info('Returning %s.' % fullname)
     return fullname
+
 
 def waitforsdm(filename, timeout=300):
     """ Monitors filename (an SDM) to see when it is finished writing.
@@ -612,6 +596,7 @@ def waitforsdm(filename, timeout=300):
             logger.info('All bdfs written. Continuing.')
             break
 
+
 def sdmascal(filename, calscans='', bdfdir=default_bdfdir):
     """ Takes incomplete SDM (on CBE) and creates one corrected for use in calibration.
     optional calscans is casa-like string to select scans
@@ -646,6 +631,7 @@ def sdmascal(filename, calscans='', bdfdir=default_bdfdir):
             else:
                 logger.info('bdf in for calscan %d already in place.' % calscan)
 
+
 def sdmasorig(filename):
     """ Take sdm for calibration and restore it.
     keeps ASDMBinary around, just in case
@@ -655,36 +641,3 @@ def sdmasorig(filename):
     shutil.move(os.path.join(filename, 'Main_orig.xml'), os.path.join(filename, 'Main.xml'))
     shutil.move(os.path.join(filename, 'ASDMBinary'), os.path.join(filename, 'ASDMBinary_cal'))
 
-
-# stuff for jinja2 template for index to browse cand summary plots
-
-HTML = """
-<html>
-<body>
-
- <ul>
- {% for item in contents %}
-  <li><a href="{{ item[1] }}" target="frame">{{ item[0] }}</a> ({{ item[2] }} MB)</li>
- {% endfor %}
- </ul>
-
-</body>
-</html>
-"""
-
-def gethtmlcontents(directory):
-    filenames = glob.glob(os.path.join(directory, 'cands*_merge.html'))
-    mjds = ['.'.join(ff.rstrip('_merge.html').split('.')[-2:])
-            for ff in filenames]
-    sizes = [os.stat(ff).st_size/(1024**2)
-             for ff in filenames]
-    contents = zip(mjds, [os.path.basename(ff) for ff in filenames], sizes)
-    return sorted(contents, key=lambda ff: ff[0])
-
-
-def writehtml(directory, outname='contents.html'):
-    contents = gethtmlcontents(directory)
-    contentshtml = Environment().from_string(HTML).render(contents=contents, title='List of Contents')
-
-    with open(os.path.join(directory, outname), 'w') as f:
-        f.write(contentshtml)
