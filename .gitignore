@@ -3,3 +3,4 @@ dist
 realfast.egg-info
 *pyc
 *~
+*.log
