@@ -350,22 +350,6 @@ def rsync(original, new, mode='-a'):
     subprocess.call(["rsync", mode, original.rstrip('/') + trailing, new.rstrip('/')])
 
 
-def make_notebook(fileroot):
-    """ Uses template python file to pre-fill 
-    a Jupyter notebook for candidate analysis.
-    """
-
-    import realfast
-    from nbformat.v3 import nbpy
-#    import nbconvert  # if we need v4 notebook
-
-    nb = nbpy.read(open(os.path.join('/'.join(realfast.__file__.split('/')[:-2]),
-                                     'conf', 'notebook_template'), 'r'))
-#    nb4 = nbformat.convert(nb, 4)
-
-    nbpy.write(nb, open('{}.ipynb'.format(fileroot), 'w'))
-
-
 def moveplots(fileroot, destination='/users/claw/public_html/realfast'):
     """ For given fileroot, move cand html plot and candidate plots out
     html to destination, candplots to destination/plots
@@ -412,6 +396,7 @@ def copyDirectory(src, dest):
     except OSError as e:
         print('Directory not copied. Error: %s' % e)
 
+
 def check_spw(sdmfile, scan):
     """ Looks at relative freq of spw and duplicate spw_reffreq. 
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
@@ -455,20 +440,6 @@ def find_archivescans(mergefile, threshold=0):
         logger.info('no cands above threshold %.1f for %s' % (threshold, mergefile))
 
     return set(sigscans)
-
-
-def tell_candidates(mergefile, filename):
-    """
-    Parses merged cands file and prints out candidate information to outfile.
-    """
-    with open(mergefile, 'rb') as pkl:
-        d = pickle.load(pkl) # dmlist = d['dmarr'] ; same for dtarr.
-        cands = pickle.load(pkl) # can also read as (loc, prop) to get arrays of each thing.
-        loc,prop=cands
-    with open(filename, 'w') as outfile:
-        for i in range(0,len(loc)):
-            outfile.write('\t'.join(map(str,loc[i]))+' '+'\t'.join(map(str,prop[i]))+"\n")
-    return
 
 
 def gettelcalfile(telcaldir, filename, timeout=0):
