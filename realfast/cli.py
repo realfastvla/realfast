@@ -15,8 +15,8 @@ conn = Redis(db=1)   # db for tracking ids of tail jobs
 trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor 
 
 @click.command()
-@click.argument('filename')
-@click.argument('mode', help="'search', 'cleanup'")
+@click.argument("filename")
+@click.option("--mode", help="Options include: search, cleanup", default='search')
 @click.option("--paramfile", help="parameters for rtpipe using python-like syntax (custom parser for now)", default='')
 @click.option("--fileroot", help="Root name for data products (used by calibrate for now)", default='')
 @click.option("--sources", help="sources to search. comma-delimited source names (substring matched)", default='')
@@ -25,7 +25,6 @@ trackercount = 2000  # number of tracking jobs (one per scan in db=1) to monitor
 @click.option("--snrmin", help="Min SNR to include in plot_summary", default=0.)
 @click.option("--snrmax", help="Max SNR to include in plot_summary", default=999.)
 @click.option("--candnum", help="Candidate number to plot", default=-1)
-#@click.option("--remove", help="List of times to remove plot_summary visualizations", default='')
 def rtpipe(filename, mode, paramfile, fileroot, sources, scans, intent, snrmin, snrmax, candnum):
     """ Function for command-line access to queue_rtpipe
     """

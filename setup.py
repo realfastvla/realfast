@@ -11,7 +11,7 @@ setup(
     include_package_data=True,
     packages = find_packages(),
     data_files = [ ('conf', glob.glob('conf/*')) ],
-    scripts = ['scripts/sdm_chop-n-serve.pl', 'scripts/rqmanage.sh', 'scripts/queue_rtpipe.py', 'scripts/realfast.pl', 'scripts/listener.py'],   # add non-python scripts
+    scripts = ['scripts/sdm_chop-n-serve.pl', 'scripts/rqmanage.sh', 'scripts/realfast.pl', 'scripts/listener.py'],   # add non-python scripts
     install_requires=['rtpipe', 'sdmreader', 'sdmpy', 'click', 'jinja2'],
     entry_points='''
         [console_scripts]
