@@ -402,7 +402,7 @@ def check_spw(sdmfile, scan):
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
     """
 
-    d = rt.set_pipeline(sdmfile, scan, silent=True)
+    d = rt.set_pipeline(sdmfile, scan, nologfile=True)
 
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
