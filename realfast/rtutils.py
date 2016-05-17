@@ -30,7 +30,7 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
     for scan in scans:
         assert isinstance(scan, int), 'Scan should be an integer'
         scanind = scans.index(scan)
-        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, nologfile=True, bdfdir=bdfdir)
+        state = rt.set_pipeline(filename, scan, paramfile=paramfile, fileroot=fileroot, gainfile=telcalfile, writebdfpkl=True, logfile=False, bdfdir=bdfdir)
         assert state['inttime'] > 0, 'inttime parsed as zero from metadata. Try again?'
         if seggroup:    # submit groups of segments to reduce read/prep overhead
             for segments in grouprange(0, state['nsegments'], seggroup):
@@ -173,7 +173,7 @@ def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
     logger.info('Scans, Target names:')
     logger.info('%s' % str([(ss, sc[ss]['source']) for ss in sc]))
     logger.info('Example pipeline:')
-    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, nologfile=True)
+    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, logfile=False)
 
 def cleanup(workdir, fileroot, scans=[]):
     """ Cleanup up noise and cands files.
@@ -402,7 +402,7 @@ def check_spw(sdmfile, scan):
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
     """
 
-    d = rt.set_pipeline(sdmfile, scan, nologfile=True)
+    d = rt.set_pipeline(sdmfile, scan, logfile=False)
 
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
