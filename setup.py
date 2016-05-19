@@ -6,7 +6,7 @@ setup(
     description = 'Python scripts for running real-time data analysis at the VLA',
     author = 'Casey Law + SBS',
     author_email = 'caseyjlaw@gmail.com',
-    version = '1.26',
+    version = '1.27',
     url = 'http://github.com/caseyjlaw/realfast',
     include_package_data=True,
     packages = find_packages(),

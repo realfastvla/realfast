@@ -55,7 +55,7 @@ import os
 import asyncore
 import click
 import logging
-import sdmreader 
+import rtpipe.parsesdm as ps
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -158,9 +158,9 @@ class FRBController(object):
             if (self.slow > 0) and ( ('CALIBRATE' in config.intentString) or ('TARGET' in config.intentString) and self.production):
                 rtutils.rsync(sdmlocation, workdir)
                 logger.info('Creating measurement set for %s scan %d' % (filename, scan))
-                sc,sr = sdmreader.read_metadata(filename, scan, bdfdir=default_bdfdir)
-                rtutils.linkbdfs(filename, sc, default_bdfdir)
+                rtutils.linkbdfs(filename, bdfdir=default_bdfdir)
                 rtutils.integrate(filename, str(scan), self.slow, redishost)                    
+
                     
 @click.command()
 @click.option('--intent', '-i', default='', help='Intent to trigger on')
@@ -209,8 +209,7 @@ def testrtpipe(filename, paramfile):
     filename should have full path.
     """
 
-    import sdmreader
-    sc,sr = sdmreader.read_metadata(filename, bdfdir=default_bdfdir)
+    sc = ps.read_scans(filename, bdfdir=default_bdfdir)
     scan = sc.keys()[0]
     telcalfile = rtutils.gettelcalfile(telcaldir, filename, timeout=60)
     lastjob = rtutils.search('default', filename, paramfile, '', [scan], telcalfile=telcalfile, redishost=redishost, bdfdir=default_bdfdir)

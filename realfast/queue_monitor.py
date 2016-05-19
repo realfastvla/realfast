@@ -6,9 +6,9 @@ from rq.queue import Queue
 from rq.registry import FinishedJobRegistry, StartedJobRegistry
 import time, sys, os, glob
 import subprocess, click, shutil
-import sdmreader
 from realfast import rtutils
 import rtpipe.parsecands as pc
+import rtpipe.parsesdm as ps
 
 # set up  
 conn0 = Redis(db=0)
@@ -136,7 +136,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
             # 2) get metadata (and check that file still available to work with)
             try:
                 # Each sc key contains a dictionary. The key is the scan number.                            
-                sc,sr = sdmreader.read_metadata(d['filename'], bdfdir=bdfdir)
+                sc = ps.read_scans(d['filename'], bdfdir=bdfdir)
             except:
                 logger.error('Could not parse sdm %s. Removing from tracking queue.' % d['filename'])
                 rtutils.removejob(job.id)
@@ -278,8 +278,7 @@ def removebdfs(filename, workdir, production, bdfdir):
 
     if not workdir:
         workdir = os.getcwd()
-    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
-
+    sc = ps.read_scans(filename, bdfdir=bdfdir)
 
     # Clean up all the hardlinks in no_archive for this SB.
     for scan in sc.keys():
@@ -307,7 +306,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
 
     if not workdir:
         workdir = os.getcwd()
-    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    sc = ps.read_scans(filename, bdfdir=bdfdir)
     if not goodscanstr:
         goodscanstr = ','.join([str(s) for s in sc.keys() if sc[s]['bdfstr']])
     goodscans = [int(s) for s in goodscanstr.split(',')]
