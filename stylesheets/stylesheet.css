@@ -16,6 +16,14 @@ body {
   margin: 0 auto;
 }
 
+nav {
+  float: right;
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 20%;
+}
+
 section {
   display: block;
   margin: 0 0 20px 0;
