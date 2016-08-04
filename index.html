@@ -8,50 +8,54 @@
     <link rel="stylesheet" type="text/css" href="stylesheets/github-dark.css" media="screen">
     <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print">
 
-    <title>realfast at the VLA</title>
+    <title>realfast</title>
   </head>
 
   <body>
 
     <nav>
       <p align="right"><a href="http://realfast.berkeley.edu" class="btn">realfast data portal</a><br>
-	<a href="https://github.com/caseyjlaw/realfast" class="btn btn-github"><span class="icon"></span>GitHub code repository</a>
+	<a href="https://github.com/realfastvla/realfast" class="btn btn-github"><span class="icon"></span>GitHub code repository</a>
       </p>
     </nav>
 
     <header>
       <div class="container">
 	<img width="80%" align="middle" src="images/realfast_white.png">
-        <h2>real-time transient searches at the Very Large Array</h2>
+        <h2>real-time fast transients at the Very Large Array</h2>
       </div>
     </header>
 
     <div class="container">
       <section id="main_content">
         <h1>
-<a id="realfast-real-time-transient-searches-at-the-very-large-array" class="anchor" href="#realfast-real-time-transient-searches-at-the-very-large-array" aria-hidden="true"><span class="octicon octicon-link"></span></a>realfast: real-time transient searches at the Very Large Array</h1>
+<a id="realfast-real-time-transient-searches-at-the-very-large-array" class="anchor" href="#realfast-real-time-transient-searches-at-the-very-large-array" aria-hidden="true"><span class="octicon octicon-link"></span></a>realfast: A system for real-time, commensal fast transient searches at the Very Large Array</h1>
 
 <h3>
 <a id="context" class="anchor" href="#context" aria-hidden="true"><span class="octicon octicon-link"></span></a>Context</h3>
 
-<p>We are developing a set of enhancements to the Jansky Very Large Array (VLA) to enable real-time, commensal surveys for fast radio transients. We use the term <code>realfast</code> to refer to the project and the <a href="http://github.com/caseyjlaw/realfast">software</a>.</p>
-
-<p>As the most sensitive cm-wavelength radio interferometer on earth, the VLA will revolutionize this field with its ability to form sensitive images with arcsecond spatial resolution. Interferometric imaging will do pioneering science with a mysterious new class of radio transients known as <a href="https://en.wikipedia.org/wiki/Fast_radio_burst">fast radio bursts</a>. VLA imaging can make the first arcsecond localization of a burst and can detect many events per year. Similarly, the interferometric discovery and localization of other classes of millisecond transient will address topics ranging from the missing baryon problem to (sub)stellar magnetism to the search for exotic binary pulsar systems.</p>
+<p>Fast radio transients (e.g., pulsars) have a rich scientific legacy and promise to be central to many new and exciting problems in physics. As the most sensitive cm-wavelength radio interferometer on earth, the VLA will revolutionize this field with its ability to localize sources with arcsecond spatial resolution. For example, interferometric imaging will do pioneering science with a mysterious new class of radio transients known as <a href="https://en.wikipedia.org/wiki/Fast_radio_burst">fast radio bursts</a>. Arcsecond localization will help identify unique multiwavelength counterparts, such as host galaxies, to measure the distance to FRBs, answer basic questions about their origin, and use them as novel probes of the intergalactic medium. Similarly, the interferometric discovery and localization of other classes of millisecond transient will address topics ranging from the missing baryon problem to (sub)stellar magnetism to the search for exotic binary pulsar systems.</p>
 
 <img src='images/vla_fastimaging.png'>
 
-<p>The challenge is that millisecond imaging produces 1 TB of data per hour (in our current standard VLA observing mode) and requires forming many thousands of images per second. So the question is: how do we go from a TB/hour data stream to a simple <a href="http://caseyjlaw.github.io/realfast/candidate_context.html">list of candidates</a> (let us know if you find a transient in that interactive plot of real VLA candidates!)?</p>
+<p>The challenge to using the VLA for millisecond imaging is that it produces roughly 1 TB of data per hour and requires forming many thousands of images per second. This data rate is so large that it cannot be transferred via the internet for data analysis. The computing requirements are so severe that no single computer can manage the search. The question is: how can we manage a TB/hour data stream to find a millisecond transient in hudreds of hours of data?
 
-</p>We are doing this by developing software and using (and hopefully soon building) computational support at the VLA site. This allows us to process this massive data stream in real time and turn each observation into a fast transient survey, ultimately encompassing thousands of hours per year. Not only does real-time analysis give us the ability to quickly respond to transients, it also makes commensal analysis possible by searching an otherwise inaccessible data stream. Developing this system at the VLA will produce multiplicative improvement to scientific productivity for this already powerful telescope.</p>
+</p>Our answer is <code>realfast</code>, a system for real-time fast transient searches at the VLA. Real-time processing is critical, as it allowed triggered data recording and opens access to "commensal" observing in conjunction with other VLA observations. <code>realfast</code> is supported by the NSF ATI program with development starting in late 2016.</p>
 
 <h3>
 <a id="approach" class="anchor" href="#approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>Approach</h3>
 
-<p><code>realfast</code> will do this through a series of algorithmic, software, and hardware developments. The principal algorithmic development is presented in <a href="http://github.com/caseyjlaw/rtpipe"><code>rtpipe</code></a>, a library for building fast transient detection pipelines for radio interferometric data. The largest scale implementation of <code>rtpipe</code> <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2015ApJ...807...16L">was a 200-hour, 200-TB VLA imaging survey for FRBs</a>. We have also used `rtpipe` to make the <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2012ApJ...760..124L">first blind interferometric localization of a transient neutron star</a>. For more information on using `rtpipe`, see <a href="http://caseyjlaw.github.io/opening-access-to-fast-radio-interferometric-imaging.html">this blog post</a>.</p>
+<p><code>realfast</code> is built from a few key technologies:
+<ul>
+ <li><b>Computing hardware at the VLA</b>: Computing is the most significant missing component to the creation of a real-time, commensal VLA fast transient detection system. This proposal will support the purchase of servers, GPUs, and infrastructure to be dedicated to realfast.</li>
+ <li><b>Commensal data stream</b>: The commensal data stream is a high-speed duplicate of the primary observing stream.</li>
+ <li><b>Transient search pipeline</b>: The new hardware will run a transient <a href="http://github.com/caseyjlaw/rtpipe"><code>search pipeline</code></a>. Currently that pipeline has been demonstrated with CPUs, but ultimately it will be migrated to GPUs.</li>
+ <li><b>Candidate data management system</b>: <code>realfast</code> will serve data products and transient alerts to the public. Initially, team members will classify each candidate (e.g., <a href="http://caseyjlaw.github.io/realfast/candidate_context.html">candidate summary plot</a>), but ultimately we will train a statistical classifier to automatically identify good candidates.</li>
+</ul></p>
+
+<p>We demonstrated the search pipeline in <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2015ApJ...807...16L">a 200-hour, 200-TB VLA imaging survey for FRBs</a>. We have also used <code>rtpipe</code> to make the <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2012ApJ...760..124L">first blind interferometric localization of a transient neutron star</a>. For more information on using <code>rtpipe</code>, see <a href="http://caseyjlaw.github.io/opening-access-to-fast-radio-interferometric-imaging.html">this blog post</a>.</p>
 
 <img src='images/rrat.png'>
-
-<p>The current (late 2015) implementation of <code>realfast</code> performs real-time fast imaging to trigger recording of data in a dedicated observation. This system is demonstrating the concepts of "data triage" that are critical to the long-term goal of a commensal system that operates 24/7 and can efficiently excise data around the most promising candidate transients.</p>
 
       </section>
     </div>
