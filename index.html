@@ -15,7 +15,7 @@
 
     <nav>
       <p align="right"><a href="http://realfast.berkeley.edu" class="btn">realfast data portal</a><br>
-	<a href="https://github.com/realfastvla/realfast" class="btn btn-github"><span class="icon"></span>GitHub code repository</a>
+	<a href="https://github.com/realfastvla" class="btn btn-github">realfast code repository</a>
       </p>
     </nav>
 
@@ -34,13 +34,13 @@
 <h3>
 <a id="context" class="anchor" href="#context" aria-hidden="true"><span class="octicon octicon-link"></span></a>Context</h3>
 
-<p>Fast radio transients (e.g., pulsars) have a rich scientific legacy and promise to be central to many new and exciting problems in physics. As the most sensitive cm-wavelength radio interferometer on earth, the VLA will revolutionize this field with its ability to localize sources with arcsecond spatial resolution. For example, interferometric imaging will do pioneering science with a mysterious new class of radio transients known as <a href="https://en.wikipedia.org/wiki/Fast_radio_burst">fast radio bursts</a>. Arcsecond localization will help identify unique multiwavelength counterparts, such as host galaxies, to measure the distance to FRBs, answer basic questions about their origin, and use them as novel probes of the intergalactic medium. Similarly, the interferometric discovery and localization of other classes of millisecond transient will address topics ranging from the missing baryon problem to (sub)stellar magnetism to the search for exotic binary pulsar systems.</p>
+<p>Fast radio transients (e.g., pulsars) have a rich scientific legacy and promise to be central to many new and exciting problems in physics. As the most sensitive cm-wavelength radio interferometer on earth, the VLA will revolutionize this field with its ability to localize sources with arcsecond spatial resolution. For example, interferometric imaging will do pioneering science with a mysterious new class of radio transients known as <a href="https://en.wikipedia.org/wiki/Fast_radio_burst">fast radio bursts</a>. Arcsecond localization will help identify unique multiwavelength counterparts (e.g., host galaxies), to measure the distance to FRBs, answer basic questions about their origin, and use them as novel probes of the intergalactic medium. Similarly, the interferometric discovery and localization of other classes of millisecond transient will address topics ranging from the missing baryon problem to (sub)stellar magnetism to the search for exotic binary pulsar systems.</p>
 
 <img src='images/vla_fastimaging.png'>
 
 <p>The challenge to using the VLA for millisecond imaging is that it produces roughly 1 TB of data per hour and requires forming many thousands of images per second. This data rate is so large that it cannot be transferred via the internet for data analysis. The computing requirements are so severe that no single computer can manage the search. The question is: how can we manage a TB/hour data stream to find a millisecond transient in hudreds of hours of data?
 
-</p>Our answer is <code>realfast</code>, a system for real-time fast transient searches at the VLA. Real-time processing is critical, as it allowed triggered data recording and opens access to "commensal" observing in conjunction with other VLA observations. <code>realfast</code> is supported by the NSF ATI program with development starting in late 2016.</p>
+</p>Our answer is <code>realfast</code>, a system for real-time fast transient searches at the VLA. Real-time processing is critical, as it allows triggered data recording and opens access to "commensal" observing in conjunction with other VLA observations. <code>realfast</code> is supported by the NSF ATI program starting in late 2016.</p>
 
 <h3>
 <a id="approach" class="anchor" href="#approach" aria-hidden="true"><span class="octicon octicon-link"></span></a>Approach</h3>
@@ -49,13 +49,17 @@
 <ul>
  <li><b>Computing hardware at the VLA</b>: Computing is the most significant missing component to the creation of a real-time, commensal VLA fast transient detection system. This proposal will support the purchase of servers, GPUs, and infrastructure to be dedicated to realfast.</li>
  <li><b>Commensal data stream</b>: The commensal data stream is a high-speed duplicate of the primary observing stream.</li>
- <li><b>Transient search pipeline</b>: The new hardware will run a transient <a href="http://github.com/caseyjlaw/rtpipe"><code>search pipeline</code></a>. Currently that pipeline has been demonstrated with CPUs, but ultimately it will be migrated to GPUs.</li>
+ <li><b>Transient search pipeline</b>: The new hardware will run a transient <a href="http://github.com/caseyjlaw/rtpipe">search pipeline</a>. Currently that pipeline has been demonstrated with CPUs, but ultimately it will be migrated to GPUs.</li>
  <li><b>Candidate data management system</b>: <code>realfast</code> will serve data products and transient alerts to the public. Initially, team members will classify each candidate (e.g., <a href="http://caseyjlaw.github.io/realfast/candidate_context.html">candidate summary plot</a>), but ultimately we will train a statistical classifier to automatically identify good candidates.</li>
 </ul></p>
 
-<p>We demonstrated the search pipeline in <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2015ApJ...807...16L">a 200-hour, 200-TB VLA imaging survey for FRBs</a>. We have also used <code>rtpipe</code> to make the <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2012ApJ...760..124L">first blind interferometric localization of a transient neutron star</a>. For more information on using <code>rtpipe</code>, see <a href="http://caseyjlaw.github.io/opening-access-to-fast-radio-interferometric-imaging.html">this blog post</a>.</p>
+<a id="software" class="anchor" href="#software" aria-hidden="true"><span class="octicon octicon-link"></span></a>Software</h3>
+
+<p>The core software for the fast transient search is <a href="http://github.com/caseyjlaw/rtpipe"><code>rtpipe</code></a>. We demonstrated the search pipeline in <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2015ApJ...807...16L">a 200-hour, 200-TB VLA imaging survey for FRBs</a>. We have also used the fast transient search pipeline to make the <a href="http://labs.adsabs.harvard.edu/adsabs/abs/2012ApJ...760..124L">first blind interferometric localization of a transient neutron star</a>.</p>
 
 <img src='images/rrat.png'>
+
+<p><code>rtpipe</code> was built as an open tool to support analysis of interferometric data for fast transients. For more information, see <a href="http://caseyjlaw.github.io/opening-access-to-fast-radio-interferometric-imaging.html">this blog post</a>.</p>
 
       </section>
     </div>
