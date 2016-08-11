@@ -180,6 +180,7 @@ def reset():
 def manualarchive(filename, workdir, goodscanstr, production, bdfdir):
     movetoarchive(filename, workdir, goodscanstr, production, bdfdir)
 
+
 @click.command()
 @click.argument('filename')
 @click.option('--slow', help='Time in seconds to integrate to.', default=1)
@@ -190,8 +191,8 @@ def slowms(filename, slow, redishost, bdfdir):
     Queues to 'slow' queue managed by redishost.
     """
 
-    import sdmreader
-    sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    import rtpipe.parsesdm as ps
+    sc = ps.read_scans(filename, bdfdir=bdfdir)
     logger.info('Creating measurement set for %s, scans %s' % (filename, sc.keys()))
 
     rtutils.linkbdfs(filename, sc, bdfdir)

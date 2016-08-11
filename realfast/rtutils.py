@@ -8,7 +8,6 @@ import rtpipe.parsecands as pc
 from rtpipe import reproduce
 import cPickle as pickle
 import os, glob, time, shutil, subprocess, logging
-import sdmreader
 
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 logger = logging.getLogger(__name__)
@@ -66,10 +65,12 @@ def search(qname, filename, paramfile, fileroot, scans=[], telcalfile='', redish
 
 def linkbdfs(filename, scandict=None, bdfdir=default_bdfdir):
     """ Takes proto-sdm filename and makes soft links to create true sdm.
-    scandict is optional dictionary from sdmreader that defines scans to link (and the bdf location).
+    scandict is optional dictionary from parsesdm that defines scans to link (and the bdf location).
     """
 
-    if not scandict: scandict, sourcedict = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+    if not scandict:
+        scandict = ps.read_scans(filename, bdfdir=bdfdir)
+        sourcedict = ps.read_sources(filename, bdfdir=bdfdir)
 
     # Create ASDMBinary directory in our local SDM
     ASDMBinarydir = os.path.join(os.path.basename(filename.rstrip('/')), 'ASDMBinary')
@@ -164,106 +165,6 @@ def integrate(filename, scanstr, inttime, redishost=None):
         ps.sdm2ms(filename, filename.rstrip('/') + '_sc' + scanstr + '.ms', scanstr, inttime)
 
 
-#### deprecated: moving to rtpipe
-def read(filename, paramfile='', fileroot='', bdfdir=default_bdfdir):
-    """ Simple parse and return metadata for pipeline for first scan
-    """
-
-    sc, sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
-    logger.info('Scans, Target names:')
-    logger.info('%s' % str([(ss, sc[ss]['source']) for ss in sc]))
-    logger.info('Example pipeline:')
-    state = rt.set_pipeline(filename, sc.popitem()[0], paramfile=paramfile, fileroot=fileroot, logfile=False)
-
-def cleanup(workdir, fileroot, scans=[]):
-    """ Cleanup up noise and cands files.
-    Finds all segments in each scan and merges them into single cand/noise file per scan.
-    """
-
-    os.chdir(workdir)
-
-    # merge cands/noise files per scan
-    for scan in scans:
-        pc.merge_segments(fileroot, scan, cleanup=True, sizelimit=2.)
-
-def merge_scans(workdir, fileroot, scans, snrmin=0, snrmax=999):
-    """ Merge cands/noise files over all scans """
-
-    os.chdir(workdir)
-
-    pkllist = [ff for ff in
-               ['cands_{0}_sc{1}.pkl'.format(fileroot, scan)
-                for scan in scans] if os.path.exists(ff)]
-    pc.merge_cands(pkllist, outroot=fileroot, snrmin=snrmin, snrmax=snrmax)
-
-    pkllist = [ff for ff in
-               ['noise_{0}_sc{1}.pkl'.format(fileroot, scan) 
-                for scan in scans] if os.path.exists(ff)]
-    pc.merge_noises(pkllist, fileroot)
-
-
-def compilenotebook(workdir, fileroot):
-    """ Run analysis pipeline from jupyter base notebook and save as notebook and html. """
-
-    os.chdir(workdir)
-
-    os.environ['fileroot'] = fileroot
-    cmd = 'jupyter nbconvert baseinteract.ipynb --output {0}.ipynb --to notebook --execute --allow-errors --ExecutePreprocessor.timeout=3600'.format(fileroot).split(
-' ')
-    status = subprocess.call(cmd)
-
-    cmd = 'jupyter trust {0}.ipynb'.format(fileroot).split(' ')
-    status = subprocess.call(cmd)
-
-    cmd = 'jupyter nbconvert {0}.ipynb --to html --output {0}.html'.format(fileroot).split(' ')
-    status = subprocess.call(cmd)
-
-def thresholdcands(candsfile, threshold, numberperscan=1):
-    """ Returns list of significant candidate loc in candsfile.
-    Can define threshold and maximum number of locs per scan.
-    Works on merge or per-scan cands pkls.
-    """
-
-    # read metadata and define columns of interest
-    d = pickle.load(open(candsfile, 'r'))
-    try:
-        scancol = d['featureind'].index('scan')
-    except ValueError:
-        scancol = -1
-    if 'snr2' in d['features']:
-        snrcol = d['features'].index('snr2')
-    elif 'snr1' in d['features']:
-        snrcol = d['features'].index('snr1')
-
-    # read data and define snrs
-    loc, prop = pc.read_candidates(candsfile)
-    snrs = [prop[i][snrcol] for i in range(len(prop)) if prop[i][snrcol] > threshold]
-
-    # calculate unique list of locs of interest
-    siglocs = [list(loc[i]) for i in range(len(prop)) if prop[i][snrcol] > threshold]
-    siglocssort = sorted(zip([list(ll) for ll in siglocs], snrs), key=lambda stuff: stuff[1], reverse=True)
-
-    if scancol >= 0:
-        scanset = list(set([siglocs[i][scancol] for i in range(len(siglocs))]))
-        candlist= []
-        for scan in scanset:
-            logger.debug('looking in scan %d' % scan)
-            count = 0
-            for sigloc in siglocssort:
-                if sigloc[0][scancol] == scan:
-                    logger.debug('adding sigloc %s' % str(sigloc))
-                    candlist.append(sigloc)
-                    count += 1
-                if count >= numberperscan:
-                    break
-    else:
-        candlist = siglocssort[:numberperscan]
-
-    logger.debug('Returning %d cands above threshold %.1f' % (len(candlist), threshold))
-    return [loc for loc,snr in candlist]
-
-#### moving to rtpipe
-
 def plot_cand(candsfile, candloc, redishost=None, **kwargs):
     """ Visualize a candidate as png.
     Can take merge pkl or from a single scan.
@@ -302,7 +203,7 @@ def getscans(filename, scans='', sources='', intent='', bdfdir=default_bdfdir):
     if scans:
         scans = [int(i) for i in scans.split(',')]
     elif sources:
-        meta = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+        meta = (ps.read_scans(filename, bdfdir=bdfdir), ps.read_sources(filename, bdfdir=bdfdir))
 
         # if source list provided, parse it then append all scans to single list
         sources = [i for i in sources.split(',')]
@@ -315,7 +216,7 @@ def getscans(filename, scans='', sources='', intent='', bdfdir=default_bdfdir):
             else:
                 logger.info('No scans found for source %s' % source)
     elif intent:
-        meta = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+        meta = (ps.read_scans(filename, bdfdir=bdfdir), ps.read_sources(filename, bdfdir=bdfdir))
         scans = filter(lambda sc: intent in meta[0][sc]['intent'], meta[0].keys())
 #        scans = [sc for sc in meta[0].keys() if intent in meta[0][sc]['intent']]   # get all target fields
     else:
@@ -402,7 +303,7 @@ def check_spw(sdmfile, scan):
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
     """
 
-    d = rt.set_pipeline(sdmfile, scan, logfile=False)
+    d = rt.set_pipeline(sdmfile, scan, logfile=False, bdfdir=default_bdfdir)
 
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
@@ -541,7 +442,8 @@ def waitforsdm(filename, timeout=300):
     time_filestart = 0
     while 1:
         try:
-            sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+            sc = ps.read_scans(filename, bdfdir=bdfdir)
+            sr = ps.read_sources(filename, bdfdir=bdfdir)
         except RuntimeError:
             logger.info('File %s not found.' % filename)
         except IOError:
@@ -591,7 +493,8 @@ def sdmascal(filename, calscans='', bdfdir=default_bdfdir):
         if not os.path.exists(os.path.join(filename, 'ASDMBinary')):
             os.makedirs(os.path.join(filename, 'ASDMBinary'))
 
-        sc,sr = sdmreader.read_metadata(filename, bdfdir=bdfdir)
+        sc = ps.read_scans(filename, bdfdir=bdfdir)
+        sr = ps.read_sources(filename, bdfdir=bdfdir)
         for calscan in calscanlist:
             bdfstr = sc[calscan]['bdfstr'].split('/')[-1]
             bdffile = glob.glob(os.path.join(bdfdir, bdfstr))[0]
