@@ -253,7 +253,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
 
             else:
                 logger.info('Scan %d is not last scan or %s is not finished writing.' % (d['scan'], d['filename']))
-                logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys()]), str(scans_in_queue)))
+                logger.debug('List of bdfstr: %s. scans_in_queue = %s.' % (str([sc[i]['bdfstr'] for i in sc.keys() if 'bdfstr' in sc[i]]), str(scans_in_queue)))
 
             # job is finished, so remove from db
             if readytoarchive:  # will be false is slow queue not yet empty of relevant jobs
