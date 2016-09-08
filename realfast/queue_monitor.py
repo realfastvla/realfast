@@ -189,7 +189,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                 logger.error('Failed to move cand plots and interactive plot out')
 
             # 6) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
-            allbdfwritten = all([sc[i]['bdfstr'] for i in sc.keys()])
+            allbdfwritten = all(['bdfstr' in sc[i] for i in sc.keys()])
             sdmtimeout = time.time() - sdmlastwritten[d['filename']] > sdmwait
             logger.debug('allbdfwritten = %s. sdmtimeout = %s.' % (str(allbdfwritten), str(sdmtimeout)))
             if (sdmtimeout or allbdfwritten) and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
@@ -282,17 +282,20 @@ def removebdfs(filename, workdir, production, bdfdir):
 
     # Clean up all the hardlinks in no_archive for this SB.
     for scan in sc.keys():
-        # System safety checks
-        assert 'bunker' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
-        assert 'telcal' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
-        bdfREMOVE = sc[scan]['bdfstr']
-        if bdfREMOVE:
-            if not production:
-                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
-                touch( bdfREMOVE.rstrip('/') + '.delete' )
-            else:
-                logger.info('Removing BDF %s' % bdfREMOVE.rstrip('/') )
-                os.remove( bdfREMOVE.rstrip('/') )
+        if 'bdfstr' in sc[scan]:
+            # System safety checks
+            assert 'bunker' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+            assert 'telcal' not in os.path.dirname(sc[scan]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
+            bdfREMOVE = sc[scan]['bdfstr']
+            if bdfREMOVE:
+                if not production:
+                    logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
+                    touch( bdfREMOVE.rstrip('/') + '.delete' )
+                else:
+                    logger.info('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                    os.remove( bdfREMOVE.rstrip('/') )
+        else:
+            logger.warn('Scan {0} not found. Continuing...'.format(scan))
 
 
 def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
@@ -308,7 +311,7 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
         workdir = os.getcwd()
     sc = ps.read_scans(filename, bdfdir=bdfdir)
     if not goodscanstr:
-        goodscanstr = ','.join([str(s) for s in sc.keys() if sc[s]['bdfstr']])
+        goodscanstr = ','.join([str(s) for s in sc.keys() if 'bdfstr' in sc[s]])
     goodscans = [int(s) for s in goodscanstr.split(',')]
 
     logger.debug('Archiving is on.')
