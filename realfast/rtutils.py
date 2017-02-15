@@ -397,12 +397,12 @@ def copyDirectory(src, dest):
         print('Directory not copied. Error: %s' % e)
 
 
-def check_spw(sdmfile, scan):
+def check_spw(sdmfile, scan, bdfdir=default_bdfdir):
     """ Looks at relative freq of spw and duplicate spw_reffreq. 
     Returns 1 for permutable order with no duplicates and 0 otherwise (i.e., funny data)
     """
 
-    d = rt.set_pipeline(sdmfile, scan, logfile=False)
+    d = rt.set_pipeline(sdmfile, scan, logfile=False, bdfdir=bdfdir)
 
     dfreq = [d['spw_reffreq'][i+1] - d['spw_reffreq'][i] for i in range(len(d['spw_reffreq'])-1)]
     dfreqneg = [df for df in dfreq if df < 0]
