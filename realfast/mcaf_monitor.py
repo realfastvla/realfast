@@ -134,7 +134,7 @@ class FRBController(object):
                     assert 'mchammer' not in filename, 'filename %s is SDM original!'
 
                     # check that SDM is usable by rtpipe. Currently checks spw order and duplicates.
-                    if rtutils.check_spw(sdmlocation, scan) and os.path.exists(bdfloc):
+                    if rtutils.check_spw(sdmlocation, scan, bdfdir=default_bdfdir) and os.path.exists(bdfloc):
                         # 1) copy data into place
                         rtutils.rsync(sdmlocation, workdir)
 
