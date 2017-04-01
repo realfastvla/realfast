@@ -107,6 +107,11 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
         # iterate over list of finished tail jobs (one expected per scan)
         for job in finishedjobs:
             d, segments = job.args
+            mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
+            noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
+            notebook = os.path.join(d['workdir'], d['fileroot'] + '.ipynb')
+            notebookhtml = os.path.join(d['workdir'], d['fileroot'] + '.html')
+
             logger.info('Job %s finished with filename %s, scan %s, segments %s' % (str(job.id), d['filename'], d['scan'], str(segments)))
             readytoarchive = True # default assumption is that this file is ready to move to archive and clear from tracking queue
 
@@ -146,35 +151,29 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
             # 3) merge candidate and noise files from scans to merge
             # 4) move products into subdirectory "archivedir" and compile notebook
             try:
-                if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
+#                if job == finishedjobs[-1]:  # only do summary plot if last in group to keep from getting bogged down with lots of cands
 
-                    # create merge files and notebook products
-                    pc.merge_scans(d['workdir'], d['fileroot'], sc.keys())
-                    mergepkl = os.path.join(d['workdir'], 'cands_' + d['fileroot'] + '_merge.pkl')
-                    noisepkl = os.path.join(d['workdir'], 'noise_' + d['fileroot'] + '_merge.pkl')
+                # create merge files and notebook products
+                pc.merge_scans(d['workdir'], d['fileroot'], sc.keys())
+                pc.nbcompile(d['workdir'], d['fileroot'])
 
-                    pc.nbcompile(d['workdir'], d['fileroot'])
-                    notebook = os.path.join(d['workdir'], d['fileroot'] + '.ipynb')
-                    notebookhtml = os.path.join(d['workdir'], d['fileroot'] + '.html')
-
-                    # push off to archivedir
-                    archivestr = '.'.join(d['fileroot'].split('.')[-2:])
-                    if not archivestr.replace('.', '').isdigit():  # should have gotten decimal mjd
-                        logger.warn('archivestr not parsed correctly ({0}). Will not move final products into subdirectory.'.format(archivestr))
+                # push off to archivedir
+                archivestr = '.'.join(d['fileroot'].split('.')[-2:])
+                if not archivestr.replace('.', '').isdigit():  # should have gotten decimal mjd
+                    logger.warn('archivestr not parsed correctly ({0}). Will not move final products into subdirectory.'.format(archivestr))
+                else:
+                    archivedir = os.path.join(d['workdir'], archivestr)
+                    if not os.path.exists(archivedir):
+                        os.mkdir(archivedir)
+                        logger.info('Creating local archive directory at {0}'.format(archivedir))
                     else:
-                        archivedir = os.path.join(d['workdir'], archivestr)
-                        if not os.path.exists(archivedir):
-                            os.mkdir(archivedir)
-                            logger.info('Creating local archive directory at {0}'.format(archivedir))
-                        else:
-                            logger.info('Using local archive directory at {0}'.format(archivedir))
+                        logger.info('Using local archive directory at {0}'.format(archivedir))
 
-                        shutil.copy(mergepkl, archivedir)
-                        shutil.copy(noisepkl, archivedir)
-                        shutil.copy(notebook, archivedir)
-                        shutil.copy(notebookhtml, archivedir)
-                        logger.info('Copied merged products into local archive directory {0}'.format(archivedir))
-                        # maybe copy GN file in too?
+                    shutil.copy(mergepkl, archivedir)
+                    shutil.copy(noisepkl, archivedir)
+                    shutil.copy(notebook, archivedir)
+                    shutil.copy(notebookhtml, archivedir)
+                    logger.info('Copied merged products into local archive directory {0}'.format(archivedir))
             except:
                 logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
@@ -330,8 +329,9 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     # safety checks
     if not goodscans:
         raise ValueError, 'No scans found to move to archive (either none provided or none with bdfs).'
-    assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
-    assert 'telcal' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
+    if 'bdfstr' in sc[goodscans[0]]:
+        assert 'bunker' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with bunker bdfs!'
+        assert 'telcal' not in os.path.dirname(sc[goodscans[0]]['bdfstr']), '*** BDFSTR ERROR: No messing with telcal bdfs!'
     assert not os.path.exists(sdmFROM), 'Edited SDM already exists at %s' % sdmFROM
 
     if production:
@@ -375,14 +375,15 @@ def movetoarchive(filename, workdir, goodscanstr, production, bdfdir):
     # Now delete all the hardlinks in our BDF working directory for this SB.
     # Could also use removebdfs() here.
     for scan in sc.keys():
-        bdfREMOVE = sc[scan]['bdfstr']
-        if bdfREMOVE:
-            if not production:
-                logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
-                touch( bdfREMOVE.rstrip('/') + '.delete' )
-            else:
-                logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
-                os.remove( bdfREMOVE.rstrip('/') )
+        if 'bdfstr' in sc[scan]:
+            bdfREMOVE = sc[scan]['bdfstr']
+            if bdfREMOVE:
+                if not production:
+                    logger.info('TEST MODE. Would remove BDF %s' % bdfREMOVE.rstrip('/') )
+                    touch( bdfREMOVE.rstrip('/') + '.delete' )
+                else:
+                    logger.debug('Removing BDF %s' % bdfREMOVE.rstrip('/') )
+                    os.remove( bdfREMOVE.rstrip('/') )
 
 def getfinishedjobs(qname='default'):
     """ Get list of job ids in finished registry.
