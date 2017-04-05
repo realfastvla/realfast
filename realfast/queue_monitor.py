@@ -240,9 +240,24 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
 #                except:
 #                    logger.info('Failed to merge slow MS files. Continuing...')
  
-                # final rsync to get html and cand plots out for inspection
+                # final rsync of plots and move products into archive dir
                 try:
                     rtutils.moveplots(d['fileroot'])
+                    shutil.copy(mergepkl, archivedir)
+                    os.remove(mergepkl)
+                    shutil.copy(noisepkl, archivedir)
+                    os.remove(noisepkl)
+                    shutil.copy(notebook, archivedir)
+                    os.remove(notebook)
+                    shutil.copy(notebookhtml, archivedir)
+                    os.remove(notebookhtml)
+                    shutil.rmtree( )
+                    candfiles = glob.glob('cands_{0}_sc*.*'.format(d['fileroot']))
+                    noisefiles = glob.glob('noise_{0}_sc*.pkl'.format(d['fileroot']))
+                    for ff in candfiles + noisefiles:
+                        shutil.copy(ff, archivedir)
+                        os.remove(ff)
+
                 except:
                     logger.error('Failed to move cand plots and interactive plot out')
 
