@@ -133,6 +133,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
             try:
                 pc.cleanup(d['workdir'], d['fileroot'], [d['scan']])
             except:
+                logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
                 logger.error('Could not cleanup cands/noise files for fileroot %s and scan %d. Removing from tracking queue.' % (d['fileroot'], d['scan']))
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
@@ -143,6 +144,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                 # Each sc key contains a dictionary. The key is the scan number.                            
                 sc = ps.read_scans(d['filename'], bdfdir=bdfdir)
             except:
+                logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
                 logger.error('Could not parse sdm %s. Removing from tracking queue.' % d['filename'])
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
@@ -175,8 +177,8 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                     shutil.copy(notebookhtml, archivedir)
                     logger.info('Copied merged products into local archive directory {0}'.format(archivedir))
             except:
-                logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
+                logger.info('Trouble merging scans and plotting for scans %s in file %s. Removing from tracking queue.' % (str(sc.keys()), d['fileroot']))
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 continue
@@ -185,6 +187,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
             try:
                 rtutils.moveplots(d['fileroot'])
             except:
+                logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
                 logger.error('Failed to move cand plots and interactive plot out')
 
             # 6) if last scan of sdm, start end-of-sb processing. requires all bdf written or sdm not updated in sdmwait period
@@ -251,14 +254,16 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
                     os.remove(notebook)
                     shutil.copy(notebookhtml, archivedir)
                     os.remove(notebookhtml)
-                    shutil.rmtree( )
+                    notebookstate = os.path.join(d['workdir'], d['fileroot'] + '.ipynb-state')
+                    shutil.rmtree(notebookstate)
+                    shutil.rmtree(d['filename'])
                     candfiles = glob.glob('cands_{0}_sc*.*'.format(d['fileroot']))
                     noisefiles = glob.glob('noise_{0}_sc*.pkl'.format(d['fileroot']))
                     for ff in candfiles + noisefiles:
                         shutil.copy(ff, archivedir)
                         os.remove(ff)
-
                 except:
+                    logger.debug('Exception:\n{0}'.format(sys.exc_info()[0]))
                     logger.error('Failed to move cand plots and interactive plot out')
 
             elif not allbdfwritten and (len(scans_in_queue) == 1) and (d['scan'] in scans_in_queue):
