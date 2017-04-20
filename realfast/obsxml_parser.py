@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 #
-# Generated Thu Apr 20 13:57:52 2017 by generateDS.py version 2.25a.
+# Generated Thu Apr 20 13:55:47 2017 by generateDS.py version 2.25a.
 #
 # Command line options:
 #   ('--silence', '')
-#   ('-o', '../sdminfoxml_parser.py')
+#   ('-o', '../obsxml_parser.py')
 #
 # Command line arguments:
-#   sdminfo.xsd
+#   Observation.xsd
 #
 # Command line:
-#   /Users/caseyjlaw/anaconda/envs/py36/bin/generateDS.py --silence -o "../sdminfoxml_parser.py" sdminfo.xsd
+#   /Users/caseyjlaw/anaconda/envs/py36/bin/generateDS.py --silence -o "../obsxml_parser.py" Observation.xsd
 #
 # Current working directory (os.getcwd()):
 #   xsd
@@ -657,86 +657,129 @@ def _cast(typ, value):
 #
 
 
-class SdmInfo(GeneratedsSuper):
+class Observation(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, timestamp=None, seqNo=None, sender=None, sdmVersion=None, sdmLocation=None, bdfLocation=None, scanNumber=None, subscanNumber=None, scanIntents=None, datasetId=None, numIntegrations=None, dataSize=None, finalMessage=None, state=None, calReduction=None):
+    def __init__(self, subarrayId=None, datasetId=None, startTime=None, seq=None, configId=None, configUrl=None, name=None, ra=None, dec=None, dra=None, ddec=None, ephemeris=None, azoffs=None, eloffs=None, startLST=None, intent=None, state=None, scanNo=None, subscanNo=None, modifier=None, correlator=None, sslo=None):
         self.original_tagname_ = None
-        self.timestamp = _cast(float, timestamp)
-        self.seqNo = _cast(int, seqNo)
-        self.sender = _cast(None, sender)
-        self.sdmVersion = sdmVersion
-        self.sdmLocation = sdmLocation
-        self.bdfLocation = bdfLocation
-        self.scanNumber = scanNumber
-        self.subscanNumber = subscanNumber
-        self.scanIntents = scanIntents
-        self.datasetId = datasetId
-        self.numIntegrations = numIntegrations
-        self.dataSize = dataSize
-        self.finalMessage = finalMessage
+        self.subarrayId = _cast(None, subarrayId)
+        self.datasetId = _cast(None, datasetId)
+        self.startTime = _cast(float, startTime)
+        self.seq = _cast(int, seq)
+        self.configId = _cast(None, configId)
+        self.configUrl = _cast(None, configUrl)
+        self.name = name
+        self.ra = ra
+        self.dec = dec
+        self.dra = dra
+        self.ddec = ddec
+        self.ephemeris = ephemeris
+        self.azoffs = azoffs
+        self.eloffs = eloffs
+        self.startLST = startLST
+        if intent is None:
+            self.intent = []
+        else:
+            self.intent = intent
         self.state = state
-        self.calReduction = calReduction
+        self.scanNo = scanNo
+        self.subscanNo = subscanNo
+        if modifier is None:
+            self.modifier = []
+        else:
+            self.modifier = modifier
+        self.correlator = correlator
+        if sslo is None:
+            self.sslo = []
+        else:
+            self.sslo = sslo
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SdmInfo)
+                CurrentSubclassModule_, Observation)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SdmInfo.subclass:
-            return SdmInfo.subclass(*args_, **kwargs_)
+        if Observation.subclass:
+            return Observation.subclass(*args_, **kwargs_)
         else:
-            return SdmInfo(*args_, **kwargs_)
+            return Observation(*args_, **kwargs_)
     factory = staticmethod(factory)
-    def get_sdmVersion(self): return self.sdmVersion
-    def set_sdmVersion(self, sdmVersion): self.sdmVersion = sdmVersion
-    def get_sdmLocation(self): return self.sdmLocation
-    def set_sdmLocation(self, sdmLocation): self.sdmLocation = sdmLocation
-    def get_bdfLocation(self): return self.bdfLocation
-    def set_bdfLocation(self, bdfLocation): self.bdfLocation = bdfLocation
-    def get_scanNumber(self): return self.scanNumber
-    def set_scanNumber(self, scanNumber): self.scanNumber = scanNumber
-    def get_subscanNumber(self): return self.subscanNumber
-    def set_subscanNumber(self, subscanNumber): self.subscanNumber = subscanNumber
-    def get_scanIntents(self): return self.scanIntents
-    def set_scanIntents(self, scanIntents): self.scanIntents = scanIntents
-    def get_datasetId(self): return self.datasetId
-    def set_datasetId(self, datasetId): self.datasetId = datasetId
-    def get_numIntegrations(self): return self.numIntegrations
-    def set_numIntegrations(self, numIntegrations): self.numIntegrations = numIntegrations
-    def get_dataSize(self): return self.dataSize
-    def set_dataSize(self, dataSize): self.dataSize = dataSize
-    def get_finalMessage(self): return self.finalMessage
-    def set_finalMessage(self, finalMessage): self.finalMessage = finalMessage
+    def get_name(self): return self.name
+    def set_name(self, name): self.name = name
+    def get_ra(self): return self.ra
+    def set_ra(self, ra): self.ra = ra
+    def get_dec(self): return self.dec
+    def set_dec(self, dec): self.dec = dec
+    def get_dra(self): return self.dra
+    def set_dra(self, dra): self.dra = dra
+    def get_ddec(self): return self.ddec
+    def set_ddec(self, ddec): self.ddec = ddec
+    def get_ephemeris(self): return self.ephemeris
+    def set_ephemeris(self, ephemeris): self.ephemeris = ephemeris
+    def get_azoffs(self): return self.azoffs
+    def set_azoffs(self, azoffs): self.azoffs = azoffs
+    def get_eloffs(self): return self.eloffs
+    def set_eloffs(self, eloffs): self.eloffs = eloffs
+    def get_startLST(self): return self.startLST
+    def set_startLST(self, startLST): self.startLST = startLST
+    def get_intent(self): return self.intent
+    def set_intent(self, intent): self.intent = intent
+    def add_intent(self, value): self.intent.append(value)
+    def insert_intent_at(self, index, value): self.intent.insert(index, value)
+    def replace_intent_at(self, index, value): self.intent[index] = value
     def get_state(self): return self.state
     def set_state(self, state): self.state = state
-    def get_calReduction(self): return self.calReduction
-    def set_calReduction(self, calReduction): self.calReduction = calReduction
-    def get_timestamp(self): return self.timestamp
-    def set_timestamp(self, timestamp): self.timestamp = timestamp
-    def get_seqNo(self): return self.seqNo
-    def set_seqNo(self, seqNo): self.seqNo = seqNo
-    def get_sender(self): return self.sender
-    def set_sender(self, sender): self.sender = sender
+    def get_scanNo(self): return self.scanNo
+    def set_scanNo(self, scanNo): self.scanNo = scanNo
+    def get_subscanNo(self): return self.subscanNo
+    def set_subscanNo(self, subscanNo): self.subscanNo = subscanNo
+    def get_modifier(self): return self.modifier
+    def set_modifier(self, modifier): self.modifier = modifier
+    def add_modifier(self, value): self.modifier.append(value)
+    def insert_modifier_at(self, index, value): self.modifier.insert(index, value)
+    def replace_modifier_at(self, index, value): self.modifier[index] = value
+    def get_correlator(self): return self.correlator
+    def set_correlator(self, correlator): self.correlator = correlator
+    def get_sslo(self): return self.sslo
+    def set_sslo(self, sslo): self.sslo = sslo
+    def add_sslo(self, value): self.sslo.append(value)
+    def insert_sslo_at(self, index, value): self.sslo.insert(index, value)
+    def replace_sslo_at(self, index, value): self.sslo[index] = value
+    def get_subarrayId(self): return self.subarrayId
+    def set_subarrayId(self, subarrayId): self.subarrayId = subarrayId
+    def get_datasetId(self): return self.datasetId
+    def set_datasetId(self, datasetId): self.datasetId = datasetId
+    def get_startTime(self): return self.startTime
+    def set_startTime(self, startTime): self.startTime = startTime
+    def get_seq(self): return self.seq
+    def set_seq(self, seq): self.seq = seq
+    def get_configId(self): return self.configId
+    def set_configId(self, configId): self.configId = configId
+    def get_configUrl(self): return self.configUrl
+    def set_configUrl(self, configUrl): self.configUrl = configUrl
     def hasContent_(self):
         if (
-            self.sdmVersion is not None or
-            self.sdmLocation is not None or
-            self.bdfLocation is not None or
-            self.scanNumber is not None or
-            self.subscanNumber is not None or
-            self.scanIntents is not None or
-            self.datasetId is not None or
-            self.numIntegrations is not None or
-            self.dataSize is not None or
-            self.finalMessage is not None or
+            self.name is not None or
+            self.ra is not None or
+            self.dec is not None or
+            self.dra is not None or
+            self.ddec is not None or
+            self.ephemeris is not None or
+            self.azoffs is not None or
+            self.eloffs is not None or
+            self.startLST is not None or
+            self.intent or
             self.state is not None or
-            self.calReduction is not None
+            self.scanNo is not None or
+            self.subscanNo is not None or
+            self.modifier or
+            self.correlator is not None or
+            self.sslo
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespace_='', name_='SdmInfo', namespacedef_='', pretty_print=True):
+    def export(self, outfile, level, namespace_='', name_='Observation', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -746,64 +789,84 @@ class SdmInfo(GeneratedsSuper):
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self.exportAttributes(outfile, level, already_processed, namespace_, name_='SdmInfo')
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='Observation')
         if self.hasContent_():
             outfile.write('>%s' % (eol_, ))
-            self.exportChildren(outfile, level + 1, namespace_='', name_='SdmInfo', pretty_print=pretty_print)
+            self.exportChildren(outfile, level + 1, namespace_='', name_='Observation', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='SdmInfo'):
-        if self.timestamp is not None and 'timestamp' not in already_processed:
-            already_processed.add('timestamp')
-            outfile.write(' timestamp="%s"' % self.gds_format_double(self.timestamp, input_name='timestamp'))
-        if self.seqNo is not None and 'seqNo' not in already_processed:
-            already_processed.add('seqNo')
-            outfile.write(' seqNo="%s"' % self.gds_format_integer(self.seqNo, input_name='seqNo'))
-        if self.sender is not None and 'sender' not in already_processed:
-            already_processed.add('sender')
-            outfile.write(' sender=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.sender), input_name='sender')), ))
-    def exportChildren(self, outfile, level, namespace_='', name_='SdmInfo', fromsubclass_=False, pretty_print=True):
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='Observation'):
+        if self.subarrayId is not None and 'subarrayId' not in already_processed:
+            already_processed.add('subarrayId')
+            outfile.write(' subarrayId=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.subarrayId), input_name='subarrayId')), ))
+        if self.datasetId is not None and 'datasetId' not in already_processed:
+            already_processed.add('datasetId')
+            outfile.write(' datasetId=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.datasetId), input_name='datasetId')), ))
+        if self.startTime is not None and 'startTime' not in already_processed:
+            already_processed.add('startTime')
+            outfile.write(' startTime="%s"' % self.gds_format_double(self.startTime, input_name='startTime'))
+        if self.seq is not None and 'seq' not in already_processed:
+            already_processed.add('seq')
+            outfile.write(' seq="%s"' % self.gds_format_integer(self.seq, input_name='seq'))
+        if self.configId is not None and 'configId' not in already_processed:
+            already_processed.add('configId')
+            outfile.write(' configId=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.configId), input_name='configId')), ))
+        if self.configUrl is not None and 'configUrl' not in already_processed:
+            already_processed.add('configUrl')
+            outfile.write(' configUrl=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.configUrl), input_name='configUrl')), ))
+    def exportChildren(self, outfile, level, namespace_='', name_='Observation', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.sdmVersion is not None:
+        if self.name is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssdmVersion>%s</%ssdmVersion>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.sdmVersion), input_name='sdmVersion')), namespace_, eol_))
-        if self.sdmLocation is not None:
+            outfile.write('<%sname>%s</%sname>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.name), input_name='name')), namespace_, eol_))
+        if self.ra is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssdmLocation>%s</%ssdmLocation>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.sdmLocation), input_name='sdmLocation')), namespace_, eol_))
-        if self.bdfLocation is not None:
+            outfile.write('<%sra>%s</%sra>%s' % (namespace_, self.gds_format_double(self.ra, input_name='ra'), namespace_, eol_))
+        if self.dec is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%sbdfLocation>%s</%sbdfLocation>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.bdfLocation), input_name='bdfLocation')), namespace_, eol_))
-        if self.scanNumber is not None:
+            outfile.write('<%sdec>%s</%sdec>%s' % (namespace_, self.gds_format_double(self.dec, input_name='dec'), namespace_, eol_))
+        if self.dra is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%sscanNumber>%s</%sscanNumber>%s' % (namespace_, self.gds_format_integer(self.scanNumber, input_name='scanNumber'), namespace_, eol_))
-        if self.subscanNumber is not None:
+            outfile.write('<%sdra>%s</%sdra>%s' % (namespace_, self.gds_format_double(self.dra, input_name='dra'), namespace_, eol_))
+        if self.ddec is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssubscanNumber>%s</%ssubscanNumber>%s' % (namespace_, self.gds_format_integer(self.subscanNumber, input_name='subscanNumber'), namespace_, eol_))
-        if self.scanIntents is not None:
+            outfile.write('<%sddec>%s</%sddec>%s' % (namespace_, self.gds_format_double(self.ddec, input_name='ddec'), namespace_, eol_))
+        if self.ephemeris is not None:
+            self.ephemeris.export(outfile, level, namespace_, name_='ephemeris', pretty_print=pretty_print)
+        if self.azoffs is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%sscanIntents>%s</%sscanIntents>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.scanIntents), input_name='scanIntents')), namespace_, eol_))
-        if self.datasetId is not None:
+            outfile.write('<%sazoffs>%s</%sazoffs>%s' % (namespace_, self.gds_format_double(self.azoffs, input_name='azoffs'), namespace_, eol_))
+        if self.eloffs is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%sdatasetId>%s</%sdatasetId>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.datasetId), input_name='datasetId')), namespace_, eol_))
-        if self.numIntegrations is not None:
+            outfile.write('<%seloffs>%s</%seloffs>%s' % (namespace_, self.gds_format_double(self.eloffs, input_name='eloffs'), namespace_, eol_))
+        if self.startLST is not None:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%snumIntegrations>%s</%snumIntegrations>%s' % (namespace_, self.gds_format_integer(self.numIntegrations, input_name='numIntegrations'), namespace_, eol_))
-        if self.dataSize is not None:
+            outfile.write('<%sstartLST>%s</%sstartLST>%s' % (namespace_, self.gds_format_double(self.startLST, input_name='startLST'), namespace_, eol_))
+        for intent_ in self.intent:
             showIndent(outfile, level, pretty_print)
-            outfile.write('<%sdataSize>%s</%sdataSize>%s' % (namespace_, self.gds_format_integer(self.dataSize, input_name='dataSize'), namespace_, eol_))
-        if self.finalMessage is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sfinalMessage>%s</%sfinalMessage>%s' % (namespace_, self.gds_format_boolean(self.finalMessage, input_name='finalMessage'), namespace_, eol_))
+            outfile.write('<%sintent>%s</%sintent>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(intent_), input_name='intent')), namespace_, eol_))
         if self.state is not None:
             showIndent(outfile, level, pretty_print)
             outfile.write('<%sstate>%s</%sstate>%s' % (namespace_, self.gds_format_integer(self.state, input_name='state'), namespace_, eol_))
-        if self.calReduction is not None:
-            self.calReduction.export(outfile, level, namespace_, name_='calReduction', pretty_print=pretty_print)
+        if self.scanNo is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sscanNo>%s</%sscanNo>%s' % (namespace_, self.gds_format_integer(self.scanNo, input_name='scanNo'), namespace_, eol_))
+        if self.subscanNo is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%ssubscanNo>%s</%ssubscanNo>%s' % (namespace_, self.gds_format_integer(self.subscanNo, input_name='subscanNo'), namespace_, eol_))
+        for modifier_ in self.modifier:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%smodifier>%s</%smodifier>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(modifier_), input_name='modifier')), namespace_, eol_))
+        if self.correlator is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%scorrelator>%s</%scorrelator>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.correlator), input_name='correlator')), namespace_, eol_))
+        for sslo_ in self.sslo:
+            sslo_.export(outfile, level, namespace_, name_='sslo', pretty_print=pretty_print)
     def build(self, node):
         already_processed = set()
         self.buildAttributes(node, node.attrib, already_processed)
@@ -812,87 +875,106 @@ class SdmInfo(GeneratedsSuper):
             self.buildChildren(child, node, nodeName_)
         return self
     def buildAttributes(self, node, attrs, already_processed):
-        value = find_attr_value_('timestamp', node)
-        if value is not None and 'timestamp' not in already_processed:
-            already_processed.add('timestamp')
+        value = find_attr_value_('subarrayId', node)
+        if value is not None and 'subarrayId' not in already_processed:
+            already_processed.add('subarrayId')
+            self.subarrayId = value
+        value = find_attr_value_('datasetId', node)
+        if value is not None and 'datasetId' not in already_processed:
+            already_processed.add('datasetId')
+            self.datasetId = value
+        value = find_attr_value_('startTime', node)
+        if value is not None and 'startTime' not in already_processed:
+            already_processed.add('startTime')
             try:
-                self.timestamp = float(value)
+                self.startTime = float(value)
             except ValueError as exp:
-                raise ValueError('Bad float/double attribute (timestamp): %s' % exp)
-        value = find_attr_value_('seqNo', node)
-        if value is not None and 'seqNo' not in already_processed:
-            already_processed.add('seqNo')
+                raise ValueError('Bad float/double attribute (startTime): %s' % exp)
+        value = find_attr_value_('seq', node)
+        if value is not None and 'seq' not in already_processed:
+            already_processed.add('seq')
             try:
-                self.seqNo = int(value)
+                self.seq = int(value)
             except ValueError as exp:
                 raise_parse_error(node, 'Bad integer attribute: %s' % exp)
-        value = find_attr_value_('sender', node)
-        if value is not None and 'sender' not in already_processed:
-            already_processed.add('sender')
-            self.sender = value
+        value = find_attr_value_('configId', node)
+        if value is not None and 'configId' not in already_processed:
+            already_processed.add('configId')
+            self.configId = value
+        value = find_attr_value_('configUrl', node)
+        if value is not None and 'configUrl' not in already_processed:
+            already_processed.add('configUrl')
+            self.configUrl = value
     def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
-        if nodeName_ == 'sdmVersion':
-            sdmVersion_ = child_.text
-            sdmVersion_ = self.gds_validate_string(sdmVersion_, node, 'sdmVersion')
-            self.sdmVersion = sdmVersion_
-        elif nodeName_ == 'sdmLocation':
-            sdmLocation_ = child_.text
-            sdmLocation_ = self.gds_validate_string(sdmLocation_, node, 'sdmLocation')
-            self.sdmLocation = sdmLocation_
-        elif nodeName_ == 'bdfLocation':
-            bdfLocation_ = child_.text
-            bdfLocation_ = self.gds_validate_string(bdfLocation_, node, 'bdfLocation')
-            self.bdfLocation = bdfLocation_
-        elif nodeName_ == 'scanNumber':
+        if nodeName_ == 'name':
+            name_ = child_.text
+            name_ = self.gds_validate_string(name_, node, 'name')
+            self.name = name_
+        elif nodeName_ == 'ra':
             sval_ = child_.text
             try:
-                ival_ = int(sval_)
+                fval_ = float(sval_)
             except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'scanNumber')
-            self.scanNumber = ival_
-        elif nodeName_ == 'subscanNumber':
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'ra')
+            self.ra = fval_
+        elif nodeName_ == 'dec':
             sval_ = child_.text
             try:
-                ival_ = int(sval_)
+                fval_ = float(sval_)
             except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'subscanNumber')
-            self.subscanNumber = ival_
-        elif nodeName_ == 'scanIntents':
-            scanIntents_ = child_.text
-            scanIntents_ = self.gds_validate_string(scanIntents_, node, 'scanIntents')
-            self.scanIntents = scanIntents_
-        elif nodeName_ == 'datasetId':
-            datasetId_ = child_.text
-            datasetId_ = self.gds_validate_string(datasetId_, node, 'datasetId')
-            self.datasetId = datasetId_
-        elif nodeName_ == 'numIntegrations':
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'dec')
+            self.dec = fval_
+        elif nodeName_ == 'dra':
             sval_ = child_.text
             try:
-                ival_ = int(sval_)
+                fval_ = float(sval_)
             except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'numIntegrations')
-            self.numIntegrations = ival_
-        elif nodeName_ == 'dataSize':
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'dra')
+            self.dra = fval_
+        elif nodeName_ == 'ddec':
             sval_ = child_.text
             try:
-                ival_ = int(sval_)
+                fval_ = float(sval_)
             except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'dataSize')
-            self.dataSize = ival_
-        elif nodeName_ == 'finalMessage':
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'ddec')
+            self.ddec = fval_
+        elif nodeName_ == 'ephemeris':
+            obj_ = ephemerisType.factory()
+            obj_.build(child_)
+            self.ephemeris = obj_
+            obj_.original_tagname_ = 'ephemeris'
+        elif nodeName_ == 'azoffs':
             sval_ = child_.text
-            if sval_ in ('true', '1'):
-                ival_ = True
-            elif sval_ in ('false', '0'):
-                ival_ = False
-            else:
-                raise_parse_error(child_, 'requires boolean')
-            ival_ = self.gds_validate_boolean(ival_, node, 'finalMessage')
-            self.finalMessage = ival_
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'azoffs')
+            self.azoffs = fval_
+        elif nodeName_ == 'eloffs':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'eloffs')
+            self.eloffs = fval_
+        elif nodeName_ == 'startLST':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'startLST')
+            self.startLST = fval_
+        elif nodeName_ == 'intent':
+            intent_ = child_.text
+            intent_ = self.gds_validate_string(intent_, node, 'intent')
+            self.intent.append(intent_)
         elif nodeName_ == 'state':
             sval_ = child_.text
             try:
@@ -901,65 +983,71 @@ class SdmInfo(GeneratedsSuper):
                 raise_parse_error(child_, 'requires integer: %s' % exp)
             ival_ = self.gds_validate_integer(ival_, node, 'state')
             self.state = ival_
-        elif nodeName_ == 'calReduction':
-            obj_ = calReductionType.factory()
+        elif nodeName_ == 'scanNo':
+            sval_ = child_.text
+            try:
+                ival_ = int(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires integer: %s' % exp)
+            ival_ = self.gds_validate_integer(ival_, node, 'scanNo')
+            self.scanNo = ival_
+        elif nodeName_ == 'subscanNo':
+            sval_ = child_.text
+            try:
+                ival_ = int(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires integer: %s' % exp)
+            ival_ = self.gds_validate_integer(ival_, node, 'subscanNo')
+            self.subscanNo = ival_
+        elif nodeName_ == 'modifier':
+            modifier_ = child_.text
+            modifier_ = self.gds_validate_string(modifier_, node, 'modifier')
+            self.modifier.append(modifier_)
+        elif nodeName_ == 'correlator':
+            correlator_ = child_.text
+            correlator_ = self.gds_validate_string(correlator_, node, 'correlator')
+            self.correlator = correlator_
+        elif nodeName_ == 'sslo':
+            obj_ = ssloType.factory()
             obj_.build(child_)
-            self.calReduction = obj_
-            obj_.original_tagname_ = 'calReduction'
-# end class SdmInfo
+            self.sslo.append(obj_)
+            obj_.original_tagname_ = 'sslo'
+# end class Observation
 
 
-class calReductionType(GeneratedsSuper):
+class polyType(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, timeReduced=None, messages=None, software=None, softwareVersion=None, referenceAntennaList=None, pointingSubbandIndices=None):
+    def __init__(self, coeff=None):
         self.original_tagname_ = None
-        self.timeReduced = _cast(float, timeReduced)
-        self.messages = _cast(None, messages)
-        self.software = _cast(None, software)
-        self.softwareVersion = _cast(None, softwareVersion)
-        self.referenceAntennaList = referenceAntennaList
-        self.validate_referenceAntennaListType(self.referenceAntennaList)
-        self.pointingSubbandIndices = pointingSubbandIndices
-        self.validate_pointingSubbandIndicesType(self.pointingSubbandIndices)
+        if coeff is None:
+            self.coeff = []
+        else:
+            self.coeff = coeff
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, calReductionType)
+                CurrentSubclassModule_, polyType)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if calReductionType.subclass:
-            return calReductionType.subclass(*args_, **kwargs_)
+        if polyType.subclass:
+            return polyType.subclass(*args_, **kwargs_)
         else:
-            return calReductionType(*args_, **kwargs_)
+            return polyType(*args_, **kwargs_)
     factory = staticmethod(factory)
-    def get_referenceAntennaList(self): return self.referenceAntennaList
-    def set_referenceAntennaList(self, referenceAntennaList): self.referenceAntennaList = referenceAntennaList
-    def get_pointingSubbandIndices(self): return self.pointingSubbandIndices
-    def set_pointingSubbandIndices(self, pointingSubbandIndices): self.pointingSubbandIndices = pointingSubbandIndices
-    def get_timeReduced(self): return self.timeReduced
-    def set_timeReduced(self, timeReduced): self.timeReduced = timeReduced
-    def get_messages(self): return self.messages
-    def set_messages(self, messages): self.messages = messages
-    def get_software(self): return self.software
-    def set_software(self, software): self.software = software
-    def get_softwareVersion(self): return self.softwareVersion
-    def set_softwareVersion(self, softwareVersion): self.softwareVersion = softwareVersion
-    def validate_referenceAntennaListType(self, value):
-        # Validate type referenceAntennaListType, a restriction on xs:string.
-        pass
-    def validate_pointingSubbandIndicesType(self, value):
-        # Validate type pointingSubbandIndicesType, a restriction on xs:int.
-        pass
+    def get_coeff(self): return self.coeff
+    def set_coeff(self, coeff): self.coeff = coeff
+    def add_coeff(self, value): self.coeff.append(value)
+    def insert_coeff_at(self, index, value): self.coeff.insert(index, value)
+    def replace_coeff_at(self, index, value): self.coeff[index] = value
     def hasContent_(self):
         if (
-            self.referenceAntennaList is not None or
-            self.pointingSubbandIndices is not None
+            self.coeff
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespace_='', name_='calReductionType', namespacedef_='', pretty_print=True):
+    def export(self, outfile, level, namespace_='', name_='polyType', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -969,38 +1057,23 @@ class calReductionType(GeneratedsSuper):
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self.exportAttributes(outfile, level, already_processed, namespace_, name_='calReductionType')
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='polyType')
         if self.hasContent_():
             outfile.write('>%s' % (eol_, ))
-            self.exportChildren(outfile, level + 1, namespace_='', name_='calReductionType', pretty_print=pretty_print)
+            self.exportChildren(outfile, level + 1, namespace_='', name_='polyType', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='calReductionType'):
-        if self.timeReduced is not None and 'timeReduced' not in already_processed:
-            already_processed.add('timeReduced')
-            outfile.write(' timeReduced="%s"' % self.gds_format_double(self.timeReduced, input_name='timeReduced'))
-        if self.messages is not None and 'messages' not in already_processed:
-            already_processed.add('messages')
-            outfile.write(' messages=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.messages), input_name='messages')), ))
-        if self.software is not None and 'software' not in already_processed:
-            already_processed.add('software')
-            outfile.write(' software=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.software), input_name='software')), ))
-        if self.softwareVersion is not None and 'softwareVersion' not in already_processed:
-            already_processed.add('softwareVersion')
-            outfile.write(' softwareVersion=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.softwareVersion), input_name='softwareVersion')), ))
-    def exportChildren(self, outfile, level, namespace_='', name_='calReductionType', fromsubclass_=False, pretty_print=True):
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='polyType'):
+        pass
+    def exportChildren(self, outfile, level, namespace_='', name_='polyType', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.referenceAntennaList is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sreferenceAntennaList>%s</%sreferenceAntennaList>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(' '.join(self.referenceAntennaList)), input_name='referenceAntennaList')), namespace_, eol_))
-        if self.pointingSubbandIndices is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%spointingSubbandIndices>%s</%spointingSubbandIndices>%s' % (namespace_, self.gds_format_integer_list(self.pointingSubbandIndices, input_name='pointingSubbandIndices'), namespace_, eol_))
+        for coeff_ in self.coeff:
+            coeff_.export(outfile, level, namespace_, name_='coeff', pretty_print=pretty_print)
     def build(self, node):
         already_processed = set()
         self.buildAttributes(node, node.attrib, already_processed)
@@ -1009,42 +1082,335 @@ class calReductionType(GeneratedsSuper):
             self.buildChildren(child, node, nodeName_)
         return self
     def buildAttributes(self, node, attrs, already_processed):
-        value = find_attr_value_('timeReduced', node)
-        if value is not None and 'timeReduced' not in already_processed:
-            already_processed.add('timeReduced')
-            try:
-                self.timeReduced = float(value)
-            except ValueError as exp:
-                raise ValueError('Bad float/double attribute (timeReduced): %s' % exp)
-        value = find_attr_value_('messages', node)
-        if value is not None and 'messages' not in already_processed:
-            already_processed.add('messages')
-            self.messages = value
-        value = find_attr_value_('software', node)
-        if value is not None and 'software' not in already_processed:
-            already_processed.add('software')
-            self.software = value
-        value = find_attr_value_('softwareVersion', node)
-        if value is not None and 'softwareVersion' not in already_processed:
-            already_processed.add('softwareVersion')
-            self.softwareVersion = value
+        pass
     def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
-        if nodeName_ == 'referenceAntennaList':
-            referenceAntennaList_ = child_.text
-            self.referenceAntennaList = referenceAntennaList_
-            # validate type referenceAntennaListType
-            self.validate_referenceAntennaListType(self.referenceAntennaList)
-        elif nodeName_ == 'pointingSubbandIndices':
-            pointingSubbandIndices_ = child_.text
-            pointingSubbandIndices_ = self.gds_validate_integer_list(pointingSubbandIndices_, node, 'pointingSubbandIndices')
-            self.pointingSubbandIndices = pointingSubbandIndices_
-            # validate type pointingSubbandIndicesType
-            self.validate_pointingSubbandIndicesType(self.pointingSubbandIndices)
-# end class calReductionType
+        if nodeName_ == 'coeff':
+            obj_ = coeffType.factory()
+            obj_.build(child_)
+            self.coeff.append(obj_)
+            obj_.original_tagname_ = 'coeff'
+# end class polyType
+
+
+class ephemerisType(GeneratedsSuper):
+    subclass = None
+    superclass = None
+    def __init__(self, referenceTime=None, ra_polynomial=None, dec_polynomial=None, dist_polynomial=None, origin=None):
+        self.original_tagname_ = None
+        self.referenceTime = referenceTime
+        self.ra_polynomial = ra_polynomial
+        self.dec_polynomial = dec_polynomial
+        self.dist_polynomial = dist_polynomial
+        self.origin = origin
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, ephemerisType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if ephemerisType.subclass:
+            return ephemerisType.subclass(*args_, **kwargs_)
+        else:
+            return ephemerisType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_referenceTime(self): return self.referenceTime
+    def set_referenceTime(self, referenceTime): self.referenceTime = referenceTime
+    def get_ra_polynomial(self): return self.ra_polynomial
+    def set_ra_polynomial(self, ra_polynomial): self.ra_polynomial = ra_polynomial
+    def get_dec_polynomial(self): return self.dec_polynomial
+    def set_dec_polynomial(self, dec_polynomial): self.dec_polynomial = dec_polynomial
+    def get_dist_polynomial(self): return self.dist_polynomial
+    def set_dist_polynomial(self, dist_polynomial): self.dist_polynomial = dist_polynomial
+    def get_origin(self): return self.origin
+    def set_origin(self, origin): self.origin = origin
+    def hasContent_(self):
+        if (
+            self.referenceTime is not None or
+            self.ra_polynomial is not None or
+            self.dec_polynomial is not None or
+            self.dist_polynomial is not None or
+            self.origin is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespace_='', name_='ephemerisType', namespacedef_='', pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None:
+            name_ = self.original_tagname_
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='ephemerisType')
+        if self.hasContent_():
+            outfile.write('>%s' % (eol_, ))
+            self.exportChildren(outfile, level + 1, namespace_='', name_='ephemerisType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='ephemerisType'):
+        pass
+    def exportChildren(self, outfile, level, namespace_='', name_='ephemerisType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.referenceTime is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sreferenceTime>%s</%sreferenceTime>%s' % (namespace_, self.gds_format_double(self.referenceTime, input_name='referenceTime'), namespace_, eol_))
+        if self.ra_polynomial is not None:
+            self.ra_polynomial.export(outfile, level, namespace_, name_='ra_polynomial', pretty_print=pretty_print)
+        if self.dec_polynomial is not None:
+            self.dec_polynomial.export(outfile, level, namespace_, name_='dec_polynomial', pretty_print=pretty_print)
+        if self.dist_polynomial is not None:
+            self.dist_polynomial.export(outfile, level, namespace_, name_='dist_polynomial', pretty_print=pretty_print)
+        if self.origin is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sorigin>%s</%sorigin>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.origin), input_name='origin')), namespace_, eol_))
+    def build(self, node):
+        already_processed = set()
+        self.buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self.buildChildren(child, node, nodeName_)
+        return self
+    def buildAttributes(self, node, attrs, already_processed):
+        pass
+    def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
+        if nodeName_ == 'referenceTime':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'referenceTime')
+            self.referenceTime = fval_
+        elif nodeName_ == 'ra_polynomial':
+            obj_ = polyType.factory()
+            obj_.build(child_)
+            self.ra_polynomial = obj_
+            obj_.original_tagname_ = 'ra_polynomial'
+        elif nodeName_ == 'dec_polynomial':
+            obj_ = polyType.factory()
+            obj_.build(child_)
+            self.dec_polynomial = obj_
+            obj_.original_tagname_ = 'dec_polynomial'
+        elif nodeName_ == 'dist_polynomial':
+            obj_ = polyType.factory()
+            obj_.build(child_)
+            self.dist_polynomial = obj_
+            obj_.original_tagname_ = 'dist_polynomial'
+        elif nodeName_ == 'origin':
+            origin_ = child_.text
+            origin_ = self.gds_validate_string(origin_, node, 'origin')
+            self.origin = origin_
+# end class ephemerisType
+
+
+class ssloType(GeneratedsSuper):
+    subclass = None
+    superclass = None
+    def __init__(self, Receiver=None, IFid=None, Sideband=None, SolarCal=None, freq=None):
+        self.original_tagname_ = None
+        self.Receiver = _cast(None, Receiver)
+        self.IFid = _cast(None, IFid)
+        self.Sideband = _cast(int, Sideband)
+        self.SolarCal = _cast(int, SolarCal)
+        self.freq = freq
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, ssloType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if ssloType.subclass:
+            return ssloType.subclass(*args_, **kwargs_)
+        else:
+            return ssloType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_freq(self): return self.freq
+    def set_freq(self, freq): self.freq = freq
+    def get_Receiver(self): return self.Receiver
+    def set_Receiver(self, Receiver): self.Receiver = Receiver
+    def get_IFid(self): return self.IFid
+    def set_IFid(self, IFid): self.IFid = IFid
+    def get_Sideband(self): return self.Sideband
+    def set_Sideband(self, Sideband): self.Sideband = Sideband
+    def get_SolarCal(self): return self.SolarCal
+    def set_SolarCal(self, SolarCal): self.SolarCal = SolarCal
+    def hasContent_(self):
+        if (
+            self.freq is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespace_='', name_='ssloType', namespacedef_='', pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None:
+            name_ = self.original_tagname_
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='ssloType')
+        if self.hasContent_():
+            outfile.write('>%s' % (eol_, ))
+            self.exportChildren(outfile, level + 1, namespace_='', name_='ssloType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='ssloType'):
+        if self.Receiver is not None and 'Receiver' not in already_processed:
+            already_processed.add('Receiver')
+            outfile.write(' Receiver=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.Receiver), input_name='Receiver')), ))
+        if self.IFid is not None and 'IFid' not in already_processed:
+            already_processed.add('IFid')
+            outfile.write(' IFid=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.IFid), input_name='IFid')), ))
+        if self.Sideband is not None and 'Sideband' not in already_processed:
+            already_processed.add('Sideband')
+            outfile.write(' Sideband="%s"' % self.gds_format_integer(self.Sideband, input_name='Sideband'))
+        if self.SolarCal is not None and 'SolarCal' not in already_processed:
+            already_processed.add('SolarCal')
+            outfile.write(' SolarCal="%s"' % self.gds_format_integer(self.SolarCal, input_name='SolarCal'))
+    def exportChildren(self, outfile, level, namespace_='', name_='ssloType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.freq is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sfreq>%s</%sfreq>%s' % (namespace_, self.gds_format_double(self.freq, input_name='freq'), namespace_, eol_))
+    def build(self, node):
+        already_processed = set()
+        self.buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self.buildChildren(child, node, nodeName_)
+        return self
+    def buildAttributes(self, node, attrs, already_processed):
+        value = find_attr_value_('Receiver', node)
+        if value is not None and 'Receiver' not in already_processed:
+            already_processed.add('Receiver')
+            self.Receiver = value
+        value = find_attr_value_('IFid', node)
+        if value is not None and 'IFid' not in already_processed:
+            already_processed.add('IFid')
+            self.IFid = value
+        value = find_attr_value_('Sideband', node)
+        if value is not None and 'Sideband' not in already_processed:
+            already_processed.add('Sideband')
+            try:
+                self.Sideband = int(value)
+            except ValueError as exp:
+                raise_parse_error(node, 'Bad integer attribute: %s' % exp)
+        value = find_attr_value_('SolarCal', node)
+        if value is not None and 'SolarCal' not in already_processed:
+            already_processed.add('SolarCal')
+            try:
+                self.SolarCal = int(value)
+            except ValueError as exp:
+                raise_parse_error(node, 'Bad integer attribute: %s' % exp)
+    def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
+        if nodeName_ == 'freq':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'freq')
+            self.freq = fval_
+# end class ssloType
+
+
+class coeffType(GeneratedsSuper):
+    subclass = None
+    superclass = None
+    def __init__(self, order=None, valueOf_=None):
+        self.original_tagname_ = None
+        self.order = _cast(int, order)
+        self.valueOf_ = valueOf_
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, coeffType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if coeffType.subclass:
+            return coeffType.subclass(*args_, **kwargs_)
+        else:
+            return coeffType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_order(self): return self.order
+    def set_order(self, order): self.order = order
+    def get_valueOf_(self): return self.valueOf_
+    def set_valueOf_(self, valueOf_): self.valueOf_ = valueOf_
+    def hasContent_(self):
+        if (
+            1 if type(self.valueOf_) in [int,float] else self.valueOf_
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespace_='', name_='coeffType', namespacedef_='', pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None:
+            name_ = self.original_tagname_
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='coeffType')
+        if self.hasContent_():
+            outfile.write('>')
+            outfile.write(self.convert_unicode(self.valueOf_))
+            self.exportChildren(outfile, level + 1, namespace_='', name_='coeffType', pretty_print=pretty_print)
+            outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='coeffType'):
+        if self.order is not None and 'order' not in already_processed:
+            already_processed.add('order')
+            outfile.write(' order="%s"' % self.gds_format_integer(self.order, input_name='order'))
+    def exportChildren(self, outfile, level, namespace_='', name_='coeffType', fromsubclass_=False, pretty_print=True):
+        pass
+    def build(self, node):
+        already_processed = set()
+        self.buildAttributes(node, node.attrib, already_processed)
+        self.valueOf_ = get_all_text_(node)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self.buildChildren(child, node, nodeName_)
+        return self
+    def buildAttributes(self, node, attrs, already_processed):
+        value = find_attr_value_('order', node)
+        if value is not None and 'order' not in already_processed:
+            already_processed.add('order')
+            try:
+                self.order = int(value)
+            except ValueError as exp:
+                raise_parse_error(node, 'Bad integer attribute: %s' % exp)
+    def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
+        pass
+# end class coeffType
 
 
 GDSClassesMapping = {
-    'calReduction': calReductionType,
+    'coeff': coeffType,
+    'dec_polynomial': polyType,
+    'dist_polynomial': polyType,
+    'ephemeris': ephemerisType,
+    'ra_polynomial': polyType,
+    'sslo': ssloType,
 }
 
 
@@ -1072,8 +1438,8 @@ def parse(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'Observation'
+        rootClass = Observation
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1093,8 +1459,8 @@ def parseEtree(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'Observation'
+        rootClass = Observation
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1121,8 +1487,8 @@ def parseString(inString, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'Observation'
+        rootClass = Observation
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1141,15 +1507,15 @@ def parseLiteral(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'Observation'
+        rootClass = Observation
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     if not silence:
-##         sys.stdout.write('#from sdminfoxml_parser import *\n\n')
-##         sys.stdout.write('import sdminfoxml_parser as model_\n\n')
+##         sys.stdout.write('#from obsxml_parser import *\n\n')
+##         sys.stdout.write('import obsxml_parser as model_\n\n')
 ##         sys.stdout.write('rootObj = model_.rootClass(\n')
 ##         rootObj.exportLiteral(sys.stdout, 0, name_=rootTag)
 ##         sys.stdout.write(')\n')
@@ -1170,6 +1536,9 @@ if __name__ == '__main__':
 
 
 __all__ = [
-    "SdmInfo",
-    "calReductionType"
+    "Observation",
+    "coeffType",
+    "ephemerisType",
+    "polyType",
+    "ssloType"
 ]

@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <xs:complexType name="EopType">
+	<xs:sequence>
+      <xs:element name="eopday" maxOccurs="unbounded">
+      <xs:complexType>
+	<xs:sequence>
+	<xs:element name="epoch" type="xs:double"/>
+	<xs:element name="tai_utc" type="xs:double"/>
+	<xs:element name="ut1_utc" type="xs:double"/>
+	<xs:element name="x_pole" type="xs:double"/>
+	<xs:element name="y_pole" type="xs:double"/>
+	</xs:sequence>
+        </xs:complexType>
+        </xs:element>
+	</xs:sequence>
+  </xs:complexType>
+  <xs:element name="Eop" type="EopType" >
+  </xs:element>
+
+</xs:schema>

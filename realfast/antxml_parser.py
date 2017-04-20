@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 
 #
-# Generated Thu Apr 20 13:57:52 2017 by generateDS.py version 2.25a.
+# Generated Thu Apr 20 13:57:14 2017 by generateDS.py version 2.25a.
 #
 # Command line options:
 #   ('--silence', '')
-#   ('-o', '../sdminfoxml_parser.py')
+#   ('-o', '../antxml_parser.py')
 #
 # Command line arguments:
-#   sdminfo.xsd
+#   AntennaPropertyTable.xsd
 #
 # Command line:
-#   /Users/caseyjlaw/anaconda/envs/py36/bin/generateDS.py --silence -o "../sdminfoxml_parser.py" sdminfo.xsd
+#   /Users/caseyjlaw/anaconda/envs/py36/bin/generateDS.py --silence -o "../antxml_parser.py" AntennaPropertyTable.xsd
 #
 # Current working directory (os.getcwd()):
 #   xsd
@@ -657,86 +657,55 @@ def _cast(typ, value):
 #
 
 
-class SdmInfo(GeneratedsSuper):
+class AntennaPropertyTable(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, timestamp=None, seqNo=None, sender=None, sdmVersion=None, sdmLocation=None, bdfLocation=None, scanNumber=None, subscanNumber=None, scanIntents=None, datasetId=None, numIntegrations=None, dataSize=None, finalMessage=None, state=None, calReduction=None):
+    def __init__(self, id=None, creation=None, datasetId=None, configuration=None, EopSet=None, AntennaProperties=None):
         self.original_tagname_ = None
-        self.timestamp = _cast(float, timestamp)
-        self.seqNo = _cast(int, seqNo)
-        self.sender = _cast(None, sender)
-        self.sdmVersion = sdmVersion
-        self.sdmLocation = sdmLocation
-        self.bdfLocation = bdfLocation
-        self.scanNumber = scanNumber
-        self.subscanNumber = subscanNumber
-        self.scanIntents = scanIntents
-        self.datasetId = datasetId
-        self.numIntegrations = numIntegrations
-        self.dataSize = dataSize
-        self.finalMessage = finalMessage
-        self.state = state
-        self.calReduction = calReduction
+        self.id = _cast(None, id)
+        self.creation = _cast(float, creation)
+        self.datasetId = _cast(None, datasetId)
+        self.configuration = _cast(None, configuration)
+        self.EopSet = EopSet
+        if AntennaProperties is None:
+            self.AntennaProperties = []
+        else:
+            self.AntennaProperties = AntennaProperties
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, SdmInfo)
+                CurrentSubclassModule_, AntennaPropertyTable)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if SdmInfo.subclass:
-            return SdmInfo.subclass(*args_, **kwargs_)
+        if AntennaPropertyTable.subclass:
+            return AntennaPropertyTable.subclass(*args_, **kwargs_)
         else:
-            return SdmInfo(*args_, **kwargs_)
+            return AntennaPropertyTable(*args_, **kwargs_)
     factory = staticmethod(factory)
-    def get_sdmVersion(self): return self.sdmVersion
-    def set_sdmVersion(self, sdmVersion): self.sdmVersion = sdmVersion
-    def get_sdmLocation(self): return self.sdmLocation
-    def set_sdmLocation(self, sdmLocation): self.sdmLocation = sdmLocation
-    def get_bdfLocation(self): return self.bdfLocation
-    def set_bdfLocation(self, bdfLocation): self.bdfLocation = bdfLocation
-    def get_scanNumber(self): return self.scanNumber
-    def set_scanNumber(self, scanNumber): self.scanNumber = scanNumber
-    def get_subscanNumber(self): return self.subscanNumber
-    def set_subscanNumber(self, subscanNumber): self.subscanNumber = subscanNumber
-    def get_scanIntents(self): return self.scanIntents
-    def set_scanIntents(self, scanIntents): self.scanIntents = scanIntents
+    def get_EopSet(self): return self.EopSet
+    def set_EopSet(self, EopSet): self.EopSet = EopSet
+    def get_AntennaProperties(self): return self.AntennaProperties
+    def set_AntennaProperties(self, AntennaProperties): self.AntennaProperties = AntennaProperties
+    def add_AntennaProperties(self, value): self.AntennaProperties.append(value)
+    def insert_AntennaProperties_at(self, index, value): self.AntennaProperties.insert(index, value)
+    def replace_AntennaProperties_at(self, index, value): self.AntennaProperties[index] = value
+    def get_id(self): return self.id
+    def set_id(self, id): self.id = id
+    def get_creation(self): return self.creation
+    def set_creation(self, creation): self.creation = creation
     def get_datasetId(self): return self.datasetId
     def set_datasetId(self, datasetId): self.datasetId = datasetId
-    def get_numIntegrations(self): return self.numIntegrations
-    def set_numIntegrations(self, numIntegrations): self.numIntegrations = numIntegrations
-    def get_dataSize(self): return self.dataSize
-    def set_dataSize(self, dataSize): self.dataSize = dataSize
-    def get_finalMessage(self): return self.finalMessage
-    def set_finalMessage(self, finalMessage): self.finalMessage = finalMessage
-    def get_state(self): return self.state
-    def set_state(self, state): self.state = state
-    def get_calReduction(self): return self.calReduction
-    def set_calReduction(self, calReduction): self.calReduction = calReduction
-    def get_timestamp(self): return self.timestamp
-    def set_timestamp(self, timestamp): self.timestamp = timestamp
-    def get_seqNo(self): return self.seqNo
-    def set_seqNo(self, seqNo): self.seqNo = seqNo
-    def get_sender(self): return self.sender
-    def set_sender(self, sender): self.sender = sender
+    def get_configuration(self): return self.configuration
+    def set_configuration(self, configuration): self.configuration = configuration
     def hasContent_(self):
         if (
-            self.sdmVersion is not None or
-            self.sdmLocation is not None or
-            self.bdfLocation is not None or
-            self.scanNumber is not None or
-            self.subscanNumber is not None or
-            self.scanIntents is not None or
-            self.datasetId is not None or
-            self.numIntegrations is not None or
-            self.dataSize is not None or
-            self.finalMessage is not None or
-            self.state is not None or
-            self.calReduction is not None
+            self.EopSet is not None or
+            self.AntennaProperties
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespace_='', name_='SdmInfo', namespacedef_='', pretty_print=True):
+    def export(self, outfile, level, namespace_='', name_='AntennaPropertyTable', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -746,64 +715,36 @@ class SdmInfo(GeneratedsSuper):
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self.exportAttributes(outfile, level, already_processed, namespace_, name_='SdmInfo')
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='AntennaPropertyTable')
         if self.hasContent_():
             outfile.write('>%s' % (eol_, ))
-            self.exportChildren(outfile, level + 1, namespace_='', name_='SdmInfo', pretty_print=pretty_print)
+            self.exportChildren(outfile, level + 1, namespace_='', name_='AntennaPropertyTable', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='SdmInfo'):
-        if self.timestamp is not None and 'timestamp' not in already_processed:
-            already_processed.add('timestamp')
-            outfile.write(' timestamp="%s"' % self.gds_format_double(self.timestamp, input_name='timestamp'))
-        if self.seqNo is not None and 'seqNo' not in already_processed:
-            already_processed.add('seqNo')
-            outfile.write(' seqNo="%s"' % self.gds_format_integer(self.seqNo, input_name='seqNo'))
-        if self.sender is not None and 'sender' not in already_processed:
-            already_processed.add('sender')
-            outfile.write(' sender=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.sender), input_name='sender')), ))
-    def exportChildren(self, outfile, level, namespace_='', name_='SdmInfo', fromsubclass_=False, pretty_print=True):
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='AntennaPropertyTable'):
+        if self.id is not None and 'id' not in already_processed:
+            already_processed.add('id')
+            outfile.write(' id=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.id), input_name='id')), ))
+        if self.creation is not None and 'creation' not in already_processed:
+            already_processed.add('creation')
+            outfile.write(' creation="%s"' % self.gds_format_double(self.creation, input_name='creation'))
+        if self.datasetId is not None and 'datasetId' not in already_processed:
+            already_processed.add('datasetId')
+            outfile.write(' datasetId=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.datasetId), input_name='datasetId')), ))
+        if self.configuration is not None and 'configuration' not in already_processed:
+            already_processed.add('configuration')
+            outfile.write(' configuration=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.configuration), input_name='configuration')), ))
+    def exportChildren(self, outfile, level, namespace_='', name_='AntennaPropertyTable', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.sdmVersion is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssdmVersion>%s</%ssdmVersion>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.sdmVersion), input_name='sdmVersion')), namespace_, eol_))
-        if self.sdmLocation is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssdmLocation>%s</%ssdmLocation>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.sdmLocation), input_name='sdmLocation')), namespace_, eol_))
-        if self.bdfLocation is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sbdfLocation>%s</%sbdfLocation>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.bdfLocation), input_name='bdfLocation')), namespace_, eol_))
-        if self.scanNumber is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sscanNumber>%s</%sscanNumber>%s' % (namespace_, self.gds_format_integer(self.scanNumber, input_name='scanNumber'), namespace_, eol_))
-        if self.subscanNumber is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%ssubscanNumber>%s</%ssubscanNumber>%s' % (namespace_, self.gds_format_integer(self.subscanNumber, input_name='subscanNumber'), namespace_, eol_))
-        if self.scanIntents is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sscanIntents>%s</%sscanIntents>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.scanIntents), input_name='scanIntents')), namespace_, eol_))
-        if self.datasetId is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sdatasetId>%s</%sdatasetId>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.datasetId), input_name='datasetId')), namespace_, eol_))
-        if self.numIntegrations is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%snumIntegrations>%s</%snumIntegrations>%s' % (namespace_, self.gds_format_integer(self.numIntegrations, input_name='numIntegrations'), namespace_, eol_))
-        if self.dataSize is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sdataSize>%s</%sdataSize>%s' % (namespace_, self.gds_format_integer(self.dataSize, input_name='dataSize'), namespace_, eol_))
-        if self.finalMessage is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sfinalMessage>%s</%sfinalMessage>%s' % (namespace_, self.gds_format_boolean(self.finalMessage, input_name='finalMessage'), namespace_, eol_))
-        if self.state is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sstate>%s</%sstate>%s' % (namespace_, self.gds_format_integer(self.state, input_name='state'), namespace_, eol_))
-        if self.calReduction is not None:
-            self.calReduction.export(outfile, level, namespace_, name_='calReduction', pretty_print=pretty_print)
+        if self.EopSet is not None:
+            self.EopSet.export(outfile, level, namespace_, name_='EopSet', pretty_print=pretty_print)
+        for AntennaProperties_ in self.AntennaProperties:
+            AntennaProperties_.export(outfile, level, namespace_, name_='AntennaProperties', pretty_print=pretty_print)
     def build(self, node):
         already_processed = set()
         self.buildAttributes(node, node.attrib, already_processed)
@@ -812,154 +753,72 @@ class SdmInfo(GeneratedsSuper):
             self.buildChildren(child, node, nodeName_)
         return self
     def buildAttributes(self, node, attrs, already_processed):
-        value = find_attr_value_('timestamp', node)
-        if value is not None and 'timestamp' not in already_processed:
-            already_processed.add('timestamp')
+        value = find_attr_value_('id', node)
+        if value is not None and 'id' not in already_processed:
+            already_processed.add('id')
+            self.id = value
+        value = find_attr_value_('creation', node)
+        if value is not None and 'creation' not in already_processed:
+            already_processed.add('creation')
             try:
-                self.timestamp = float(value)
+                self.creation = float(value)
             except ValueError as exp:
-                raise ValueError('Bad float/double attribute (timestamp): %s' % exp)
-        value = find_attr_value_('seqNo', node)
-        if value is not None and 'seqNo' not in already_processed:
-            already_processed.add('seqNo')
-            try:
-                self.seqNo = int(value)
-            except ValueError as exp:
-                raise_parse_error(node, 'Bad integer attribute: %s' % exp)
-        value = find_attr_value_('sender', node)
-        if value is not None and 'sender' not in already_processed:
-            already_processed.add('sender')
-            self.sender = value
+                raise ValueError('Bad float/double attribute (creation): %s' % exp)
+        value = find_attr_value_('datasetId', node)
+        if value is not None and 'datasetId' not in already_processed:
+            already_processed.add('datasetId')
+            self.datasetId = value
+        value = find_attr_value_('configuration', node)
+        if value is not None and 'configuration' not in already_processed:
+            already_processed.add('configuration')
+            self.configuration = value
     def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
-        if nodeName_ == 'sdmVersion':
-            sdmVersion_ = child_.text
-            sdmVersion_ = self.gds_validate_string(sdmVersion_, node, 'sdmVersion')
-            self.sdmVersion = sdmVersion_
-        elif nodeName_ == 'sdmLocation':
-            sdmLocation_ = child_.text
-            sdmLocation_ = self.gds_validate_string(sdmLocation_, node, 'sdmLocation')
-            self.sdmLocation = sdmLocation_
-        elif nodeName_ == 'bdfLocation':
-            bdfLocation_ = child_.text
-            bdfLocation_ = self.gds_validate_string(bdfLocation_, node, 'bdfLocation')
-            self.bdfLocation = bdfLocation_
-        elif nodeName_ == 'scanNumber':
-            sval_ = child_.text
-            try:
-                ival_ = int(sval_)
-            except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'scanNumber')
-            self.scanNumber = ival_
-        elif nodeName_ == 'subscanNumber':
-            sval_ = child_.text
-            try:
-                ival_ = int(sval_)
-            except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'subscanNumber')
-            self.subscanNumber = ival_
-        elif nodeName_ == 'scanIntents':
-            scanIntents_ = child_.text
-            scanIntents_ = self.gds_validate_string(scanIntents_, node, 'scanIntents')
-            self.scanIntents = scanIntents_
-        elif nodeName_ == 'datasetId':
-            datasetId_ = child_.text
-            datasetId_ = self.gds_validate_string(datasetId_, node, 'datasetId')
-            self.datasetId = datasetId_
-        elif nodeName_ == 'numIntegrations':
-            sval_ = child_.text
-            try:
-                ival_ = int(sval_)
-            except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'numIntegrations')
-            self.numIntegrations = ival_
-        elif nodeName_ == 'dataSize':
-            sval_ = child_.text
-            try:
-                ival_ = int(sval_)
-            except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'dataSize')
-            self.dataSize = ival_
-        elif nodeName_ == 'finalMessage':
-            sval_ = child_.text
-            if sval_ in ('true', '1'):
-                ival_ = True
-            elif sval_ in ('false', '0'):
-                ival_ = False
-            else:
-                raise_parse_error(child_, 'requires boolean')
-            ival_ = self.gds_validate_boolean(ival_, node, 'finalMessage')
-            self.finalMessage = ival_
-        elif nodeName_ == 'state':
-            sval_ = child_.text
-            try:
-                ival_ = int(sval_)
-            except (TypeError, ValueError) as exp:
-                raise_parse_error(child_, 'requires integer: %s' % exp)
-            ival_ = self.gds_validate_integer(ival_, node, 'state')
-            self.state = ival_
-        elif nodeName_ == 'calReduction':
-            obj_ = calReductionType.factory()
+        if nodeName_ == 'EopSet':
+            obj_ = EopType.factory()
             obj_.build(child_)
-            self.calReduction = obj_
-            obj_.original_tagname_ = 'calReduction'
-# end class SdmInfo
+            self.EopSet = obj_
+            obj_.original_tagname_ = 'EopSet'
+        elif nodeName_ == 'AntennaProperties':
+            obj_ = AntennaPropertiesType.factory()
+            obj_.build(child_)
+            self.AntennaProperties.append(obj_)
+            obj_.original_tagname_ = 'AntennaProperties'
+# end class AntennaPropertyTable
 
 
-class calReductionType(GeneratedsSuper):
+class EopType(GeneratedsSuper):
     subclass = None
     superclass = None
-    def __init__(self, timeReduced=None, messages=None, software=None, softwareVersion=None, referenceAntennaList=None, pointingSubbandIndices=None):
+    def __init__(self, eopday=None):
         self.original_tagname_ = None
-        self.timeReduced = _cast(float, timeReduced)
-        self.messages = _cast(None, messages)
-        self.software = _cast(None, software)
-        self.softwareVersion = _cast(None, softwareVersion)
-        self.referenceAntennaList = referenceAntennaList
-        self.validate_referenceAntennaListType(self.referenceAntennaList)
-        self.pointingSubbandIndices = pointingSubbandIndices
-        self.validate_pointingSubbandIndicesType(self.pointingSubbandIndices)
+        if eopday is None:
+            self.eopday = []
+        else:
+            self.eopday = eopday
     def factory(*args_, **kwargs_):
         if CurrentSubclassModule_ is not None:
             subclass = getSubclassFromModule_(
-                CurrentSubclassModule_, calReductionType)
+                CurrentSubclassModule_, EopType)
             if subclass is not None:
                 return subclass(*args_, **kwargs_)
-        if calReductionType.subclass:
-            return calReductionType.subclass(*args_, **kwargs_)
+        if EopType.subclass:
+            return EopType.subclass(*args_, **kwargs_)
         else:
-            return calReductionType(*args_, **kwargs_)
+            return EopType(*args_, **kwargs_)
     factory = staticmethod(factory)
-    def get_referenceAntennaList(self): return self.referenceAntennaList
-    def set_referenceAntennaList(self, referenceAntennaList): self.referenceAntennaList = referenceAntennaList
-    def get_pointingSubbandIndices(self): return self.pointingSubbandIndices
-    def set_pointingSubbandIndices(self, pointingSubbandIndices): self.pointingSubbandIndices = pointingSubbandIndices
-    def get_timeReduced(self): return self.timeReduced
-    def set_timeReduced(self, timeReduced): self.timeReduced = timeReduced
-    def get_messages(self): return self.messages
-    def set_messages(self, messages): self.messages = messages
-    def get_software(self): return self.software
-    def set_software(self, software): self.software = software
-    def get_softwareVersion(self): return self.softwareVersion
-    def set_softwareVersion(self, softwareVersion): self.softwareVersion = softwareVersion
-    def validate_referenceAntennaListType(self, value):
-        # Validate type referenceAntennaListType, a restriction on xs:string.
-        pass
-    def validate_pointingSubbandIndicesType(self, value):
-        # Validate type pointingSubbandIndicesType, a restriction on xs:int.
-        pass
+    def get_eopday(self): return self.eopday
+    def set_eopday(self, eopday): self.eopday = eopday
+    def add_eopday(self, value): self.eopday.append(value)
+    def insert_eopday_at(self, index, value): self.eopday.insert(index, value)
+    def replace_eopday_at(self, index, value): self.eopday[index] = value
     def hasContent_(self):
         if (
-            self.referenceAntennaList is not None or
-            self.pointingSubbandIndices is not None
+            self.eopday
         ):
             return True
         else:
             return False
-    def export(self, outfile, level, namespace_='', name_='calReductionType', namespacedef_='', pretty_print=True):
+    def export(self, outfile, level, namespace_='', name_='EopType', namespacedef_='', pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
@@ -969,38 +828,23 @@ class calReductionType(GeneratedsSuper):
         showIndent(outfile, level, pretty_print)
         outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
         already_processed = set()
-        self.exportAttributes(outfile, level, already_processed, namespace_, name_='calReductionType')
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='EopType')
         if self.hasContent_():
             outfile.write('>%s' % (eol_, ))
-            self.exportChildren(outfile, level + 1, namespace_='', name_='calReductionType', pretty_print=pretty_print)
+            self.exportChildren(outfile, level + 1, namespace_='', name_='EopType', pretty_print=pretty_print)
             showIndent(outfile, level, pretty_print)
             outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
         else:
             outfile.write('/>%s' % (eol_, ))
-    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='calReductionType'):
-        if self.timeReduced is not None and 'timeReduced' not in already_processed:
-            already_processed.add('timeReduced')
-            outfile.write(' timeReduced="%s"' % self.gds_format_double(self.timeReduced, input_name='timeReduced'))
-        if self.messages is not None and 'messages' not in already_processed:
-            already_processed.add('messages')
-            outfile.write(' messages=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.messages), input_name='messages')), ))
-        if self.software is not None and 'software' not in already_processed:
-            already_processed.add('software')
-            outfile.write(' software=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.software), input_name='software')), ))
-        if self.softwareVersion is not None and 'softwareVersion' not in already_processed:
-            already_processed.add('softwareVersion')
-            outfile.write(' softwareVersion=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.softwareVersion), input_name='softwareVersion')), ))
-    def exportChildren(self, outfile, level, namespace_='', name_='calReductionType', fromsubclass_=False, pretty_print=True):
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='EopType'):
+        pass
+    def exportChildren(self, outfile, level, namespace_='', name_='EopType', fromsubclass_=False, pretty_print=True):
         if pretty_print:
             eol_ = '\n'
         else:
             eol_ = ''
-        if self.referenceAntennaList is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%sreferenceAntennaList>%s</%sreferenceAntennaList>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(' '.join(self.referenceAntennaList)), input_name='referenceAntennaList')), namespace_, eol_))
-        if self.pointingSubbandIndices is not None:
-            showIndent(outfile, level, pretty_print)
-            outfile.write('<%spointingSubbandIndices>%s</%spointingSubbandIndices>%s' % (namespace_, self.gds_format_integer_list(self.pointingSubbandIndices, input_name='pointingSubbandIndices'), namespace_, eol_))
+        for eopday_ in self.eopday:
+            eopday_.export(outfile, level, namespace_, name_='eopday', pretty_print=pretty_print)
     def build(self, node):
         already_processed = set()
         self.buildAttributes(node, node.attrib, already_processed)
@@ -1009,42 +853,325 @@ class calReductionType(GeneratedsSuper):
             self.buildChildren(child, node, nodeName_)
         return self
     def buildAttributes(self, node, attrs, already_processed):
-        value = find_attr_value_('timeReduced', node)
-        if value is not None and 'timeReduced' not in already_processed:
-            already_processed.add('timeReduced')
-            try:
-                self.timeReduced = float(value)
-            except ValueError as exp:
-                raise ValueError('Bad float/double attribute (timeReduced): %s' % exp)
-        value = find_attr_value_('messages', node)
-        if value is not None and 'messages' not in already_processed:
-            already_processed.add('messages')
-            self.messages = value
-        value = find_attr_value_('software', node)
-        if value is not None and 'software' not in already_processed:
-            already_processed.add('software')
-            self.software = value
-        value = find_attr_value_('softwareVersion', node)
-        if value is not None and 'softwareVersion' not in already_processed:
-            already_processed.add('softwareVersion')
-            self.softwareVersion = value
+        pass
     def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
-        if nodeName_ == 'referenceAntennaList':
-            referenceAntennaList_ = child_.text
-            self.referenceAntennaList = referenceAntennaList_
-            # validate type referenceAntennaListType
-            self.validate_referenceAntennaListType(self.referenceAntennaList)
-        elif nodeName_ == 'pointingSubbandIndices':
-            pointingSubbandIndices_ = child_.text
-            pointingSubbandIndices_ = self.gds_validate_integer_list(pointingSubbandIndices_, node, 'pointingSubbandIndices')
-            self.pointingSubbandIndices = pointingSubbandIndices_
-            # validate type pointingSubbandIndicesType
-            self.validate_pointingSubbandIndicesType(self.pointingSubbandIndices)
-# end class calReductionType
+        if nodeName_ == 'eopday':
+            obj_ = eopdayType.factory()
+            obj_.build(child_)
+            self.eopday.append(obj_)
+            obj_.original_tagname_ = 'eopday'
+# end class EopType
+
+
+class AntennaPropertiesType(GeneratedsSuper):
+    subclass = None
+    superclass = None
+    def __init__(self, name=None, dcs=None, widarID=None, pad=None, X=None, Y=None, Z=None, offset=None):
+        self.original_tagname_ = None
+        self.name = _cast(None, name)
+        self.dcs = dcs
+        self.widarID = widarID
+        self.pad = pad
+        self.X = X
+        self.Y = Y
+        self.Z = Z
+        self.offset = offset
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, AntennaPropertiesType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if AntennaPropertiesType.subclass:
+            return AntennaPropertiesType.subclass(*args_, **kwargs_)
+        else:
+            return AntennaPropertiesType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_dcs(self): return self.dcs
+    def set_dcs(self, dcs): self.dcs = dcs
+    def get_widarID(self): return self.widarID
+    def set_widarID(self, widarID): self.widarID = widarID
+    def get_pad(self): return self.pad
+    def set_pad(self, pad): self.pad = pad
+    def get_X(self): return self.X
+    def set_X(self, X): self.X = X
+    def get_Y(self): return self.Y
+    def set_Y(self, Y): self.Y = Y
+    def get_Z(self): return self.Z
+    def set_Z(self, Z): self.Z = Z
+    def get_offset(self): return self.offset
+    def set_offset(self, offset): self.offset = offset
+    def get_name(self): return self.name
+    def set_name(self, name): self.name = name
+    def hasContent_(self):
+        if (
+            self.dcs is not None or
+            self.widarID is not None or
+            self.pad is not None or
+            self.X is not None or
+            self.Y is not None or
+            self.Z is not None or
+            self.offset is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespace_='', name_='AntennaPropertiesType', namespacedef_='', pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None:
+            name_ = self.original_tagname_
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='AntennaPropertiesType')
+        if self.hasContent_():
+            outfile.write('>%s' % (eol_, ))
+            self.exportChildren(outfile, level + 1, namespace_='', name_='AntennaPropertiesType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='AntennaPropertiesType'):
+        if self.name is not None and 'name' not in already_processed:
+            already_processed.add('name')
+            outfile.write(' name=%s' % (self.gds_encode(self.gds_format_string(quote_attrib(self.name), input_name='name')), ))
+    def exportChildren(self, outfile, level, namespace_='', name_='AntennaPropertiesType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.dcs is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sdcs>%s</%sdcs>%s' % (namespace_, self.gds_format_integer(self.dcs, input_name='dcs'), namespace_, eol_))
+        if self.widarID is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%swidarID>%s</%swidarID>%s' % (namespace_, self.gds_format_integer(self.widarID, input_name='widarID'), namespace_, eol_))
+        if self.pad is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%spad>%s</%spad>%s' % (namespace_, self.gds_encode(self.gds_format_string(quote_xml(self.pad), input_name='pad')), namespace_, eol_))
+        if self.X is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sX>%s</%sX>%s' % (namespace_, self.gds_format_double(self.X, input_name='X'), namespace_, eol_))
+        if self.Y is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sY>%s</%sY>%s' % (namespace_, self.gds_format_double(self.Y, input_name='Y'), namespace_, eol_))
+        if self.Z is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sZ>%s</%sZ>%s' % (namespace_, self.gds_format_double(self.Z, input_name='Z'), namespace_, eol_))
+        if self.offset is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%soffset>%s</%soffset>%s' % (namespace_, self.gds_format_double(self.offset, input_name='offset'), namespace_, eol_))
+    def build(self, node):
+        already_processed = set()
+        self.buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self.buildChildren(child, node, nodeName_)
+        return self
+    def buildAttributes(self, node, attrs, already_processed):
+        value = find_attr_value_('name', node)
+        if value is not None and 'name' not in already_processed:
+            already_processed.add('name')
+            self.name = value
+    def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
+        if nodeName_ == 'dcs':
+            sval_ = child_.text
+            try:
+                ival_ = int(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires integer: %s' % exp)
+            ival_ = self.gds_validate_integer(ival_, node, 'dcs')
+            self.dcs = ival_
+        elif nodeName_ == 'widarID':
+            sval_ = child_.text
+            try:
+                ival_ = int(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires integer: %s' % exp)
+            ival_ = self.gds_validate_integer(ival_, node, 'widarID')
+            self.widarID = ival_
+        elif nodeName_ == 'pad':
+            pad_ = child_.text
+            pad_ = self.gds_validate_string(pad_, node, 'pad')
+            self.pad = pad_
+        elif nodeName_ == 'X':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'X')
+            self.X = fval_
+        elif nodeName_ == 'Y':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'Y')
+            self.Y = fval_
+        elif nodeName_ == 'Z':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'Z')
+            self.Z = fval_
+        elif nodeName_ == 'offset':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'offset')
+            self.offset = fval_
+# end class AntennaPropertiesType
+
+
+class eopdayType(GeneratedsSuper):
+    subclass = None
+    superclass = None
+    def __init__(self, epoch=None, tai_utc=None, ut1_utc=None, x_pole=None, y_pole=None):
+        self.original_tagname_ = None
+        self.epoch = epoch
+        self.tai_utc = tai_utc
+        self.ut1_utc = ut1_utc
+        self.x_pole = x_pole
+        self.y_pole = y_pole
+    def factory(*args_, **kwargs_):
+        if CurrentSubclassModule_ is not None:
+            subclass = getSubclassFromModule_(
+                CurrentSubclassModule_, eopdayType)
+            if subclass is not None:
+                return subclass(*args_, **kwargs_)
+        if eopdayType.subclass:
+            return eopdayType.subclass(*args_, **kwargs_)
+        else:
+            return eopdayType(*args_, **kwargs_)
+    factory = staticmethod(factory)
+    def get_epoch(self): return self.epoch
+    def set_epoch(self, epoch): self.epoch = epoch
+    def get_tai_utc(self): return self.tai_utc
+    def set_tai_utc(self, tai_utc): self.tai_utc = tai_utc
+    def get_ut1_utc(self): return self.ut1_utc
+    def set_ut1_utc(self, ut1_utc): self.ut1_utc = ut1_utc
+    def get_x_pole(self): return self.x_pole
+    def set_x_pole(self, x_pole): self.x_pole = x_pole
+    def get_y_pole(self): return self.y_pole
+    def set_y_pole(self, y_pole): self.y_pole = y_pole
+    def hasContent_(self):
+        if (
+            self.epoch is not None or
+            self.tai_utc is not None or
+            self.ut1_utc is not None or
+            self.x_pole is not None or
+            self.y_pole is not None
+        ):
+            return True
+        else:
+            return False
+    def export(self, outfile, level, namespace_='', name_='eopdayType', namespacedef_='', pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.original_tagname_ is not None:
+            name_ = self.original_tagname_
+        showIndent(outfile, level, pretty_print)
+        outfile.write('<%s%s%s' % (namespace_, name_, namespacedef_ and ' ' + namespacedef_ or '', ))
+        already_processed = set()
+        self.exportAttributes(outfile, level, already_processed, namespace_, name_='eopdayType')
+        if self.hasContent_():
+            outfile.write('>%s' % (eol_, ))
+            self.exportChildren(outfile, level + 1, namespace_='', name_='eopdayType', pretty_print=pretty_print)
+            showIndent(outfile, level, pretty_print)
+            outfile.write('</%s%s>%s' % (namespace_, name_, eol_))
+        else:
+            outfile.write('/>%s' % (eol_, ))
+    def exportAttributes(self, outfile, level, already_processed, namespace_='', name_='eopdayType'):
+        pass
+    def exportChildren(self, outfile, level, namespace_='', name_='eopdayType', fromsubclass_=False, pretty_print=True):
+        if pretty_print:
+            eol_ = '\n'
+        else:
+            eol_ = ''
+        if self.epoch is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sepoch>%s</%sepoch>%s' % (namespace_, self.gds_format_double(self.epoch, input_name='epoch'), namespace_, eol_))
+        if self.tai_utc is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%stai_utc>%s</%stai_utc>%s' % (namespace_, self.gds_format_double(self.tai_utc, input_name='tai_utc'), namespace_, eol_))
+        if self.ut1_utc is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sut1_utc>%s</%sut1_utc>%s' % (namespace_, self.gds_format_double(self.ut1_utc, input_name='ut1_utc'), namespace_, eol_))
+        if self.x_pole is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sx_pole>%s</%sx_pole>%s' % (namespace_, self.gds_format_double(self.x_pole, input_name='x_pole'), namespace_, eol_))
+        if self.y_pole is not None:
+            showIndent(outfile, level, pretty_print)
+            outfile.write('<%sy_pole>%s</%sy_pole>%s' % (namespace_, self.gds_format_double(self.y_pole, input_name='y_pole'), namespace_, eol_))
+    def build(self, node):
+        already_processed = set()
+        self.buildAttributes(node, node.attrib, already_processed)
+        for child in node:
+            nodeName_ = Tag_pattern_.match(child.tag).groups()[-1]
+            self.buildChildren(child, node, nodeName_)
+        return self
+    def buildAttributes(self, node, attrs, already_processed):
+        pass
+    def buildChildren(self, child_, node, nodeName_, fromsubclass_=False):
+        if nodeName_ == 'epoch':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'epoch')
+            self.epoch = fval_
+        elif nodeName_ == 'tai_utc':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'tai_utc')
+            self.tai_utc = fval_
+        elif nodeName_ == 'ut1_utc':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'ut1_utc')
+            self.ut1_utc = fval_
+        elif nodeName_ == 'x_pole':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'x_pole')
+            self.x_pole = fval_
+        elif nodeName_ == 'y_pole':
+            sval_ = child_.text
+            try:
+                fval_ = float(sval_)
+            except (TypeError, ValueError) as exp:
+                raise_parse_error(child_, 'requires float or double: %s' % exp)
+            fval_ = self.gds_validate_float(fval_, node, 'y_pole')
+            self.y_pole = fval_
+# end class eopdayType
 
 
 GDSClassesMapping = {
-    'calReduction': calReductionType,
+    'AntennaProperties': AntennaPropertiesType,
+    'Eop': EopType,
+    'EopSet': EopType,
+    'eopday': eopdayType,
 }
 
 
@@ -1072,8 +1199,8 @@ def parse(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'AntennaPropertyTable'
+        rootClass = AntennaPropertyTable
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1093,8 +1220,8 @@ def parseEtree(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'AntennaPropertyTable'
+        rootClass = AntennaPropertyTable
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1121,8 +1248,8 @@ def parseString(inString, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'AntennaPropertyTable'
+        rootClass = AntennaPropertyTable
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
@@ -1141,15 +1268,15 @@ def parseLiteral(inFileName, silence=False):
     rootNode = doc.getroot()
     rootTag, rootClass = get_root_tag(rootNode)
     if rootClass is None:
-        rootTag = 'SdmInfo'
-        rootClass = SdmInfo
+        rootTag = 'AntennaPropertyTable'
+        rootClass = AntennaPropertyTable
     rootObj = rootClass.factory()
     rootObj.build(rootNode)
     # Enable Python to collect the space used by the DOM.
     doc = None
 ##     if not silence:
-##         sys.stdout.write('#from sdminfoxml_parser import *\n\n')
-##         sys.stdout.write('import sdminfoxml_parser as model_\n\n')
+##         sys.stdout.write('#from antxml_parser import *\n\n')
+##         sys.stdout.write('import antxml_parser as model_\n\n')
 ##         sys.stdout.write('rootObj = model_.rootClass(\n')
 ##         rootObj.exportLiteral(sys.stdout, 0, name_=rootTag)
 ##         sys.stdout.write(')\n')
@@ -1170,6 +1297,8 @@ if __name__ == '__main__':
 
 
 __all__ = [
-    "SdmInfo",
-    "calReductionType"
+    "AntennaPropertiesType",
+    "AntennaPropertyTable",
+    "EopType",
+    "eopdayType"
 ]
