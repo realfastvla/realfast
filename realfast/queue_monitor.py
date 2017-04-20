@@ -276,7 +276,7 @@ def monitor(qname, triggered, archive, verbose, nrao_controls_archiving, product
 
             # job is finished, so remove from db
             if readytoarchive:  # will be false is slow queue not yet empty of relevant jobs
-                logger.info('Removing job %s from tracking queue.' % job.id)
+                logger.info('Job finished. Removing job %s from tracking queue.' % job.id)
                 rtutils.removejob(job.id)
                 scans_in_queue.remove(d['scan'])
                 sys.stdout.flush()
