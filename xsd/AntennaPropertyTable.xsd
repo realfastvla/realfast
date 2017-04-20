@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:include schemaLocation="Eop.xsd"/>
+
+  <xs:element name="AntennaPropertyTable">
+  <xs:complexType>
+    <xs:sequence>
+      <xs:element name="EopSet" type="EopType" minOccurs="0" maxOccurs="1"/>
+      <xs:element name="AntennaProperties" minOccurs="0" maxOccurs="unbounded">
+      <xs:complexType>
+	<xs:sequence>
+	  <xs:element name="dcs" type="xs:int" minOccurs="0"/>
+	  <xs:element name="widarID" type="xs:int"/>
+	  <xs:element name="pad" type="xs:string"/>
+	  <xs:element name="X" type="xs:double"/>
+	  <xs:element name="Y" type="xs:double"/>
+	  <xs:element name="Z" type="xs:double"/>
+	  <xs:element name="offset" type="xs:double"/>
+	  </xs:sequence>
+	<xs:attribute name="name" type="xs:string"/>
+	</xs:complexType>
+	</xs:element>
+      </xs:sequence>
+    <xs:attribute name="id" type="xs:string"/>
+    <xs:attribute name="creation" type="xs:double"/>
+    <xs:attribute name="datasetId" type="xs:string" use="optional"/>
+    <xs:attribute name="configuration" type="xs:string" use="optional"/>
+    </xs:complexType>
+    </xs:element>
+
+</xs:schema>
