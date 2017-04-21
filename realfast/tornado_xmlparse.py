@@ -5,8 +5,8 @@ from tornado.iostream import IOStream, StreamClosedError
 import sdminfoxml_parser, obsxml_parser, antxml_parser, eopxml_parser
 
 parser = argparse.ArgumentParser()
-parser.add_argument("name", type=str, help="Name of document to expect (xml, sdminfo, obs, ant, eop)")
-parser.add_argument("--port", default=0, type=int, help="Optional port number")
+parser.add_argument("name", type=str, help="Name of document to expect (xml, sdminfo, obs, eop, all)")
+parser.add_argument("--port", default=0, type=int, help="Optional port number for xml listening")
 opts = parser.parse_args()
 docname = opts.name.lower()
 port = opts.port
@@ -95,29 +95,37 @@ class EopServer(tcpserver.TCPServer):
 
 
 if __name__ == '__main__':
-    if docname == 'xml':
+    servers = []
+    if docname in ['xml', 'all']:
         address = 'localhost'
+
         server = XMLServer()
         server.listen(port)
-    elif docname == 'sdminfo':
+        servers.append(server)
+    if docname in ['sdminfo', 'all']:
         address = '239.192.5.2'
         if not port: port = 55002 
+
         server = SDMinfoServer()
         server.listen(port, address=address)
-    elif docname == 'obs':
+        servers.append(server)
+    if docname in ['obs', 'all']:
         address = '239.192.3.2'
         if not port: port = 53001
+
         server = ObsServer()
         server.listen(port, address=address)
-    elif docname == 'antinfo':
+        servers.append(server)
+    if docname in ['antinfo', 'all']:
         address = '239.192.3.1'
         if not port: port = 53000
+
         server = AntServer()
         server.listen(port, address=address)
-    else:
-        print('No such message name')
+        servers.append(server)
 
-    print('Listening on {0}:{1}'.format(address, port))
+
+    print('Started {0} servers ({1})'.format(len(servers), docname))
     io_loop = ioloop.IOLoop.current()
     io_loop.start()
 
