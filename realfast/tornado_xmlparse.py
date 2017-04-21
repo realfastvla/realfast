@@ -2,16 +2,26 @@ import argparse
 from lxml import etree
 from tornado import gen, ioloop, tcpserver
 from tornado.iostream import IOStream, StreamClosedError
-import sdminfoxml_parser, obsxml_parser, antxml_parser, eopxml_parser
+import sdminfoxml_parser, obsxml_parser, antxml_parser
 
+
+# parse name of server(s)
 parser = argparse.ArgumentParser()
-parser.add_argument("name", type=str, help="Name of document to expect (xml, sdminfo, obs, eop, all)")
+parser.add_argument("name", type=str, help="Name of document to expect (xml, sdminfo, obs, ant, all)")
 parser.add_argument("--port", default=0, type=int, help="Optional port number for xml listening")
 opts = parser.parse_args()
 docname = opts.name.lower()
 port = opts.port
 
-assert docname in ["xml", "sdminfo", "obs", "ant", "eop"]
+# standard CBE addresses and ports
+sdminfoaddress = '239.192.5.2'
+sdminfoport = 55002 
+obsaddress = '239.192.3.2'
+obsport = 53001
+antaddress = '239.192.3.1'
+antport = 53000
+
+assert docname in ["xml", "sdminfo", "obs", "ant", "all"]
 
 class XMLServer(tcpserver.TCPServer):
 
@@ -32,6 +42,10 @@ class XMLServer(tcpserver.TCPServer):
 
 class SDMinfoServer(tcpserver.TCPServer):
 
+    @property
+    def address:
+        return sdminfoaddress
+
     @gen.coroutine
     def handle_stream(self, stream, address):
         try:
@@ -47,6 +61,10 @@ class SDMinfoServer(tcpserver.TCPServer):
 
 
 class ObsServer(tcpserver.TCPServer):
+
+    @property
+    def address:
+        return obsaddress
 
     @gen.coroutine
     def handle_stream(self, stream, address):
@@ -64,6 +82,10 @@ class ObsServer(tcpserver.TCPServer):
 
 class AntServer(tcpserver.TCPServer):
 
+    @property
+    def address:
+        return antaddress
+
     @gen.coroutine
     def handle_stream(self, stream, address):
         try:
@@ -78,61 +100,40 @@ class AntServer(tcpserver.TCPServer):
             yield gen.sleep(5)
 
 
-class EopServer(tcpserver.TCPServer):
-
-    @gen.coroutine
-    def handle_stream(self, stream, address):
-        try:
-            msg = yield stream.read_until_close()
-            print("Recieved msg of length {0}".format(len(msg)))
-
-            eopinfo = eopxml_parser.parseString(msg)
-            print('Parsed eopinfo: {0}, {1}'.format('eop test', 'eop test'))
-
-        except StreamClosedError:
-            print("Error connecting")
-            yield gen.sleep(5)
-
-
 if __name__ == '__main__':
     servers = []
+
     if docname in ['xml', 'all']:
         address = 'localhost'
 
         server = XMLServer()
-        server.listen(port)
+        server.listen(port, address=address)
         servers.append(server)
+        print('Started XMLServer at {0}:{1}'.format(server.address, port))
+
     if docname in ['sdminfo', 'all']:
-        address = '239.192.5.2'
-        if not port: port = 55002 
+        if not port: port = sdminfoport
 
         server = SDMinfoServer()
-        server.listen(port, address=address)
+        server.listen(port, address=server.address)
         servers.append(server)
+        print('Started SDMinfoServer at {0}:{1}'.format(server.address, port))
+
     if docname in ['obs', 'all']:
-        address = '239.192.3.2'
-        if not port: port = 53001
+        if not port: port = obsport
 
         server = ObsServer()
-        server.listen(port, address=address)
+        server.listen(port, address=server.address)
         servers.append(server)
+        print('Started ObsServer at {0}:{1}'.format(server.address, port))
+
     if docname in ['antinfo', 'all']:
-        address = '239.192.3.1'
-        if not port: port = 53000
+        if not port: port = antport
 
         server = AntServer()
-        server.listen(port, address=address)
+        server.listen(port, address=server.address)
         servers.append(server)
+        print('Started AntServer at {0}:{1}'.format(server.address, port))
 
-
-    print('Started {0} servers ({1})'.format(len(servers), docname))
     io_loop = ioloop.IOLoop.current()
     io_loop.start()
-
-# list of ip:ports
-#localhost:4444 for playing with xml docs
-#239.192.3.1:53000 for AntennaPropertiesTable documents
-#239.192.3.2:53001 for Observation documents
-#239.192.5.2,55002 for sdminfo documents
-
-
