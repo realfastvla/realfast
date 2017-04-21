@@ -4,7 +4,7 @@
 #
 # Based on frb_trigger_controller.py by P. Demorest, 2015/02
 #
-# Listen for OBS packets having a certain 'triggered archiving'
+# Listen for SDMinfo packets having a certain 'triggered archiving'
 # intent, and perform some as-yet-unspecified action when these
 # are recieved.
 #
@@ -71,7 +71,7 @@ redishost = os.uname()[1]  # assuming we start on redis host
 
 
 class FRBController(object):
-    """Listens for OBS packets and tells FRB processing about any
+    """Listens for SDMinfo packets and tells FRB processing about any
     notable scans."""
 
     def __init__(self, intent='', project='', production=False, verbose=False, nrao_controls_archiving=False, rtparams='', slow=0):
@@ -197,7 +197,7 @@ def monitor(intent, project, production, verbose, nrao_controls_archiving, rtpar
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, nrao_controls_archiving=nrao_controls_archiving, rtparams=rtparams, slow=slow)
-    sdminfo_client = mcaf_library.SdminfoClient(controller)
+    sdminfo_client = mcaf_library.SDMInfoClient(controller)
     try:
         asyncore.loop()
     except KeyboardInterrupt:

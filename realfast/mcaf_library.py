@@ -2,9 +2,20 @@ import os
 import struct
 import logging
 import asyncore, socket
-import sdminfoxml_parser
+import sdminfoxml_parser, obsxml_parser, antxml_parser
 
 logger = logging.getLogger(__name__)
+
+# standard CBE addresses and ports
+sdminfoaddress = '239.192.5.2'
+sdminfoport = 55002 
+obsaddress = '239.192.3.2'
+obsport = 53001
+antaddress = '239.192.3.1'
+antport = 53000
+vciaddress = '239.192.3.1'
+vciport = 53000
+
 
 class McastClient(asyncore.dispatcher):
     """Generic class to receive the multicast XML docs."""
@@ -47,7 +58,7 @@ class McastClient(asyncore.dispatcher):
         logger.error('unhandled exception: ' + repr(val))
 
 
-class SdminfoClient(McastClient):
+class SDMInfoClient(McastClient):
     """Receives sdminfo XML, which is broadcast when the BDF is available.
 
     If the controller input is given, the
@@ -56,81 +67,84 @@ class SdminfoClient(McastClient):
     controller script, and runs job launching.
     """
 
-    def __init__(self,controller=None):
-        McastClient.__init__(self,'239.192.5.2',55002,'sdminfo')
+    def __init__(self, controller=None):
+        McastClient.__init__(self, sdminfoaddress, sdmport, 'sdminfo')
         self.controller = controller
 
     def parse(self):
-        sdminfo = sdminfoxml_parser.parseString(self.read)
-        logger.info("Read sdminfo datasetId='%s' scanNo=%d intents=%s" % (sdminfo.datasetId,
-            sdminfo.scanNumber, str(sdminfo.scanIntents)))
+        sdminfoxml = sdminfoxml_parser.parseString(self.read)
+        logger.info("Read sdminfo doc")
         if self.controller is not None:
-            self.controller.add_sdminfo(sdminfo)
+            self.controller.add_sdminfo(sdminfoxml)
 
 
-#A dumbed down version of EVLAconfig just for reading SDM info
-class MCAST_Config(object):
-    """
-    This class at the moment just returns info from the SDM
-    document. It can easily be expanded to include further information
-    from e.g. the OBS doc or VCI doc (e.g. info on observation length,
-    SPWs, antenna config, and so forth).
+class VCIClient(McastClient):
+    """Receives VCI XML.
+    
+    If the controller input is given, the controller.add_vci(vci) method will
+    be called for every document received.
     """
 
-    def __init__(self, sdminfo=None):
-        self.set_sdminfo(sdminfo)
+    def __init__(self,controller=None):
+        McastClient.__init__(self, vciaddress, vciport, 'vci')
+        self.controller = controller
 
-    def is_complete(self):
-        return self.sdminfo is not None
+    def parse(self):
+        vcixml = vcixml_parser.parseString(self.read)
+        logging.info("Read vci doc")
+        if self.controller is not None:
+            self.controller.add_vci(vcixml)
 
-    def set_sdminfo(self,sdminfo):
-        self.sdminfo = sdminfo
 
-    # July 2015:
-    # Rich will soon switch from datasetID to datasetId. This takes
-    # into account both possibilities
-    @property
-    def projectID(self):
-        if self.sdminfo.datasetId is not None:
-            return self.sdminfo.datasetId
-        else:
-            return self.sdminfo.datasetID
+class ObsClient(McastClient):
+    """Receives obs XML.
 
-    @property
-    def telescope(self):
-        return "VLA"
+    If the controller input is given, the
+    controller.add_obs(obs) method will be called for every
+    document received. Controller is defined as a class in the main
+    controller script, and runs job launching.
+    """
 
-    @property
-    def scan(self):
-        return self.sdminfo.scanNumber
+    def __init__(self, controller=None):
+        McastClient.__init__(self, obsaddress, obsport, 'obs')
+        self.controller = controller
 
-    @property
-    def subscan(self):
-        return self.sdminfo.subscanNumber
+    def parse(self):
+        obsxml = obsxml_parser.parseString(self.read)
+        logger.info("Read obs doc")
+        if self.controller is not None:
+            self.controller.add_obs(obsxml)
 
-    @property
-    def bdfLocation(self):
-        bdfdir = '/lustre/evla/wcbe/data/no_archive/'
-        return os.path.join(bdfdir, os.path.basename(self.sdminfo.bdfLocation))
 
-    @property
-    def sdmLocation(self):
-        return self.sdminfo.sdmLocation
+class AntClient(McastClient):
+    """Receives ant XML.
 
-    @property
-    def intentString(self):
-        return self.sdminfo.scanIntents
+    If the controller input is given, the
+    controller.add_ant(ant) method will be called for every
+    document received. Controller is defined as a class in the main
+    controller script, and runs job launching.
+    """
 
-    @property
-    def obsComplete(self):
-        return self.sdminfo.finalMessage
+    def __init__(self, controller=None):
+        McastClient.__init__(self, antaddress, antport, 'ant')
+        self.controller = controller
+
+    def parse(self):
+        antxml = antxml_parser.parseString(self.read)
+        logger.info("Read ant doc")
+        if self.controller is not None:
+            self.controller.add_ant(antxml)
 
 
 # This is how comms would be used in a program.  Note that no controller
 # is passed, so the only action taken here is to print log messages when
 # each sdminfo document comes in.
 if __name__ == '__main__':
-    sdminfo_client = SdminfoClient()
+    sdminfo_client = SDMInfoClient()
+    obs_client = ObsClient()
+    vci_client = VCIClient()
+    ant_client = AntClient()
+
     try:
         asyncore.loop()
     except KeyboardInterrupt:
