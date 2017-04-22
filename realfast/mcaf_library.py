@@ -68,8 +68,9 @@ class SDMInfoClient(McastClient):
     """
 
     def __init__(self, controller=None):
-        McastClient.__init__(self, sdminfoaddress, sdmport, 'sdminfo')
+        McastClient.__init__(self, sdminfoaddress, sdminfoport, 'sdminfo')
         self.controller = controller
+        logger.info('SDMInfo client initialized')
 
     def parse(self):
         sdminfoxml = sdminfoxml_parser.parseString(self.read)
@@ -88,6 +89,7 @@ class VCIClient(McastClient):
     def __init__(self,controller=None):
         McastClient.__init__(self, vciaddress, vciport, 'vci')
         self.controller = controller
+        logger.info('VCI client initialized')
 
     def parse(self):
         vcixml = vcixml_parser.parseString(self.read)
@@ -108,6 +110,7 @@ class ObsClient(McastClient):
     def __init__(self, controller=None):
         McastClient.__init__(self, obsaddress, obsport, 'obs')
         self.controller = controller
+        logger.info('obs client initialized')
 
     def parse(self):
         obsxml = obsxml_parser.parseString(self.read)
@@ -128,6 +131,7 @@ class AntClient(McastClient):
     def __init__(self, controller=None):
         McastClient.__init__(self, antaddress, antport, 'ant')
         self.controller = controller
+        logger.info('Ant client initialized')
 
     def parse(self):
         antxml = antxml_parser.parseString(self.read)
