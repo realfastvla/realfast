@@ -2,7 +2,7 @@ import os
 import struct
 import logging
 import asyncore, socket
-import sdminfoxml_parser, obsxml_parser, antxml_parser
+import sdminfoxml_parser, obsxml_parser, antxml_parser, vcixml_parser
 
 logger = logging.getLogger(__name__)
 
