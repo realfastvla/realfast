@@ -9,7 +9,6 @@ class realfast_controller(Controller):
         super(realfast_controller, self).__init__()
         self.preffile = preffile
         self.inprefs = inprefs
-        self.fut = []
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -22,7 +21,6 @@ class realfast_controller(Controller):
         logging.info('generating rfpipe state')
         st = rfpipe.state.State(preffile=self.preffile, inmeta=meta, inprefs=self.inprefs)
 
-        fut = rfpipe.pipeline.pipeline_vys2(st, 0)
+        fut = rfpipe.pipeline.pipeline_vys2(st, 1)
         logging.info('started pipeline')
 
-        self.futures.append(fut)
