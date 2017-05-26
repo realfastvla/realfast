@@ -60,10 +60,10 @@ import rtpipe.parsesdm as ps
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-from realfast import queue_monitor, rtutils, mcaf_library
+from realfast import queue_monitor, rtutils, mcast_clients
 
 # set up
-rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(mcaf_library.__file__)[0])[0], 'conf'), 'rtpipe_cbe.conf') # install system puts conf files here. used by queue_rtpipe.py
+rtparams_default = os.path.join(os.path.join(os.path.split(os.path.split(queue_monitor.__file__)[0])[0], 'conf'), 'rtpipe_cbe.conf') # install system puts conf files here. used by queue_rtpipe.py
 default_bdfdir = '/lustre/evla/wcbe/data/no_archive'
 telcaldir = '/home/mchammer/evladata/telcal'  # then yyyy/mm
 workdir = os.getcwd()     # assuming we start in workdir
@@ -85,7 +85,7 @@ class FRBController(object):
         self.slow = slow
 
     def add_sdminfo(self, sdminfo):
-        config = mcaf_library.MCAST_Config(sdminfo=sdminfo)
+        config = mcast_clients.MCAST_Config(sdminfo=sdminfo)
 
         # !!! Wrapper here to deal with potential subscans?
 
@@ -197,7 +197,7 @@ def monitor(intent, project, production, verbose, nrao_controls_archiving, rtpar
 
     # This starts the receiving/handling loop
     controller = FRBController(intent=intent, project=project, production=production, verbose=verbose, nrao_controls_archiving=nrao_controls_archiving, rtparams=rtparams, slow=slow)
-    sdminfo_client = mcaf_library.SDMInfoClient(controller)
+    sdminfo_client = mcast_clients.SDMInfoClient(controller)
     try:
         asyncore.loop()
     except KeyboardInterrupt:

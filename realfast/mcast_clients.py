@@ -2,7 +2,7 @@ import os
 import struct
 import logging
 import asyncore, socket
-import sdminfoxml_parser, obsxml_parser, antxml_parser
+import sdminfoxml_parser, obsxml_parser, antxml_parser, vcixml_parser
 
 logger = logging.getLogger(__name__)
 
@@ -68,8 +68,9 @@ class SDMInfoClient(McastClient):
     """
 
     def __init__(self, controller=None):
-        McastClient.__init__(self, sdminfoaddress, sdmport, 'sdminfo')
+        McastClient.__init__(self, sdminfoaddress, sdminfoport, 'sdminfo')
         self.controller = controller
+        logger.info('SDMInfo client initialized')
 
     def parse(self):
         sdminfoxml = sdminfoxml_parser.parseString(self.read)
@@ -88,6 +89,7 @@ class VCIClient(McastClient):
     def __init__(self,controller=None):
         McastClient.__init__(self, vciaddress, vciport, 'vci')
         self.controller = controller
+        logger.info('VCI client initialized')
 
     def parse(self):
         vcixml = vcixml_parser.parseString(self.read)
@@ -108,6 +110,7 @@ class ObsClient(McastClient):
     def __init__(self, controller=None):
         McastClient.__init__(self, obsaddress, obsport, 'obs')
         self.controller = controller
+        logger.info('obs client initialized')
 
     def parse(self):
         obsxml = obsxml_parser.parseString(self.read)
@@ -128,6 +131,7 @@ class AntClient(McastClient):
     def __init__(self, controller=None):
         McastClient.__init__(self, antaddress, antport, 'ant')
         self.controller = controller
+        logger.info('Ant client initialized')
 
     def parse(self):
         antxml = antxml_parser.parseString(self.read)
@@ -135,6 +139,52 @@ class AntClient(McastClient):
         if self.controller is not None:
             self.controller.add_ant(antxml)
 
+class MCAST_Config(object):
+    """
+    Wrap any one of the multicast messages used at the VLA
+    """
+
+    def __init__(self, sdminfoxml=None, obsxml=None, antxml=None, vcixml=None):
+        self.sdminfoxml = sdminfoxml
+        self.obsxml = obsxml
+        self.antxml = antxml
+        self.vcixml = vcixml
+
+        if obsxml:
+            attribs = obsxml.__dict__.keys()
+#            attribs = [pr.lstrip('get_') for pr in dir(obsxml) if 'get_' in pr and 'set_' in pr]
+            values = [getattr(self.obsxml, attrib) for attrib in attribs]
+            for (attrib, value) in zip(attribs, values):
+                print(attrib, value)
+                setattr(self, attrib, value)
+                print(self.__dict__())
+
+        if sdminfoxml:
+            attribs = sdminfoxml.__dict__.keys()
+#            attribs = [pr.lstrip('get_') for pr in dir(sdminfoxml) if 'get_' in pr and 'set_' in pr]
+            values = [getattr(self.sdminfoxml, attrib) for attrib in attribs]
+            for (attrib, value) in zip(attribs, values):
+                print(attrib, value)
+                setattr(self, attrib, value)
+                print(self.sdminfo.__dict__())
+
+        if antxml:
+            attribs = antxml.__dict__.keys()
+#            attribs = [pr.lstrip('get_') for pr in dir(antxml) if 'get_' in pr and 'set_' in pr]
+            values = [getattr(self.antxml, attrib) for attrib in attribs]
+            for (attrib, value) in zip(attribs, values):
+                print(attrib, value)
+                setattr(self, attrib, value)
+                print(self.__dict__())
+
+        if vcixml:
+            attribs = vcixml.__dict__.keys()
+#            attribs = [pr.lstrip('get_') for pr in dir(vcixml) if 'get_' in pr and 'set_' in pr]
+            values = [getattr(self.vcixml, attrib) for attrib in attribs]
+            for (attrib, value) in zip(attribs, values):
+                print(attrib, value)
+                setattr(self, attrib, value)
+                print(self.__dict__())
 
 # This is how comms would be used in a program.  Note that no controller
 # is passed, so the only action taken here is to print log messages when
