@@ -31,16 +31,20 @@ class realfast_controller(Controller):
 
         if config.is_complete():
             # calc nints (this can be removed once scan config includes scan end time)
-            subband0 = config.get_subbands()[0]
-            inttime = subband0.hw_time_res  # assumes that vys stream comes after hw integration
-            nints = int(self.scantime/inttime)
-            logger.info('Pipeline will be set to catch {0} s of data ({1} integrations)'.format(self.scantime, nints))
-            inmeta = {'nints': nints}
+            try:
+                subband0 = config.get_subbands()[0]
+                inttime = subband0.hw_time_res  # assumes that vys stream comes after hw integration
+                nints = int(self.scantime/inttime)
+                logger.info('Pipeline will be set to catch {0} s of data ({1} integrations)'.format(self.scantime, nints))
+                inmeta = {'nints': nints}
 
-            logger.info('Generating rfpipe state...')
-            st = rfpipe.state.State(config=config, preffile=self.preffile, inprefs=self.inprefs, inmeta=inmeta)
+                logger.info('Generating rfpipe state...')
+                st = rfpipe.state.State(config=config, preffile=self.preffile, inprefs=self.inprefs, inmeta=inmeta)
             
-            logger.info('Starting pipeline...')
-            fut = rfpipe.pipeline.pipeline_scan(st, host=distributed_host, cfile=vys_cfile, vys_timeout=self.vys_timeout)
+                logger.info('Starting pipeline...')
+                fut = rfpipe.pipeline.pipeline_scan(st, host=distributed_host, cfile=vys_cfile, vys_timeout=self.vys_timeout)
+            except KeyError as exc:
+                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
+            
         else:
             logger.info('Waiting for complete scan configuration.')
