@@ -29,6 +29,7 @@ class realfast_controller(Controller):
         Downstream logic starts here.
         """
 
+        logger.debug('doc types (ant, vci, obs) values: {0}, {1}, {2}'.format(type(config.ant), type(config.vci), type(config.obs)))
         if config.is_complete():
             # calc nints (this can be removed once scan config includes scan end time)
             try:
