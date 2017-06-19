@@ -2,7 +2,8 @@ from evla_mcast.controller import Controller
 import rfpipe
 
 import logging
-logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('rfpipe')
 
 distributed_host = 'cbe-node-01'
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
@@ -28,23 +29,12 @@ class realfast_controller(Controller):
         Downstream logic starts here.
         """
 
-        logger.debug('doc types (ant, vci, obs) values: {0}, {1}, {2}'.format(type(config.ant), type(config.vci), type(config.obs)))
-        if config.is_complete():
-            # calc nints (this can be removed once scan config includes scan end time)
-            try:
-#                subband0 = config.get_subbands()[0]
-#                inttime = subband0.hw_time_res  # assumes that vys stream comes after hw integration
-#                nints = int(self.scantime/inttime)
-#                logger.info('Pipeline will be set to catch {0} s of data ({1} integrations)'.format(self.scantime, nints))
-#                inmeta = {'nints': nints}
-
-                logger.info('Generating rfpipe state...')
-                st = rfpipe.state.State(config=config, preffile=self.preffile, inprefs=self.inprefs) #, inmeta=inmeta)
+        logger.info('Docs received (ant, vci, obs): {0}, {1}, {2}'.format(config.ant, config.vci, config.obs))
+        try:
+            logger.info('Generating rfpipe state...')
+            st = rfpipe.state.State(config=config, preffile=self.preffile, inprefs=self.inprefs) #, inmeta=inmeta)
             
-                logger.info('Starting pipeline...')
-                fut = rfpipe.pipeline.pipeline_scan(st, host=distributed_host, cfile=vys_cfile, vys_timeout=self.vys_timeout)
-            except KeyError as exc:
-                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
-            
-        else:
-            logger.info('Waiting for complete scan configuration.')
+            logger.info('Starting pipeline...')
+            fut = rfpipe.pipeline.pipeline_scan(st, host=distributed_host, cfile=vys_cfile, vys_timeout=self.vys_timeout)
+        except KeyError as exc:
+            logger.warn('KeyError in parsing VCI? {0}'.format(exc))
