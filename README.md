@@ -25,3 +25,7 @@ Contributors:
 [Casey Law](http://www.twitter.com/caseyjlaw) -- UC Berkeley
 
 Sarah Burke-Spolaor -- NRAO
+
+Logo:
+---
+[Studio Principle](https://www.studioprinciple.com)
