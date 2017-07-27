@@ -46,7 +46,7 @@ class realfast_controller(Controller):
                                     inprefs=self.inprefs)
 
             logger.info('Starting pipeline...')
-            rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0]
+            rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
                                                       host=distributed_host,
                                                       cfile=vys_cfile,
                                                       vys_timeout=self.vys_timeout)
