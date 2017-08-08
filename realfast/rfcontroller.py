@@ -35,26 +35,53 @@ class realfast_controller(Controller):
         Downstream logic starts here.
         """
 
-        logger.info('Received complete configuration for {0}, scan {1}'
-                    .format(config.scanId, config.scanNo))
+        logger.info('Received complete configuration for {0},'
+                    'scan {1}, source {2}, intent {3}'
+                    .format(config.scanId, config.scanNo, config.source,
+                            config.scan_intent))
 
-        logger.info('TODO: print more config info')
+        if self.runsearch(config):
+            try:
+                logger.info('Generating rfpipe state...')
+                st = rfpipe.state.State(config=config, preffile=self.preffile,
+                                        inprefs=self.inprefs)
 
-        try:
-            logger.info('Generating rfpipe state...')
-            st = rfpipe.state.State(config=config, preffile=self.preffile,
-                                    inprefs=self.inprefs)
-
-            logger.info('Starting pipeline...')
-            rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
-                                                      host=distributed_host,
-                                                      cfile=vys_cfile,
-                                                      vys_timeout=self.vys_timeout)
-        except KeyError as exc:
-            logger.warn('KeyError in parsing VCI? {0}'.format(exc))
+                logger.info('Starting pipeline...')
+                rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
+                                                          host=distributed_host,
+                                                          cfile=vys_cfile,
+                                                          vys_timeout=self.vys_timeout)
+            except KeyError as exc:
+                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
+        else:
+            logger.info("Not processing this scan.")
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
         """
 
         logger.info('End of scheduling block message received')
+
+    def runsearch(self, config):
+        """ Test whether configuration specifies a config that realfast should search
+        """
+
+        # find config properties of interest
+        intent = config.scan_intent
+        antennas = config.get_antennas()
+        antnames = [str(ant.name) for ant in antennas]
+        subbands = config.get_subbands()
+        inttimes = [subband.hw_time_res for subband in subbands]
+        pols = [subband.pp for subband in subbands]
+        nchans = [subband.spectralChannels for subband in subbands]
+        chansizes = [subband.bw/subband.spectralChannels for subband in subbands]
+        reffreqs = [subband.sky_center_freq*1e6 for subband in subbands]
+
+        # Do not process if...
+        # 1) chansize changes between subbands
+        if not all([chansizes[0] == chansize for chansize in chansizes]):
+            logger.warn("Channel size changes between subbands: {0}"
+                        .format(chansizes))
+            return False
+
+        return True
