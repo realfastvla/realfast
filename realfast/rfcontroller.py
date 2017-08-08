@@ -35,7 +35,7 @@ class realfast_controller(Controller):
         Downstream logic starts here.
         """
 
-        logger.info('Received complete configuration for {0},'
+        logger.info('Received complete configuration for {0}, '
                     'scan {1}, source {2}, intent {3}'
                     .format(config.scanId, config.scanNo, config.source,
                             config.scan_intent))
