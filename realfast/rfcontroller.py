@@ -8,7 +8,7 @@ import rfpipe
 import distributed
 
 import logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
@@ -41,26 +41,26 @@ class realfast_controller(Controller):
                             config.scan_intent))
 
         if self.runsearch(config):
+            logger.info('Config looks good. Generating rfpipe state...')
             try:
-                logger.info('Generating rfpipe state...')
                 st = rfpipe.state.State(config=config, preffile=self.preffile,
                                         inprefs=self.inprefs)
-
+            except KeyError as exc:
+                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
+            else:
                 logger.info('Starting pipeline...')
                 rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
                                                           host=distributed_host,
                                                           cfile=vys_cfile,
                                                           vys_timeout=self.vys_timeout)
-            except KeyError as exc:
-                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
         else:
-            logger.info("Not processing this scan.")
+            logger.info("Config not suitable for realfast. Skipping.")
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
         """
 
-        logger.info('End of scheduling block message received')
+        logger.info('End of scheduling block message received.')
 
     def runsearch(self, config):
         """ Test whether configuration specifies a config that realfast should search
