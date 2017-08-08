@@ -5,11 +5,13 @@ from io import open
 
 from evla_mcast.controller import Controller
 import rfpipe
-import distributed
 
 import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+ch = logging.StreamHandler()
+formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
+ch.setFormatter(formatter)
+logger = logging.getLogger('rfcontroller')
+logger.setLevel(logging.INFO)
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 default_preffile = '/lustre/evla/test/realfast/realfast.yml'
