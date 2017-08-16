@@ -61,6 +61,14 @@ class realfast_controller(Controller):
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
+        removed = 0
+        for job in self.jobs:
+            if job.status == 'finished':
+                _ = self.jobs.remove(job)
+                removed += 1
+        if removed:
+            logger.info('Removed {0} finished jobs from job queue.'.format(removed))
+
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
         """
