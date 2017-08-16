@@ -31,7 +31,7 @@ class realfast_controller(Controller):
         self.preffile = preffile
         self.inprefs = inprefs
         self.vys_timeout = vys_timeout
-        self.jobs = []
+#        self.jobs = []
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -56,7 +56,7 @@ class realfast_controller(Controller):
                                                                  host=distributed_host,
                                                                  cfile=vys_cfile,
                                                                  vys_timeout=self.vys_timeout)
-                self.jobs += jobs
+#                self.jobs += jobs
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
