@@ -120,5 +120,5 @@ class config_controller(Controller):
                     .format(config.scanId, config.scanNo, config.source,
                             config.scan_intent))
 
-        with open(pklfile, 'w') as pkl:
+        with open(self.pklfile, 'w') as pkl:
             pickle.dump(config, pkl)
