@@ -98,3 +98,27 @@ class realfast_controller(Controller):
             return False
 
         return True
+
+
+class config_controller(Controller):
+
+    def __init__(self, pklfile):
+        """ Creates controller object that saves scan configs.
+        Inherits a "run" method that starts asynchronous operation.
+        """
+
+        super(config_controller, self).__init__()
+        self.pklfile = pklfile
+
+    def handle_config(self, config):
+        """ Triggered when obs comes in.
+        Downstream logic starts here.
+        """
+
+        logger.info('Received complete configuration for {0}, '
+                    'scan {1}, source {2}, intent {3}'
+                    .format(config.scanId, config.scanNo, config.source,
+                            config.scan_intent))
+
+        with open(pklfile, 'w') as pkl:
+            pickle.dump(config, pkl)
