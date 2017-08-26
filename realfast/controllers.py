@@ -3,6 +3,7 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
+import pickle
 from evla_mcast.controller import Controller
 import rfpipe
 
@@ -10,7 +11,7 @@ import logging
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
-logger = logging.getLogger('rfcontroller')
+logger = logging.getLogger('realfast_controllers')
 logger.setLevel(logging.INFO)
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
@@ -120,5 +121,5 @@ class config_controller(Controller):
                     .format(config.scanId, config.scanNo, config.source,
                             config.scan_intent))
 
-        with open(self.pklfile, 'w') as pkl:
+        with open(self.pklfile, 'wb') as pkl:
             pickle.dump(config, pkl)
