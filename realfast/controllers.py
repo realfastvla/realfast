@@ -53,7 +53,7 @@ class realfast_controller(Controller):
                 logger.warn('KeyError in parsing VCI? {0}'.format(exc))
             else:
                 logger.info('Starting pipeline...')
-                jobs = rfpipe.pipeline.pipeline_scan_distributed(st,
+                jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0, 1],
                                                                  host=distributed_host,
                                                                  cfile=vys_cfile,
                                                                  vys_timeout=self.vys_timeout)
@@ -121,5 +121,5 @@ class config_controller(Controller):
                     .format(config.scanId, config.scanNo, config.source,
                             config.scan_intent))
 
-        with open(self.pklfile, 'a') as pkl:
+        with open(self.pklfile, 'ab') as pkl:
             pickle.dump(config, pkl)
