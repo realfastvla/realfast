@@ -39,10 +39,7 @@ class realfast_controller(Controller):
         Downstream logic starts here.
         """
 
-        logger.info('Received complete configuration for {0}, '
-                    'scan {1}, source {2}, intent {3}'
-                    .format(config.scanId, config.scanNo, config.source,
-                            config.scan_intent))
+        self.summarize(config)
 
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
@@ -94,6 +91,38 @@ class realfast_controller(Controller):
             return False
 
         return True
+
+    def summarize(self, config):
+        """ Print summary info for config
+        """
+
+        try:
+            logger.info(':: ConfigID {0} ::'.format(config.configId))
+            logger.info('\tScan {0}, source {1}, intent {2}'
+                        .format(config.scanNo, config.source,
+                                config.scan_intent))
+            logger.info('\t(RA, Dec) = ({0}, {1})'
+                        .format(config.ra_deg, config.dec_deg))
+            sbs = config.get_subbands()
+            freqs = [sb.sky_center_freq for sb in sbs]
+            logger.info('\tFreq: {0} - {1}'.format(min(freqs), max(freqs)))
+            nchan = sum([sb.spectralChannels for sb in sbs])
+            sb0 = sbs[0]
+            logger.info('\t(nspw, chan/spw, nchan) = ({0}, {1}, {2})'
+                        .format(len(sbs), sb0.spectralChannels, nchan))
+            if not all([sb0.spectralChannels == sb.spectralChannels
+                        for sb in sbs]):
+                logger.info('\tNot all spw have same number of channels.')
+                logger.info('\t(nant, npol) = ({0}, {1})'
+                            .format(config.numAntenna, config.npol))
+                logger.info('\tStartMJD {0}, duration {1} s. '
+                            'HW/Final time resolution = {2}/{3} s'
+                            .format(config.startTime,
+                                    24*3600*(config.stopTime-config.startTime),
+                                    sb0.hw_time_res, sb0.final_time_res))
+        except:
+            logger.warn("Failed to fully parse config to print summary."
+                        "Proceeding.")
 
 
 class config_controller(Controller):
