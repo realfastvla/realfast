@@ -46,19 +46,14 @@ class realfast_controller(Controller):
 
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
-            try:
-                st = rfpipe.state.State(config=config, preffile=self.preffile,
-                                        inprefs=self.inprefs)
-            except KeyError as exc:
-                logger.warn('KeyError in parsing VCI? {0}'.format(exc))
-            else:
-                logger.info('Starting pipeline...')
-                jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0, 1],
-                                                                 host=distributed_host,
-                                                                 cfile=vys_cfile,
-                                                                 vys_timeout=self.vys_timeout)
-                self.jobs += jobs
-
+            st = rfpipe.state.State(config=config, preffile=self.preffile,
+                                    inprefs=self.inprefs)
+            logger.info('Starting pipeline...')
+            jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
+                                                             host=distributed_host,
+                                                             cfile=vys_cfile,
+                                                             vys_timeout=self.vys_timeout)
+            self.jobs += jobs
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
