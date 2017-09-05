@@ -9,10 +9,12 @@ import rfpipe
 
 import logging
 ch = logging.StreamHandler()
+ch.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
-logger = logging.getLogger('realfast_controllers')
-logger.setLevel(logging.INFO)
+logging.getLogger().addHandler(ch)
+logging.getLogger().setLevel(logging.INFO)
+logger = logging.getLogger('realfast_controller')
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 default_preffile = '/lustre/evla/test/realfast/realfast.yml'
