@@ -4,6 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import pickle
+from time import sleep
 from evla_mcast.controller import Controller
 import rfpipe
 
@@ -60,6 +61,14 @@ class realfast_controller(Controller):
                 removed += 1
         if removed:
             logger.info('Removed {0} finished jobs from job queue.'.format(removed))
+
+        logger.info('Entering wait loop... Ctrl-C to escape.')
+        while True:
+            try:
+                sleep(1)
+            except KeyboardInterrupt:
+                logger.info('Escaping wait loop.')
+                break
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -119,9 +128,9 @@ class realfast_controller(Controller):
             logger.info('\t(nant, npol) = ({0}, {1})'
                         .format(config.numAntenna, config.npol))
             dt = 24*3600*(config.stopTime-config.startTime)
-            logger.info('\t(StartMJD, duration, nints) = ({0}, {1}s, {2}s).'
-                        .format(config.startTime, np.round(dt, 1),
-                                (dt/sb0.final_time_res).astype(int)))
+            logger.info('\t(StartMJD, duration, nints) = ({0}, {1}s, {2}).'
+                        .format(config.startTime, round(dt, 1),
+                                int(round((dt/sb0.final_time_res))))
             logger.info('\t(HW/Final) integration time = ({0}/{1}) s'
                         .format(sb0.hw_time_res, sb0.final_time_res))
         except:
