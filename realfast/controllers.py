@@ -9,11 +9,8 @@ import rfpipe
 
 import logging
 ch = logging.StreamHandler()
-ch.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
-logging.getLogger().addHandler(ch)
-logging.getLogger().setLevel(logging.INFO)
 logger = logging.getLogger('realfast_controller')
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
@@ -105,23 +102,28 @@ class realfast_controller(Controller):
                                 config.scan_intent))
             logger.info('\t(RA, Dec) = ({0}, {1})'
                         .format(config.ra_deg, config.dec_deg))
-            sbs = config.get_subbands()
-            freqs = [sb.sky_center_freq for sb in sbs]
-            logger.info('\tFreq: {0} - {1}'.format(min(freqs), max(freqs)))
-            nchan = sum([sb.spectralChannels for sb in sbs])
-            sb0 = sbs[0]
+            subbands = config.get_subbands()
+
+            reffreqs = [subband.sky_center_freq for subband in subbands]
+            logger.info('\tFreq: {0} - {1}'.format(min(reffreqs), max(reffreqs)))
+
+            nchans = [subband.spectralChannels for subband in subbands]
+            chansizes = [subband.bw/subband.spectralChannels for subband in subbands]
+            sb0 = subbands[0]
             logger.info('\t(nspw, chan/spw, nchan) = ({0}, {1}, {2})'
-                        .format(len(sbs), sb0.spectralChannels, nchan))
-            if not all([sb0.spectralChannels == sb.spectralChannels
-                        for sb in sbs]):
-                logger.info('\tNot all spw have same number of channels.')
-                logger.info('\t(nant, npol) = ({0}, {1})'
-                            .format(config.numAntenna, config.npol))
-                logger.info('\tStartMJD {0}, duration {1} s. '
-                            'HW/Final time resolution = {2}/{3} s'
-                            .format(config.startTime,
-                                    24*3600*(config.stopTime-config.startTime),
-                                    sb0.hw_time_res, sb0.final_time_res))
+                        .format(len(nchans), nchans[0], sum(nchans)))
+            logger.info('\t(BW, chansize) = ({0}, {1}) MHz'.format(sb0.bw, chansizes[0]))
+            if not all([chansizes[0] == chansize for chansize in chansizes]):
+                logger.info('\tNot all spw have same configuration.')
+
+            logger.info('\t(nant, npol) = ({0}, {1})'
+                        .format(config.numAntenna, config.npol))
+            dt = 24*3600*(config.stopTime-config.startTime)
+            logger.info('\t(StartMJD, duration, nints) = ({0}, {1}s, {2}s).'
+                        .format(config.startTime, np.round(dt, 1),
+                                (dt/sb0.final_time_res).astype(int)))
+            logger.info('\t(HW/Final) integration time = ({0}/{1}) s'
+                        .format(sb0.hw_time_res, sb0.final_time_res))
         except:
             logger.warn("Failed to fully parse config to print summary."
                         "Proceeding.")
