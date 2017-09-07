@@ -62,13 +62,13 @@ class realfast_controller(Controller):
         if removed:
             logger.info('Removed {0} finished jobs from job queue.'.format(removed))
 
-        logger.info('Entering wait loop... Ctrl-C to escape.')
-        while True:
-            try:
-                sleep(1)
-            except KeyboardInterrupt:
-                logger.info('Escaping wait loop.')
-                break
+#        logger.info('Entering wait loop... Ctrl-C to escape.')
+#        while True:
+#            try:
+#                sleep(1)
+#            except KeyboardInterrupt:
+#                logger.info('Escaping wait loop.')
+#                break
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -114,25 +114,29 @@ class realfast_controller(Controller):
             subbands = config.get_subbands()
 
             reffreqs = [subband.sky_center_freq for subband in subbands]
-            logger.info('\tFreq: {0} - {1}'.format(min(reffreqs), max(reffreqs)))
+            logger.info('\tFreq: {0} - {1}'
+                        .format(min(reffreqs), max(reffreqs)))
 
             nchans = [subband.spectralChannels for subband in subbands]
-            chansizes = [subband.bw/subband.spectralChannels for subband in subbands]
+            chansizes = [subband.bw/subband.spectralChannels
+                         for subband in subbands]
             sb0 = subbands[0]
             logger.info('\t(nspw, chan/spw, nchan) = ({0}, {1}, {2})'
                         .format(len(nchans), nchans[0], sum(nchans)))
-            logger.info('\t(BW, chansize) = ({0}, {1}) MHz'.format(sb0.bw, chansizes[0]))
+            logger.info('\t(BW, chansize) = ({0}, {1}) MHz'
+                        .format(sb0.bw, chansizes[0]))
             if not all([chansizes[0] == chansize for chansize in chansizes]):
                 logger.info('\tNot all spw have same configuration.')
 
             logger.info('\t(nant, npol) = ({0}, {1})'
-                        .format(config.numAntenna, config.npol))
+                        .format(config.numAntenna, sb0.npp))
             dt = 24*3600*(config.stopTime-config.startTime)
-            logger.info('\t(StartMJD, duration, nints) = ({0}, {1}s, {2}).'
-                        .format(config.startTime, round(dt, 1),
-                                int(round((dt/sb0.final_time_res))))
-            logger.info('\t(HW/Final) integration time = ({0}/{1}) s'
-                        .format(sb0.hw_time_res, sb0.final_time_res))
+            logger.info('\t(StartMJD, duration) = ({0}, {1}s).'
+                        .format(config.startTime, round(dt, 1)))
+            logger.info('\t({0}/{1}) ints at (HW/Final) integration time of ({2}/{3}) s'
+                        .format(int(round(dt/sb0.dt_time_res)),
+                                int(round(dt/sb0.final_time_res)),
+                                sb0.hw_time_res, sb0.final_time_res))
         except:
             logger.warn("Failed to fully parse config to print summary."
                         "Proceeding.")
