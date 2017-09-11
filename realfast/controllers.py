@@ -51,6 +51,8 @@ class realfast_controller(Controller):
                                                              cfile=vys_cfile,
                                                              vys_timeout=self.vys_timeout)
             self.jobs += jobs
+#            rfpipe.pipeline.pipeline_seg2(st, 0, preffile=self.preffile,
+#                                          inprefs=self.inprefs)
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -61,14 +63,6 @@ class realfast_controller(Controller):
                 removed += 1
         if removed:
             logger.info('Removed {0} finished jobs from job queue.'.format(removed))
-
-#        logger.info('Entering wait loop... Ctrl-C to escape.')
-#        while True:
-#            try:
-#                sleep(1)
-#            except KeyboardInterrupt:
-#                logger.info('Escaping wait loop.')
-#                break
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -134,7 +128,7 @@ class realfast_controller(Controller):
             logger.info('\t(StartMJD, duration) = ({0}, {1}s).'
                         .format(config.startTime, round(dt, 1)))
             logger.info('\t({0}/{1}) ints at (HW/Final) integration time of ({2}/{3}) s'
-                        .format(int(round(dt/sb0.dt_time_res)),
+                        .format(int(round(dt/sb0.hw_time_res)),
                                 int(round(dt/sb0.final_time_res)),
                                 sb0.hw_time_res, sb0.final_time_res))
         except:
