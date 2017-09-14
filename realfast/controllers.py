@@ -46,7 +46,7 @@ class realfast_controller(Controller):
             st = rfpipe.state.State(config=config, preffile=self.preffile,
                                     inprefs=self.inprefs)
             logger.info('Starting pipeline...')
-            jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=[0],
+            jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=None,
                                                              host=distributed_host,
                                                              cfile=vys_cfile,
                                                              vys_timeout=self.vys_timeout)
@@ -134,6 +134,22 @@ class realfast_controller(Controller):
         except:
             logger.warn("Failed to fully parse config to print summary."
                         "Proceeding.")
+
+    @property
+    def statuses(self):
+        return [self.jobs[i].status for i in range(len(self.jobs))]
+
+    @property
+    def errors(self):
+        return [self.jobs[i].exception() for i in range(len(self.jobs))
+                if self.jobs[i].status == 'error']
+
+    @property
+    def client(self):
+        if len(self.jobs):
+            return self.jobs[0].client
+        else:
+            logger.warn('No job running. Cannot get client.')
 
 
 class config_controller(Controller):
