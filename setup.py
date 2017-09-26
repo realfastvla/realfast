@@ -15,6 +15,6 @@ setup(
     install_requires=['rfpipe', 'evla_mcast', 'sdmpy', 'click'],
     entry_points='''
         [console_scripts]
-        rtpipe=realfast.cli:cli
+        realfast=realfast.cli:cli
 '''
 )

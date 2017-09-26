@@ -14,9 +14,10 @@ def cli():
 
 
 @cli.command()
-@click.argument('filename', help='Name of pickle file to save config objects')
+@click.argument('filename')
 def config_catcher(filename):
     """ Runs async process to catch multicast messages to form scan config objects
+    filename defines pickle file to save objects in.
     """
 
     config = controllers.config_controller(filename)
