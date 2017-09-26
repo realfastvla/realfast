@@ -13,8 +13,8 @@ setup(
     data_files=[('conf', glob.glob('conf/*'))],
 #    scripts=['scripts/sdm_chop-n-serve.pl'],   # add non-python scripts
     install_requires=['rfpipe', 'evla_mcast', 'sdmpy', 'click'],
-#    entry_points='''
-#       [console_scripts]
-#        queue_monitor=realfast.queue_monitor:monitor
-#    ''',
+    entry_points='''
+        [console_scripts]
+        rtpipe=realfast.cli:cli
+'''
 )
