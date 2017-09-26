@@ -5,6 +5,7 @@ from io import open
 
 import pickle
 from time import sleep
+from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
 
@@ -90,6 +91,14 @@ class realfast_controller(Controller):
         if not all([chansizes[0] == chansize for chansize in chansizes]):
             logger.warn("Channel size changes between subbands: {0}"
                         .format(chansizes))
+            return False
+
+        # 2) start and stop time is after current time
+        now = time.Time.now().unix
+        startTime = time.Time(config.startTime, format='mjd').unix
+        stopTime = time.Time(config.stopTime, format='mjd').unix
+        if (startTime > now) and (stopTime > now):
+            logger.warn("Scan startTime and stopTime are in the past ({0}, {1} < {2})".format(startTime, stopTime, now))
             return False
 
         return True
