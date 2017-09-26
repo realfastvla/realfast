@@ -17,9 +17,19 @@ def cli():
 @click.argument('filename')
 def config_catcher(filename):
     """ Runs async process to catch multicast messages to form scan config objects
-    filename defines pickle file to save objects in.
+    filename defines pickle file in which complete scan configs are saved.
     """
 
     config = controllers.config_controller(filename)
     config.run()
 
+
+@cli.command()
+@click.option('--preffile')
+@click.option('--vys_timeout')
+def run(preffile, vys_timeout):
+    """ Run realfast controller to catch scan configs and start rfpipe.
+    """
+
+    rfc = controllers.realfast_controller()
+    rfc.run()
