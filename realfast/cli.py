@@ -31,5 +31,5 @@ def run(preffile, vys_timeout):
     """ Run realfast controller to catch scan configs and start rfpipe.
     """
 
-    rfc = controllers.realfast_controller()
+    rfc = controllers.realfast_controller(preffile=preffile, vys_timeout=vys_timeout)
     rfc.run()
