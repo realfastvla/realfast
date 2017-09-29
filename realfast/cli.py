@@ -14,13 +14,14 @@ def cli():
 
 
 @cli.command()
-@click.argument('filename')
-def config_catcher(filename):
+@click.option('--pklfile')
+@click.option('--index')
+def config_catcher(pklfile, index):
     """ Runs async process to catch multicast messages to form scan config objects
-    filename defines pickle file in which complete scan configs are saved.
+    Can be saved to pklfile or elasticsearch index.
     """
 
-    config = controllers.config_controller(filename)
+    config = controllers.config_controller(pklfile=pklfile, index=index)
     config.run()
 
 
