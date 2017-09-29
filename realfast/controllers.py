@@ -8,6 +8,7 @@ from time import sleep
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
+from realfast import elastic
 
 import logging
 ch = logging.StreamHandler()
@@ -163,8 +164,10 @@ class realfast_controller(Controller):
 
 class config_controller(Controller):
 
-    def __init__(self, pklfile):
+    def __init__(self, pklfile=None, index=None):
         """ Creates controller object that saves scan configs.
+        If pklfile is defined, it will save pickle there.
+        If index is defined, it will save to realfast index of that type.
         Inherits a "run" method that starts asynchronous operation.
         """
 
@@ -181,5 +184,8 @@ class config_controller(Controller):
                     .format(config.scanId, config.scanNo, config.source,
                             config.scan_intent))
 
-        with open(self.pklfile, 'ab') as pkl:
-            pickle.dump(config, pkl)
+        if pklfile:
+            with open(self.pklfile, 'ab') as pkl:
+                pickle.dump(config, pkl)
+        elif index:
+            elastic.indexconfig(config)
