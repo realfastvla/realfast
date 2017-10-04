@@ -4,6 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 from elasticsearch import Elasticsearch
 
+import pickle
 import logging
 logger = logging.getLogger(__name__)
 
@@ -47,22 +48,77 @@ def indexscan(config, preferences=None):
         logger.warn('Preferences not indexed')
 
 
-def indexcands(candsfile):
+def indexcands(candsfile, scanId):
     """ Reads candidates from candsfile and pushes to index
     Optionally adds preferences connection via hashed name
+    scanId is added to associate cand to a give scan.
     """
 
-    canddata = ...
-    res = pushdata(canddata, index='cands',
-                   Id=canddata['name'], command='index')
+    with open(candsfile) as pkl:
+        cand = pickle.load(pkl)
+
+        canddict = {}
+
+        canddict['scanId'] = scanId
+
+        res = pushdata(canddict, index='cands',
+                       Id=candict[...], command='index')
 
     if res >= 1:
-        logger.info('Successfully indexed candidates')
+        logger.debug('Successfully indexed {0} candidates'.format(res))
     else:
-        logger.warn('Candidates not indexed')
+        logger.debug('No candidates indexed')
 
     return res
-    
+
+
+def indexmocks(mockfile, scanId):
+    """ Reads mocks from mockfile and pushes to index
+    Mock index must include scanId to reference data that was received.
+    scanId is added to associate cand to a give scan.
+    """
+
+    raise NotImplementedError
+
+    mocks = None  # ** TODO
+
+    res = 0
+    for mock in mocks:
+        mockdict = {}
+        mockdict['scanId'] = scanId
+
+        res += pushdata(mockdict, index='mocks', command='index')
+
+    if res >= 1:
+        logger.debug('Successfully indexed {0} mocks'.format(res))
+    else:
+        logger.debug('No mocks indexed')
+
+    return res
+
+
+def indexnoises(noisefile, scanId):
+    """ Reads noises from noisefile and pushes to index
+    scanId is added to associate cand to a give scan.
+    """
+
+    raise NotImplementedError
+
+    noises = None
+
+    res = 0
+    for noise in noises:
+        noisedict = {}
+        noisedict['scanId'] = scanId
+        res += pushdata(noisedict, index='noises', command='index')
+
+    if res >= 1:
+        logger.debug('Successfully indexed {0} noises'.format(res))
+    else:
+        logger.debug('No noises indexed')
+
+    return res
+
 
 def pushdata(datadict, index, Id=None, command='index', force=False):
     """ Pushes dict to index, which can be:
@@ -79,7 +135,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
     doc_type = index.rstrip('s')
 
     currentids = getids(index)
-    logger.info('Pushing to {0} with Id {1}'.format(index, Id))
+    logger.debug('Pushing to index {0} with Id {1}'.format(index, Id))
     res = None
 
     if command == 'index':

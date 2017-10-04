@@ -4,7 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import pickle
-from time import sleep
+import os.path
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
@@ -34,7 +34,7 @@ class realfast_controller(Controller):
         self.preffile = preffile
         self.inprefs = inprefs
         self.vys_timeout = vys_timeout
-        self.jobs = []
+        self.jobs = {}
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -50,29 +50,58 @@ class realfast_controller(Controller):
             elastic.indexscan(config, preferences=st.prefs)  # index prefs
 
             logger.info('Starting pipeline...')
+            # pipeline returns state object per DM/dt
             jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=None,
                                                              host=distributed_host,
                                                              cfile=vys_cfile,
                                                              vys_timeout=self.vys_timeout)
-            self.jobs += jobs
+            self.jobs[config.scanId] = jobs
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
-        # clean up and move candidates into index
+        # end of job clean up (indexing and removing from job list)
+        self.cleanup()
+
+    def cleanup(self):
+        """ Scan job dict, remove finished jobs,
+        and push results to relevant indices.
+        """
+
         removed = 0
-        indexed = 0
-        for job in self.jobs:
-            if job.status == 'finished':
-                candsfile = job.result()
-                if candsfile:
-                    res = elastic.indexcands(candsfile)
-                    indexed += res
-                _ = self.jobs.remove(job)
-                removed += 1
+        cindexed = 0
+        nindexed = 0
+        mindexed = 0
+
+        for scanId in self.jobs:
+            logger.info("Checking on jobs from scanId {0}".format(scanId))
+            for job in self.jobs[scanId]:
+                if job.status == 'finished':
+                    st = job.result()
+
+                    if os.path.exists(st.candsfile):
+                        res = elastic.indexcands(st.candsfile, scanId)
+                        cindexed += res
+                    else:
+                        logger.info('No candsfile found, no cands indexed.')
+
+                    if os.path.exists(st.mockfile):
+                        res = elastic.indexmocks(st.mockfile, scanId)
+                        mindexed += res
+                    else:
+                        logger.info('No mockfile found, no mocks indexed.')
+
+                    if os.path.exists(st.noisefile):
+                        res = elastic.indexnoises(st.noisefile, scanId)
+                        nindexed += res
+                    else:
+                        logger.info('No noisefile found, no noises indexed.')
+
+                    self.jobs[scanId].remove(job)
+                    removed += 1
 
         if removed:
-            logger.info('Removed {0} jobs and indexed {1} '
-                        'candidates from job queue.'.format(removed, indexed))
+            logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
+                        .format(removed, cindexed, mindexed, nindexed))
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
