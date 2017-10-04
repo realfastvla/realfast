@@ -47,24 +47,32 @@ class realfast_controller(Controller):
             logger.info('Config looks good. Generating rfpipe state...')
             st = rfpipe.state.State(config=config, preffile=self.preffile,
                                     inprefs=self.inprefs)
+            elastic.indexscan(config, preferences=st.prefs)  # index prefs
+
             logger.info('Starting pipeline...')
             jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=None,
                                                              host=distributed_host,
                                                              cfile=vys_cfile,
                                                              vys_timeout=self.vys_timeout)
             self.jobs += jobs
-#            rfpipe.pipeline.pipeline_seg2(st, 0, preffile=self.preffile,
-#                                          inprefs=self.inprefs)
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
+        # clean up and move candidates into index
         removed = 0
+        indexed = 0
         for job in self.jobs:
             if job.status == 'finished':
+                candsfile = job.result()
+                if candsfile:
+                    res = elastic.indexcands(candsfile)
+                    indexed += res
                 _ = self.jobs.remove(job)
                 removed += 1
+
         if removed:
-            logger.info('Removed {0} finished jobs from job queue.'.format(removed))
+            logger.info('Removed {0} jobs and indexed {1} '
+                        'candidates from job queue.'.format(removed, indexed))
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -190,5 +198,5 @@ class config_controller(Controller):
                 pickle.dump(config, pkl)
 
         if self.preffile:
-            prefs = rfpipe.preferences.Preferences(preffile=preffile)
+            prefs = rfpipe.preferences.Preferences(**rfpipe.preferences.parsepreffile(self.preffile))
             elastic.indexscan(config, preferences=prefs)

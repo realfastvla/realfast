@@ -47,6 +47,23 @@ def indexscan(config, preferences=None):
         logger.warn('Preferences not indexed')
 
 
+def indexcands(candsfile):
+    """ Reads candidates from candsfile and pushes to index
+    Optionally adds preferences connection via hashed name
+    """
+
+    canddata = ...
+    res = pushdata(canddata, index='cands',
+                   Id=canddata['name'], command='index')
+
+    if res >= 1:
+        logger.info('Successfully indexed candidates')
+    else:
+        logger.warn('Candidates not indexed')
+
+    return res
+    
+
 def pushdata(datadict, index, Id=None, command='index', force=False):
     """ Pushes dict to index, which can be:
     candidates, scans, preferences, or noises

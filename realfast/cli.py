@@ -19,15 +19,15 @@ def cli():
 
 @cli.command()
 @click.option('--pklfile')
-@click.option('--index')
-def config_catcher(pklfile, index):
+@click.option('--preffile')
+def config_catcher(pklfile, preffile):
     """ Runs async process to catch multicast messages to form scan config objects
-    Can be saved to pklfile or elasticsearch index.
+    Can be saved to pklfile and optionally attached to preferences from preffile.
     """
 
-    logger.info("Running config catcher with pklfile={0} and index={1}"
-                .format(pklfile, index))
-    config = controllers.config_controller(pklfile=pklfile, index=index)
+    logger.info("Running config catcher with pklfile={0} and preffile={1}"
+                .format(pklfile, preffile))
+    config = controllers.config_controller(pklfile=pklfile, preffile=preffile)
     config.run()
 
 
