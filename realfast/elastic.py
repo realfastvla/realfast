@@ -83,7 +83,7 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
 
             # fill optional fields
             canddict['scanId'] = scanId
-            datasetId, scan, subscan = scanId.rsplit('.', 2)[0]
+            datasetId, scan, subscan = scanId.rsplit('.', 2)
             canddict['datasetId'] = datasetId
             canddict['scan'] = scan
             canddict['subscan'] = subscan

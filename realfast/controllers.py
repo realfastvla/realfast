@@ -114,8 +114,10 @@ class realfast_controller(Controller):
                 self.jobs[scanId].remove(job)
                 removed += 1
 
-            # remove scanIds with empty job lists
-            if not len(self.jobs[scanId]):
+        # remove scanIds with empty job lists
+        scanIds = self.jobs.keys()
+        for scanId in scanIds:
+            if len(self.jobs[scanId]) == 0:
                 _ = self.jobs.pop(scanId)
 
         if removed:
@@ -214,10 +216,12 @@ class realfast_controller(Controller):
 
     @property
     def client(self):
-        if len(self.jobs):
-            return self.jobs[0].client
-        else:
-            logger.warn('No job running. Cannot get client.')
+        for scanId in self.jobs:
+            for job in self.jobs[scanId]:
+                if hasattr(job, 'client'):
+                    return job.client
+
+        logger.warn('No jobs or no jobs with a client.')
 
 
 class config_controller(Controller):
