@@ -43,14 +43,20 @@ def indexscan(config, preferences=None, datasource='vys'):
     else:
         logger.warn('Scan config not indexed')
 
-    # push preferences
     if preferences:
-        res = pushdata(preferences.ordered, index='preferences',
-                       Id=preferences.name, command='index')
-        if res == 1:
-            logger.info('Successfully indexed preferences')
-        else:
-            logger.warn('Preferences not indexed')
+        indexprefs(preferences)
+
+
+def indexprefs(preferences):
+    """
+    """
+
+    res = pushdata(preferences.ordered, index='preferences',
+                   Id=preferences.name, command='index')
+    if res == 1:
+        logger.info('Successfully indexed preferences')
+    else:
+        logger.warn('Preferences not indexed')
 
 
 def indexcands(candsfile, scanId, prefsname=None, withplots=True,
@@ -64,7 +70,7 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
     tags is a comma-delimited string used to fill tag field in index.
     """
 
-    if tags == None:
+    if tags is None:
         tags = 'new'
 
     res = 0
@@ -77,7 +83,7 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
 
             # fill optional fields
             canddict['scanId'] = scanId
-            datasetId, scan, subscan = config.scanId.rsplit('.', 2)[0]
+            datasetId, scan, subscan = scanId.rsplit('.', 2)[0]
             canddict['datasetId'] = datasetId
             canddict['scan'] = scan
             canddict['subscan'] = subscan

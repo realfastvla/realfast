@@ -38,6 +38,8 @@ def run(preffile, vys_timeout):
     """ Run realfast controller to catch scan configs and start rfpipe.
     """
 
+    logger.warn("Command line realfast tool will lose track of jobs and do " 
+                "no indexing after ctrl-c.")
     rfc = controllers.realfast_controller(preffile=preffile,
                                           vys_timeout=vys_timeout)
     rfc.run()

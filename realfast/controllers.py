@@ -82,6 +82,7 @@ class realfast_controller(Controller):
 
         for scanId in self.jobs:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
+            removelist = []
             for job in self.jobs[scanId]:
                 if job.status == 'finished':
                     st = job.result()
@@ -106,8 +107,16 @@ class realfast_controller(Controller):
                     else:
                         logger.info('No noisefile found, no noises indexed.')
 
-                    self.jobs[scanId].remove(job)
-                    removed += 1
+                    removelist.append(job)
+
+            # remove job from list
+            for job in removelist:
+                self.jobs[scanId].remove(job)
+                removed += 1
+
+            # remove scanIds with empty job lists
+            if not len(self.jobs[scanId]):
+                _ = self.jobs.pop(scanId)
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
@@ -194,12 +203,14 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return [self.jobs[i].status for i in range(len(self.jobs))]
+        return [self.jobs[scanId][i].status for scanId in self.jobs
+                for i in range(len(self.jobs[scanId]))]
 
     @property
     def errors(self):
-        return [self.jobs[i].exception() for i in range(len(self.jobs))
-                if self.jobs[i].status == 'error']
+        return [self.jobs[scanId][i].exception() for scanId in self.jobs
+                for i in range(len(self.jobs[scanId]))
+                if self.jobs[scanId][i].status == 'error']
 
     @property
     def client(self):
