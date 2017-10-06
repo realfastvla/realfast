@@ -225,7 +225,7 @@ def getids(index):
     # only one doc_type per index and its name is derived from index
     doc_type = index.rstrip('s')
 
-    count = es.count('realfast')['count']
+    count = es.count(index)['count']
     res = es.search(index=index, doc_type=doc_type, stored_fields=['_id'],
                     body={"query": {"match_all": {}}, "size": count})
     return [hit['_id'] for hit in res['hits']['hits']]
