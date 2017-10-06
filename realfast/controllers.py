@@ -25,9 +25,12 @@ distributed_host = 'cbe-node-01'
 class realfast_controller(Controller):
 
     def __init__(self, preffile=default_preffile, inprefs={},
-                 vys_timeout=default_vys_timeout):
+                 vys_timeout=default_vys_timeout, datasource='vys',
+                 tags=None):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
+        datasource can be "vys" or "sim".
+        tags is a default string for candidates put into index (None -> "new").
         """
 
         super(realfast_controller, self).__init__()
@@ -35,6 +38,8 @@ class realfast_controller(Controller):
         self.inprefs = inprefs
         self.vys_timeout = vys_timeout
         self.jobs = {}
+        self.datasource = datasource
+        self.tags = tags
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -46,8 +51,10 @@ class realfast_controller(Controller):
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
             st = rfpipe.state.State(config=config, preffile=self.preffile,
-                                    inprefs=self.inprefs)
-            elastic.indexscan(config, preferences=st.prefs)  # index prefs
+                                    inprefs=self.inprefs,
+                                    inmeta={'datasource': self.datasource})
+            elastic.indexscan(config, preferences=st.prefs,
+                              datasource=self.datasource)  # index prefs
 
             logger.info('Starting pipeline...')
             # pipeline returns state object per DM/dt
@@ -61,6 +68,7 @@ class realfast_controller(Controller):
 
         # end of job clean up (indexing and removing from job list)
         self.cleanup()
+        # TODO: this only runs when new data arrives. how to run at end/ctrl-c?
 
     def cleanup(self):
         """ Scan job dict, remove finished jobs,
@@ -80,7 +88,8 @@ class realfast_controller(Controller):
 
                     if os.path.exists(st.candsfile):
                         res = elastic.indexcands(st.candsfile, scanId,
-                                                 prefsname=st.prefs.name)
+                                                 prefsname=st.prefs.name,
+                                                 tags=self.tags)
                         cindexed += res
                     else:
                         logger.info('No candsfile found, no cands indexed.')

@@ -13,12 +13,13 @@ logger = logging.getLogger(__name__)
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
-def indexscan(config, preferences=None):
+def indexscan(config, preferences=None, datasource='vys'):
     """ Takes scan config and creates dict to push
     to elasticsearch index.
     Optionally pushes rfpipe preferences object as separate doc
     and connects them via the hexdigest name.
     Note index names must end in s and types are derived as singular form.
+    datasource is assumed to be 'vys', but 'sim' is an option.
     """
 
     scandict = {}
@@ -29,6 +30,7 @@ def indexscan(config, preferences=None):
     # define dict for scan properties to index
     for prop in scanproperties:
         scandict[prop] = getattr(config, prop)
+    scandict['datasource'] = datasource
 
     # if preferences provided, it will connect them by a unique name
     if preferences:
@@ -52,7 +54,7 @@ def indexscan(config, preferences=None):
 
 
 def indexcands(candsfile, scanId, prefsname=None, withplots=True,
-               tags='new'):
+               tags=None):
     """ Reads candidates from candsfile and pushes to index
     Optionally adds preferences connection via hashed name
     scanId is added to associate cand to a give scan.
@@ -61,6 +63,9 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
     withplots specifies that only candidates with plots are indexed.
     tags is a comma-delimited string used to fill tag field in index.
     """
+
+    if tags == None:
+        tags = 'new'
 
     res = 0
     with open(candsfile) as pkl:
