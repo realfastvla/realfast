@@ -79,7 +79,8 @@ class realfast_controller(Controller):
                     st = job.result()
 
                     if os.path.exists(st.candsfile):
-                        res = elastic.indexcands(st.candsfile, scanId)
+                        res = elastic.indexcands(st.candsfile, scanId,
+                                                 prefsname=st.prefs.name)
                         cindexed += res
                     else:
                         logger.info('No candsfile found, no cands indexed.')

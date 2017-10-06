@@ -2,9 +2,10 @@ from __future__ import print_function, division, absolute_import #, unicode_lite
 from builtins import bytes, dict, object, range, map, input#, str # not casa compatible
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
-from elasticsearch import Elasticsearch
 
 import pickle
+import os.path
+from elasticsearch import Elasticsearch
 import logging
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,7 @@ def indexscan(config, preferences=None):
     to elasticsearch index.
     Optionally pushes rfpipe preferences object as separate doc
     and connects them via the hexdigest name.
+    Note index names must end in s and types are derived as singular form.
     """
 
     scandict = {}
@@ -30,9 +32,9 @@ def indexscan(config, preferences=None):
 
     # if preferences provided, it will connect them by a unique name
     if preferences:
-        scandict['preferences'] = preferences.name
+        scandict['prefsname'] = preferences.name
 
-    # push scan info
+    # push scan info with unique id of scanId
     res = pushdata(scandict, index='scans', Id=config.scanId, command='index')
     if res == 1:
         logger.info('Successfully indexed scan config')
@@ -40,29 +42,59 @@ def indexscan(config, preferences=None):
         logger.warn('Scan config not indexed')
 
     # push preferences
-    res = pushdata(preferences.ordered, index='preferences',
-                   Id=preferences.name, command='index')
-    if res == 1:
-        logger.info('Successfully indexed preferences')
-    else:
-        logger.warn('Preferences not indexed')
+    if preferences:
+        res = pushdata(preferences.ordered, index='preferences',
+                       Id=preferences.name, command='index')
+        if res == 1:
+            logger.info('Successfully indexed preferences')
+        else:
+            logger.warn('Preferences not indexed')
 
 
-def indexcands(candsfile, scanId):
+def indexcands(candsfile, scanId, prefsname=None, withplots=True,
+               tags='new'):
     """ Reads candidates from candsfile and pushes to index
     Optionally adds preferences connection via hashed name
     scanId is added to associate cand to a give scan.
+    Assumes scanId is defined as:
+    datasetId (a.k.a. metadata.filename) dot scanNo dot subscanNo.
+    withplots specifies that only candidates with plots are indexed.
+    tags is a comma-delimited string used to fill tag field in index.
     """
 
+    res = 0
     with open(candsfile) as pkl:
-        cand = pickle.load(pkl)
+        cands = pickle.load(pkl)
+        for cand in cands.df.itertuples():
+            # get features
+            canddict = dict([(col, cand.__dict__[col])
+                            for col in cands.df.columns])
 
-        canddict = {}
+            # fill optional fields
+            canddict['scanId'] = scanId
+            datasetId, scan, subscan = config.scanId.rsplit('.', 2)[0]
+            canddict['datasetId'] = datasetId
+            canddict['scan'] = scan
+            canddict['subscan'] = subscan
+            canddict['tags'] = tags
+            if prefsname:
+                canddict['prefsname'] = prefsname
 
-        canddict['scanId'] = scanId
+            # create id
+            uniqueid = candid(canddict)
+            candidate_png = 'cands_{0}.png'.format(uniqueid)
+            if os.path.exists(candidate_png):
+                canddict['candidate_png'] = candidate_png  # only if it exists
 
-        res = pushdata(canddict, index='cands',
-                       Id=candict[...], command='index')
+            if withplots:
+                if os.path.exists(candidate_png):
+                    res += pushdata(canddict, index='cands',
+                                    Id=canddict[uniqueid], command='index')
+                else:
+                    logger.info("No plot {0} found".format(candidate_png))
+            else:
+                res += pushdata(canddict, index='cands',
+                                Id=canddict[uniqueid], command='index')
 
     if res >= 1:
         logger.debug('Successfully indexed {0} candidates'.format(res))
@@ -70,6 +102,18 @@ def indexcands(candsfile, scanId):
         logger.debug('No candidates indexed')
 
     return res
+
+
+def candid(data):
+    """ Returns id string for given data dict
+    Assumes scanId is defined as:
+    datasetId (a.k.a. metadata.filename) dot scanNum dot subscanNum
+    ** TODO: maybe allow scan to be defined as scan.subscan?
+    """
+
+    return ('{0}_sc{1}-seg{2}-i{3}-dm{4}-dt{5}'
+            .format(data['datasetId'], data['scan'], data['segment'],
+                    data['integration'], data['dmind'], data['dtind']))
 
 
 def indexmocks(mockfile, scanId):
