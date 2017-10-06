@@ -100,12 +100,12 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
             if withplots:
                 if os.path.exists(candidate_png):
                     res += pushdata(canddict, index='cands',
-                                    Id=canddict[uniqueid], command='index')
+                                    Id=uniqueid, command='index')
                 else:
                     logger.info("No plot {0} found".format(candidate_png))
             else:
                 res += pushdata(canddict, index='cands',
-                                Id=canddict[uniqueid], command='index')
+                                Id=uniqueid, command='index')
 
     if res >= 1:
         logger.debug('Successfully indexed {0} candidates'.format(res))
