@@ -69,7 +69,7 @@ def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
     scandict['scanNo'] = sdmscan
     scandict['subscanNo'] = sdmsubscan
     scandict['source'] = str(scan.source)
-    ra, dec = degrees(degrees(scan.coordinates))
+    ra, dec = degrees(scan.coordinates)
     scandict['ra_deg'] = ra
     scandict['dec_deg'] = dec
     scandict['startTime'] = str(scan.startMJD)
