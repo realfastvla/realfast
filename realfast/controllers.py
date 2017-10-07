@@ -157,7 +157,8 @@ class realfast_controller(Controller):
         startTime = time.Time(config.startTime, format='mjd').unix
         stopTime = time.Time(config.stopTime, format='mjd').unix
         if (startTime > now) and (stopTime > now):
-            logger.warn("Scan startTime and stopTime are in the past ({0}, {1} < {2})".format(startTime, stopTime, now))
+            logger.warn("Scan startTime and stopTime are in the past ({0}, {1} < {2})"
+                        .format(startTime, stopTime, now))
             return False
 
         return True

@@ -75,37 +75,41 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
 
     res = 0
     with open(candsfile) as pkl:
-        cands = pickle.load(pkl)
-        for cand in cands.df.itertuples():
-            # get features
-            canddict = dict([(col, cand.__dict__[col])
-                            for col in cands.df.columns])
+        while True:  # step through all possible segments
+            try:
+                cands = pickle.load(pkl)
+                for cand in cands.df.itertuples():
+                    # get features
+                    canddict = dict([(col, cand.__dict__[col])
+                                    for col in cands.df.columns])
 
-            # fill optional fields
-            canddict['scanId'] = scanId
-            datasetId, scan, subscan = scanId.rsplit('.', 2)
-            canddict['datasetId'] = datasetId
-            canddict['scan'] = scan
-            canddict['subscan'] = subscan
-            canddict['tags'] = tags
-            if prefsname:
-                canddict['prefsname'] = prefsname
+                    # fill optional fields
+                    canddict['scanId'] = scanId
+                    datasetId, scan, subscan = scanId.rsplit('.', 2)
+                    canddict['datasetId'] = datasetId
+                    canddict['scan'] = scan
+                    canddict['subscan'] = subscan
+                    canddict['tags'] = tags
+                    if prefsname:
+                        canddict['prefsname'] = prefsname
 
-            # create id
-            uniqueid = candid(canddict)
-            candidate_png = 'cands_{0}.png'.format(uniqueid)
-            if os.path.exists(candidate_png):
-                canddict['candidate_png'] = candidate_png  # only if it exists
+                    # create id
+                    uniqueid = candid(canddict)
+                    candidate_png = 'cands_{0}.png'.format(uniqueid)
+                    if os.path.exists(candidate_png):
+                        canddict['candidate_png'] = candidate_png  # only if it exists
 
-            if withplots:
-                if os.path.exists(candidate_png):
-                    res += pushdata(canddict, index='cands',
-                                    Id=uniqueid, command='index')
-                else:
-                    logger.info("No plot {0} found".format(candidate_png))
-            else:
-                res += pushdata(canddict, index='cands',
-                                Id=uniqueid, command='index')
+                    if withplots:
+                        if os.path.exists(candidate_png):
+                            res += pushdata(canddict, index='cands',
+                                            Id=uniqueid, command='index')
+                        else:
+                            logger.info("No plot {0} found".format(candidate_png))
+                    else:
+                        res += pushdata(canddict, index='cands',
+                                        Id=uniqueid, command='index')
+            except EOFError:
+                break
 
     if res >= 1:
         logger.debug('Successfully indexed {0} candidates'.format(res))
