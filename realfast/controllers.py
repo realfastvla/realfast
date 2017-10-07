@@ -27,11 +27,11 @@ distributed_host = 'cbe-node-01'
 class realfast_controller(Controller):
 
     def __init__(self, preffile=default_preffile, inprefs={},
-                 vys_timeout=default_vys_timeout, datasource='vys',
+                 vys_timeout=default_vys_timeout, datasource=None,
                  tags=None):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
-        datasource can be "vys" or "sim".
+        datasource of None defaults to "vys" or "sdm", by sim" is an option.
         tags is a default string for candidates put into index (None -> "new").
         """
 
@@ -49,6 +49,9 @@ class realfast_controller(Controller):
         """
 
         self.summarize(config)
+
+        if self.datasource is None:
+            self.datasource = 'vys'
 
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
@@ -77,14 +80,17 @@ class realfast_controller(Controller):
         Only gets called directly, so no cleanup done here.
         """
 
-        # subscan assumed = 1
+        if self.datasource is None:
+            self.datasource = 'sdm'
+
+        # TODO: subscan assumed = 1
         subscan = 1
 
         st = rfpipe.state.State(sdmfile=sdmfile, sdmscan=sdmscan,
                                 preffile=self.preffile, inprefs=self.inprefs,
                                 inmeta={'datasource': self.datasource})
 
-        scanId = '.'.join([st.metadata.filename, st.metadata.scan, subscan])
+        scanId = '.'.join([st.metadata.filename, str(st.metadata.scan), str(subscan)])
         elastic.indexscan_sdm(scanId, preferences=st.prefs,
                               datasource=self.datasource)  # index prefs
 
@@ -119,6 +125,7 @@ class realfast_controller(Controller):
                                                  prefsname=st.prefs.name,
                                                  tags=self.tags)
                         cindexed += res
+                        moveplots(st.prefs.workdir, scanId)
                     else:
                         logger.info('No candsfile found, no cands indexed.')
 
@@ -146,8 +153,6 @@ class realfast_controller(Controller):
         for scanId in scanIds:
             if len(self.jobs[scanId]) == 0:
                 _ = self.jobs.pop(scanId)
-
-        moveplots(scanId)
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
@@ -286,13 +291,14 @@ class config_controller(Controller):
             elastic.indexscan_config(config, preferences=prefs)
 
 
-def moveplots(scanId, destination='/users/claw/public_html/realfast/plots'):
+def moveplots(workdir, scanId, destination='/users/claw/public_html/realfast/plots'):
     """ For given fileroot, move candidate plots to public location
     """
 
     datasetId, scan, subscan = scanId.rsplit('.', 2)
 
-    candfiles = glob.glob('cands_{0}*.png'.format(datasetId))
+    candfiles = glob.glob(os.path.join(workdir,
+                                       'cands_{0}*.png'.format(datasetId)))
     for candfile in candfiles:
         shutil.copy(candfile, destination)
     if candfiles:

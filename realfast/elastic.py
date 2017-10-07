@@ -68,12 +68,12 @@ def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
     scandict['projid'] = 'Unknown'
     scandict['scanNo'] = sdmscan
     scandict['subscanNo'] = sdmsubscan
-    scandict['source'] = scan.source
+    scandict['source'] = str(scan.source)
     ra, dec = degrees(degrees(scan.coordinates))
     scandict['ra_deg'] = ra
     scandict['dec_deg'] = dec
-    scandict['startTime'] = scan.startMJD
-    scandict['stopTime'] = scan.endMJD
+    scandict['startTime'] = str(scan.startMJD)
+    scandict['stopTime'] = str(scan.endMJD)
     scandict['datasource'] = datasource
     scandict['scan_intent'] = ','.join(scan.intents)
 
