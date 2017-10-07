@@ -90,7 +90,7 @@ class realfast_controller(Controller):
                                 preffile=self.preffile, inprefs=self.inprefs,
                                 inmeta={'datasource': self.datasource})
 
-        scanId = '.'.join([st.metadata.filename, str(st.metadata.scan), str(subscan)])
+        scanId = '.'.join([os.path.basename(st.metadata.filename), str(st.metadata.scan), str(subscan)])
         elastic.indexscan_sdm(scanId, preferences=st.prefs,
                               datasource=self.datasource)  # index prefs
 
@@ -142,6 +142,8 @@ class realfast_controller(Controller):
                         logger.info('No noisefile found, no noises indexed.')
 
                     removelist.append(job)
+                else:
+                    logger.info("No jobs finished jobs.")
 
             # remove job from list
             for job in removelist:
@@ -297,8 +299,7 @@ def moveplots(workdir, scanId, destination='/users/claw/public_html/realfast/plo
 
     datasetId, scan, subscan = scanId.rsplit('.', 2)
 
-    candfiles = glob.glob(os.path.join(workdir,
-                                       'cands_{0}*.png'.format(datasetId)))
+    candfiles = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
     for candfile in candfiles:
         shutil.copy(candfile, destination)
     if candfiles:
