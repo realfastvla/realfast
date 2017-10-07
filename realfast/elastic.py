@@ -13,9 +13,9 @@ logger = logging.getLogger(__name__)
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
-def indexscan(config, preferences=None, datasource='vys'):
+def indexscan_config(config, preferences=None, datasource='vys'):
     """ Takes scan config and creates dict to push
-    to elasticsearch index.
+    to elasticsearch scnas index.
     Optionally pushes rfpipe preferences object as separate doc
     and connects them via the hexdigest name.
     Note index names must end in s and types are derived as singular form.
@@ -35,6 +35,7 @@ def indexscan(config, preferences=None, datasource='vys'):
     # if preferences provided, it will connect them by a unique name
     if preferences:
         scandict['prefsname'] = preferences.name
+        indexprefs(preferences)
 
     # push scan info with unique id of scanId
     res = pushdata(scandict, index='scans', Id=config.scanId, command='index')
@@ -43,8 +44,50 @@ def indexscan(config, preferences=None, datasource='vys'):
     else:
         logger.warn('Scan config not indexed')
 
+
+def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
+    """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
+    """
+
+# must include:
+#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
+#                      'dec_deg', 'scan_intent', 'source', 'startTime',
+#                      'stopTime']
+
+    import sdmpy
+    from numpy import degrees
+
+    datasetId, sdmscan, sdmsubscan = scanId.rsplit('.', 2)
+    sdm = sdmpy.SDM(datasetId)
+    scan = sdm.scan(sdmscan)
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = datasetId
+    scandict['projid'] = 'Unknown'
+    scandict['scanNo'] = sdmscan
+    scandict['subscanNo'] = sdmsubscan
+    scandict['source'] = scan.source
+    ra, dec = degrees(degrees(scan.coordinates))
+    scandict['ra_deg'] = ra
+    scandict['dec_deg'] = dec
+    scandict['startTime'] = scan.startMJD
+    scandict['stopTime'] = scan.endMJD
+    scandict['datasource'] = datasource
+    scandict['scan_intent'] = ','.join(scan.intents)
+
+    # if preferences provided, it will connect them by a unique name
     if preferences:
+        scandict['prefsname'] = preferences.name
         indexprefs(preferences)
+
+    # push scan info with unique id of scanId
+    res = pushdata(scandict, index='scans', Id=scanId, command='index')
+    if res == 1:
+        logger.info('Successfully indexed scan config')
+    else:
+        logger.warn('Scan config not indexed')
 
 
 def indexprefs(preferences):

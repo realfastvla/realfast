@@ -55,8 +55,8 @@ class realfast_controller(Controller):
             st = rfpipe.state.State(config=config, preffile=self.preffile,
                                     inprefs=self.inprefs,
                                     inmeta={'datasource': self.datasource})
-            elastic.indexscan(config, preferences=st.prefs,
-                              datasource=self.datasource)  # index prefs
+            elastic.indexscan_config(config, preferences=st.prefs,
+                                     datasource=self.datasource)  # index prefs
 
             logger.info('Starting pipeline...')
             # pipeline returns state object per DM/dt
@@ -71,6 +71,31 @@ class realfast_controller(Controller):
         # end of job clean up (indexing and removing from job list)
         self.cleanup()
         # TODO: this only runs when new data arrives. how to run at end/ctrl-c?
+
+    def handle_sdm(self, sdmfile, sdmscan):
+        """ Parallel to handle_config, but allows sdm to be passed in.
+        Only gets called directly, so no cleanup done here.
+        """
+
+        # subscan assumed = 1
+        subscan = 1
+
+        st = rfpipe.state.State(sdmfile=sdmfile, sdmscan=sdmscan,
+                                preffile=self.preffile, inprefs=self.inprefs,
+                                inmeta={'datasource': self.datasource})
+
+        scanId = '.'.join([st.metadata.filename, st.metadata.scan, subscan])
+        elastic.indexscan_sdm(scanId, preferences=st.prefs,
+                              datasource=self.datasource)  # index prefs
+
+        logger.info('Starting pipeline...')
+        # pipeline returns state object per DM/dt
+        jobs = rfpipe.pipeline.pipeline_scan_distributed(st, segments=None,
+                                                         host=distributed_host,
+                                                         cfile=vys_cfile,
+                                                         vys_timeout=self.vys_timeout)
+
+        self.jobs[scanId] = jobs
 
     def cleanup(self):
         """ Scan job dict, remove finished jobs,
@@ -258,7 +283,7 @@ class config_controller(Controller):
 
         if self.preffile:
             prefs = rfpipe.preferences.Preferences(**rfpipe.preferences.parsepreffile(self.preffile))
-            elastic.indexscan(config, preferences=prefs)
+            elastic.indexscan_config(config, preferences=prefs)
 
 
 def moveplots(scanId, destination='/users/claw/public_html/realfast/plots'):
