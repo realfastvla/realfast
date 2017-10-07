@@ -96,15 +96,16 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
                     # create id
                     uniqueid = candid(canddict)
                     candidate_png = 'cands_{0}.png'.format(uniqueid)
-                    if os.path.exists(candidate_png):
-                        canddict['candidate_png'] = candidate_png  # only if it exists
+                    if os.path.exists(candidate_png):  # set if png exists
+                        canddict['candidate_png'] = candidate_png
 
                     if withplots:
                         if os.path.exists(candidate_png):
                             res += pushdata(canddict, index='cands',
                                             Id=uniqueid, command='index')
                         else:
-                            logger.info("No plot {0} found".format(candidate_png))
+                            logger.info("No plot {0} found"
+                                        .format(candidate_png))
                     else:
                         res += pushdata(canddict, index='cands',
                                         Id=uniqueid, command='index')
@@ -195,7 +196,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
 
     currentids = getids(index)
     logger.debug('Pushing to index {0} with Id {1}'.format(index, Id))
-    res = None
+    res = 0
 
     if command == 'index':
         if force:
