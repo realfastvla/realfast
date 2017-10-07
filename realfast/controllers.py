@@ -5,6 +5,8 @@ from io import open
 
 import pickle
 import os.path
+import glob
+import shutil
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
@@ -119,6 +121,8 @@ class realfast_controller(Controller):
         for scanId in scanIds:
             if len(self.jobs[scanId]) == 0:
                 _ = self.jobs.pop(scanId)
+
+        moveplots(scanId)
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
@@ -255,3 +259,18 @@ class config_controller(Controller):
         if self.preffile:
             prefs = rfpipe.preferences.Preferences(**rfpipe.preferences.parsepreffile(self.preffile))
             elastic.indexscan(config, preferences=prefs)
+
+
+def moveplots(scanId, destination='/users/claw/public_html/realfast/plots'):
+    """ For given fileroot, move candidate plots to public location
+    """
+
+    datasetId, scan, subscan = scanId.rsplit('.', 2)
+
+    candfiles = glob.glob('cands_{0}*.png'.format(datasetId))
+    for candfile in candfiles:
+        shutil.copy(candfile, destination)
+    if candfiles:
+        logger.info('Candidate plots copied to {0}'.format(destination))
+    else:
+        logger.warn('No candidate plots found to copy.')
