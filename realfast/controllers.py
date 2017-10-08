@@ -7,6 +7,7 @@ import pickle
 import os.path
 import glob
 import shutil
+import random
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
@@ -23,16 +24,22 @@ default_preffile = '/lustre/evla/test/realfast/realfast.yml'
 default_vys_timeout = 10  # seconds more than segment length
 distributed_host = 'cbe-node-01'
 
+mock_standards = [(0.1, 30, 20, 0.05, 1e-3, 1e-3),
+                  (0.1, 30, 20, 0.05, -1e-3, 1e-3),
+                  (0.1, 30, 20, 0.05, -1e-3, -1e-3),
+                  (0.1, 30, 20, 0.05, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
+
 
 class realfast_controller(Controller):
 
     def __init__(self, preffile=default_preffile, inprefs={},
                  vys_timeout=default_vys_timeout, datasource=None,
-                 tags=None):
+                 tags=None, mockprob=0.1):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
         tags is a default string for candidates put into index (None -> "new").
+        mockprob is a prob (per scan, range 0-1) of adding std mock transient.
         """
 
         super(realfast_controller, self).__init__()
@@ -42,6 +49,7 @@ class realfast_controller(Controller):
         self.jobs = {}
         self.datasource = datasource
         self.tags = tags
+        self.mockprob = mockprob
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -52,6 +60,8 @@ class realfast_controller(Controller):
 
         if self.datasource is None:
             self.datasource = 'vys'
+
+        self.inject_transient()  # randomly inject mock transient
 
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
@@ -82,6 +92,8 @@ class realfast_controller(Controller):
 
         if self.datasource is None:
             self.datasource = 'sdm'
+
+        self.inject_transient()  # randomly inject mock transient
 
         # TODO: subscan assumed = 1
         subscan = 1
@@ -165,6 +177,19 @@ class realfast_controller(Controller):
         """
 
         logger.info('End of scheduling block message received.')
+
+
+    def inject_transient(self):
+        """ Randomly sets preferences for scan to injects a transient into each segment.
+        """
+
+        if random.uniform(0, 1) < self.mockprob:
+            mockparams = random.choice(mock_standards)
+            self.inprefs['simulated_transient'] = [mockparams]
+            self.tags = self.tags + ',mock'
+        else:
+            self.tags = self.tags.rstrip(',mock')
+
 
     def runsearch(self, config):
         """ Test whether configuration specifies a config that realfast should search
