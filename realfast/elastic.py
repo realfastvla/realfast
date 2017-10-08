@@ -25,7 +25,7 @@ def indexscan_config(config, preferences=None, datasource='vys'):
     scandict = {}
     scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
                       'dec_deg', 'scan_intent', 'source', 'startTime',
-                      'stopTime']
+                      'stopTime', 'scanId']
 
     # define dict for scan properties to index
     for prop in scanproperties:
@@ -65,6 +65,7 @@ def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
 
     # define dict for scan properties to index
     scandict['datasetId'] = datasetId
+    scandict['scanId'] = scanId
     scandict['projid'] = 'Unknown'
     scandict['scanNo'] = sdmscan
     scandict['subscanNo'] = sdmsubscan
