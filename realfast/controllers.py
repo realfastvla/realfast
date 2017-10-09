@@ -127,7 +127,8 @@ class realfast_controller(Controller):
 
         for scanId in self.jobs:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
-            removelist = [job for job in self.jobs[scanId] if job.status == 'finished']
+            removelist = [job for job in self.jobs[scanId]
+                          if job.status in ['finished', 'cancelled']]
             if len(removelist):
                 job = removelist[0]  # get example one. all should have same state
                 st = job.result()
