@@ -189,12 +189,9 @@ class realfast_controller(Controller):
                 self.tags = 'mock'
             elif 'mock' not in self.tags:
                 self.tags = ','.join(self.tags.split(',') + ['mock'])
-        else:
+        elif self.tags is not None:
             if 'mock' in self.tags:
-                try:
-                    self.tags = ','.join(self.tags.split(',').remove('mock'))
-                except TypeError:
-                    self.tags = None
+                self.tags = ','.join(self.tags.split(',').remove('mock'))
 
 
     def runsearch(self, config):
