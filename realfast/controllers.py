@@ -127,35 +127,34 @@ class realfast_controller(Controller):
 
         for scanId in self.jobs:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
-            removelist = []
-            for job in self.jobs[scanId]:
-                if job.status == 'finished':
-                    st = job.result()
+            removelist = [job for job in self.jobs[scanId] if job.status == 'finished']
+            if len(removelist):
+                job = removelist[0]  # get example one. all should have same state
+                st = job.result()
 
-                    if os.path.exists(st.candsfile):
-                        res = elastic.indexcands(st.candsfile, scanId,
-                                                 prefsname=st.prefs.name,
-                                                 tags=self.tags)
-                        cindexed += res
-                        moveplots(st.prefs.workdir, scanId)
-                    else:
-                        logger.info('No candsfile found, no cands indexed.')
-
-                    if os.path.exists(st.mockfile):
-                        res = elastic.indexmocks(st.mockfile, scanId)
-                        mindexed += res
-                    else:
-                        logger.info('No mockfile found, no mocks indexed.')
-
-                    if os.path.exists(st.noisefile):
-                        res = elastic.indexnoises(st.noisefile, scanId)
-                        nindexed += res
-                    else:
-                        logger.info('No noisefile found, no noises indexed.')
-
-                    removelist.append(job)
+                if os.path.exists(st.candsfile):
+                    res = elastic.indexcands(st.candsfile, scanId,
+                                             prefsname=st.prefs.name,
+                                             tags=self.tags)
+                    cindexed += res
+                    moveplots(st.prefs.workdir, scanId)
                 else:
-                    logger.info("No jobs finished jobs.")
+                    logger.info('No candsfile found, no cands indexed.')
+
+                if os.path.exists(st.mockfile):
+                    res = elastic.indexmocks(st.mockfile, scanId)
+                    mindexed += res
+                else:
+                    logger.info('No mockfile found, no mocks indexed.')
+
+                if os.path.exists(st.noisefile):
+                    res = elastic.indexnoises(st.noisefile, scanId)
+                    nindexed += res
+                else:
+                    logger.info('No noisefile found, no noises indexed.')
+
+            else:
+                logger.info("No finished jobs for scanId {0}.".format(scanId))
 
             # remove job from list
             for job in removelist:
@@ -192,7 +191,10 @@ class realfast_controller(Controller):
                 self.tags = ','.join(self.tags.split(',') + ['mock'])
         else:
             if 'mock' in self.tags:
-                self.tags = ','.join(self.tags.split(',').remove('mock'))
+                try:
+                    self.tags = ','.join(self.tags.split(',').remove('mock'))
+                except TypeError:
+                    self.tags = None
 
 
     def runsearch(self, config):
