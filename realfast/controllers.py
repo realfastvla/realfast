@@ -34,12 +34,12 @@ class realfast_controller(Controller):
 
     def __init__(self, preffile=default_preffile, inprefs={},
                  vys_timeout=default_vys_timeout, datasource=None,
-                 tags=None, mockprob=0.1):
+                 tags=None, mockprob=0.5):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
         tags is a default string for candidates put into index (None -> "new").
-        mockprob is a prob (per scan, range 0-1) of adding std mock transient.
+        mockprob is a prob (range 0-1) that a mock is added to each segment.
         """
 
         super(realfast_controller, self).__init__()
@@ -186,9 +186,13 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(mock_standards)
             self.inprefs['simulated_transient'] = [mockparams]
-            self.tags = self.tags + ',mock'
+            if self.tags is None:
+                self.tags = 'mock'
+            elif 'mock' not in self.tags:
+                self.tags = ','.join(self.tags.split(',') + ['mock'])
         else:
-            self.tags = self.tags.rstrip(',mock')
+            if 'mock' in self.tags:
+                self.tags = ','.join(self.tags.split(',').remove('mock'))
 
 
     def runsearch(self, config):
