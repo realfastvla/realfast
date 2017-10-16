@@ -1,0 +1,50 @@
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+    <xs:element name="SdmBuilderMessage">
+        <xs:complexType>
+            <xs:sequence>
+
+                <xs:element name="datasetId" type="xs:string" minOccurs="0" maxOccurs="1" />
+
+                <xs:element name="bdf" minOccurs="0" >
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="uid" type="xs:string" />
+                            <xs:element name="dataSize" type="xs:long" />
+                            <xs:element name="numIntegrations" type="xs:int" />
+                            <xs:element name="startTime" type="xs:double" />
+                            <xs:element name="endTime" type="xs:double" />
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="result" minOccurs="0" >
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="location" type="xs:string" />
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="scan" minOccurs="0" >
+                    <xs:complexType>
+                        <xs:attribute name="scanNumber" type="xs:int"/>
+                        <xs:attribute name="subscanNumber" type="xs:int" />
+                    </xs:complexType>
+                </xs:element>
+
+                <xs:element name="error" minOccurs="0" maxOccurs="1" >
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="message" type="xs:string" />
+                        </xs:sequence>
+                    </xs:complexType>
+                </xs:element>
+
+            </xs:sequence>
+            <xs:attribute name="timestamp" type="xs:double"/>
+            <xs:attribute name="sender" type="xs:string" use="optional"/>
+        </xs:complexType>
+
+    </xs:element>
+</xs:schema>
