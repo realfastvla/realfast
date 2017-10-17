@@ -3,8 +3,8 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-import pickle
 import os.path
+from rfpipe import candidates
 from elasticsearch import Elasticsearch
 import logging
 logger = logging.getLogger(__name__)
@@ -103,9 +103,9 @@ def indexprefs(preferences):
         logger.warn('Preferences not indexed')
 
 
-def indexcands(candsfile, scanId, prefsname=None, withplots=True,
+def indexcands(canddf, scanId, prefsname=None, withplots=True,
                tags=None):
-    """ Reads candidates from candsfile and pushes to index
+    """ Takes candidates from canddf object and pushes to index
     Optionally adds preferences connection via hashed name
     scanId is added to associate cand to a give scan.
     Assumes scanId is defined as:
@@ -118,43 +118,37 @@ def indexcands(candsfile, scanId, prefsname=None, withplots=True,
         tags = 'new'
 
     res = 0
-    with open(candsfile) as pkl:
-        while True:  # step through all possible segments
-            try:
-                cands = pickle.load(pkl)
-                for cand in cands.df.itertuples():
-                    # get features
-                    canddict = dict([(col, cand.__dict__[col])
-                                    for col in cands.df.columns])
+    for cand in canddf.df.itertuples():
+        # get features
+        canddict = dict([(col, cand.__dict__[col])
+                        for col in canddf.df.columns])
 
-                    # fill optional fields
-                    canddict['scanId'] = scanId
-                    datasetId, scan, subscan = scanId.rsplit('.', 2)
-                    canddict['datasetId'] = datasetId
-                    canddict['scan'] = scan
-                    canddict['subscan'] = subscan
-                    canddict['tags'] = tags
-                    if prefsname:
-                        canddict['prefsname'] = prefsname
+        # fill optional fields
+        canddict['scanId'] = scanId
+        datasetId, scan, subscan = scanId.rsplit('.', 2)
+        canddict['datasetId'] = datasetId
+        canddict['scan'] = scan
+        canddict['subscan'] = subscan
+        canddict['tags'] = tags
+        if prefsname:
+            canddict['prefsname'] = prefsname
 
-                    # create id
-                    uniqueid = candid(canddict)
-                    candidate_png = 'cands_{0}.png'.format(uniqueid)
-                    if os.path.exists(candidate_png):  # set if png exists
-                        canddict['candidate_png'] = candidate_png
+        # create id
+        uniqueid = candid(canddict)
+        candidate_png = 'cands_{0}.png'.format(uniqueid)
+        if os.path.exists(candidate_png):  # set if png exists
+            canddict['candidate_png'] = candidate_png
 
-                    if withplots:
-                        if os.path.exists(candidate_png):
-                            res += pushdata(canddict, index='cands',
-                                            Id=uniqueid, command='index')
-                        else:
-                            logger.info("No plot {0} found"
-                                        .format(candidate_png))
-                    else:
-                        res += pushdata(canddict, index='cands',
-                                        Id=uniqueid, command='index')
-            except EOFError:
-                break
+        if withplots:
+            if os.path.exists(candidate_png):
+                res += pushdata(canddict, index='cands',
+                                Id=uniqueid, command='index')
+            else:
+                logger.info("No plot {0} found"
+                            .format(candidate_png))
+        else:
+            res += pushdata(canddict, index='cands',
+                            Id=uniqueid, command='index')
 
     if res >= 1:
         logger.debug('Successfully indexed {0} candidates'.format(res))
@@ -176,15 +170,15 @@ def candid(data):
                     data['integration'], data['dmind'], data['dtind']))
 
 
-def indexmocks(mockfile, scanId):
-    """ Reads mocks from mockfile and pushes to index
+def indexmocks(inprefs, scanId):
+    """ Reads simulated_transient from preferences dict and pushes to index
     Mock index must include scanId to reference data that was received.
     scanId is added to associate cand to a give scan.
     """
 
     raise NotImplementedError
 
-    mocks = None  # ** TODO
+    mocks = inprefs['simulated_transient']
 
     res = 0
     for mock in mocks:

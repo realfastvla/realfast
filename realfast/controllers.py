@@ -11,6 +11,7 @@ import random
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
+from sdmpy.bdf import BDFWriter
 from realfast import elastic, sdm_builder
 
 import logging
@@ -128,70 +129,87 @@ class realfast_controller(Controller):
 
         removed = 0
         cindexed = 0
-        nindexed = 0
-        mindexed = 0
+        sdms = 0
 
         for scanId in self.jobs:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
             removelist = [job for job in self.jobs[scanId]
                           if job.status in ['finished', 'cancelled']]
-            if len(removelist):
-                job = removelist[0]  # get example one. all should have same state
-                st = job.result()
 
-                if os.path.exists(st.candsfile):
-                    res = elastic.indexcands(st.candsfile, scanId,
-                                             prefsname=st.prefs.name,
+            # one canddf per segment
+            for job in removelist:
+                canddf, data = job.result()  # TODO: test for performance
+
+                if len(canddf):
+                    res = elastic.indexcands(canddf, scanId,
+                                             prefsname=canddf.prefs.name,
                                              tags=self.tags)
                     cindexed += res
-                    moveplots(st.prefs.workdir, scanId)
                 else:
-                    logger.info('No candsfile found, no cands indexed.')
+                    logger.info('No candidates for scanId {0}, scan {1} '
+                                'and segment {2}.'.format(scanId,
+                                                          canddf.scan,
+                                                          canddf.segment))
 
-                if os.path.exists(st.mockfile):
-                    res = elastic.indexmocks(st.mockfile, scanId)
-                    mindexed += res
-                else:
-                    logger.info('No mockfile found, no mocks indexed.')
+# TODO: index noises
+#                if os.path.exists(st.noisefile):
+#                    res = elastic.indexnoises(st.noisefile, scanId)
+#                    nindexed += res
+#                else:
+#                    logger.info('No noisefile found, no noises indexed.')
 
-                if os.path.exists(st.noisefile):
-                    res = elastic.indexnoises(st.noisefile, scanId)
-                    nindexed += res
-                else:
-                    logger.info('No noisefile found, no noises indexed.')
 
-            else:
-                logger.info("No finished jobs for scanId {0}.".format(scanId))
-
-            # remove job from list
-            for job in removelist:
+                # remove job from list
                 self.jobs[scanId].remove(job)
                 removed += 1
 
-        # remove scanIds with empty job lists
-        scanIds = self.jobs.keys()
-        for scanId in scanIds:
-            if len(self.jobs[scanId]) == 0:
-                _ = self.jobs.pop(scanId)
+                # for last job of scanId trigger further cleanup
+                if len(self.jobs[scanId]) == 0:
+                    _ = self.jobs.pop(scanId)
+                    moveplots(canddf.prefs.workdir, scanId)
+                    cands = self.selectcands(canddf)
+                    sdmlocs = self.savesdms(cands, data)
+                    sdms += len(sdmlocs)
 
         if removed:
-            logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
-                        .format(removed, cindexed, mindexed, nindexed))
+            logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
+                        .format(removed, cindexed, sdms))
 
-    def savecand(self, datasetId):
-        """ Generate unique id for bdf and call sdm builder.
+    def selectcands(self, canddf):
+        """ Given a canddf, define a list of bdf
         """
 
-        uid = int(time.Time(self.startTime, format='mjd').unix*1e3)
-        sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize, numIntegrations, startTime, endTime)
+        NotImplementedError
+#        datasetId, dataSize, numIntegrations, startTime, endTime
+
+    def savesdms(self, cands, data):
+        """ Generate unique id for bdf and call sdm builder for each cand.
+        """
+
+        sdmlocs = []
+        for cand in cands:
+            datasetId, dataSize, numIntegrations, startTime, endTime = cand
+            uid = int(time.Time(startTime, format='mjd').unix*1e3)
+            sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
+                                          numIntegrations, startTime, endTime)
+            sdmb.send()
+            sdmlocs.append(sdmb.location())
+#            BDFWriter(bdfname, data, nant, shape, uid)...
+
+        return sdmlocs
 
     def inject_transient(self):
-        """ Randomly sets preferences for scan to injects a transient into each segment.
+        """ Randomly sets preferences for scan to injects a transient
+        into each segment.
+        Also pushes mock properties to index.
         """
 
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(mock_standards)
             self.inprefs['simulated_transient'] = [mockparams]
+            mindexed = elastic.indexmocks(self.inprefs, scanId)
+            logger.info("Indexed {0} mock transients.".format(mindexed))
+
             if self.tags is None:
                 self.tags = 'mock'
             elif 'mock' not in self.tags:
