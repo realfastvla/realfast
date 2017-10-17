@@ -94,16 +94,15 @@ class realfast_controller(Controller):
         if self.datasource is None:
             self.datasource = 'sdm'
 
-        self.inject_transient()  # randomly inject mock transient
-
         # TODO: subscan assumed = 1
         subscan = 1
+        scanId = '.'.join([os.path.basename(sdmfile), str(sdmscan), str(subscan)])
+        self.inject_transient(scanId)  # randomly inject mock transient
 
         st = rfpipe.state.State(sdmfile=sdmfile, sdmscan=sdmscan,
                                 preffile=self.preffile, inprefs=self.inprefs,
                                 inmeta={'datasource': self.datasource})
 
-        scanId = '.'.join([os.path.basename(st.metadata.filename), str(st.metadata.scan), str(subscan)])
         elastic.indexscan_sdm(scanId, preferences=st.prefs,
                               datasource=self.datasource)  # index prefs
 
@@ -140,7 +139,7 @@ class realfast_controller(Controller):
             for job in removelist:
                 canddf, data = job.result()  # TODO: test for performance
 
-                if len(canddf):
+                if len(canddf.df):
                     res = elastic.indexcands(canddf, scanId,
                                              prefsname=canddf.prefs.name,
                                              tags=self.tags)
@@ -168,8 +167,9 @@ class realfast_controller(Controller):
                     _ = self.jobs.pop(scanId)
                     moveplots(canddf.prefs.workdir, scanId)
                     cands = self.selectcands(canddf)
-                    sdmlocs = self.savesdms(cands, data)
-                    sdms += len(sdmlocs)
+#                    sdmlocs = self.savesdms(cands, data)
+#                    sdms += len(sdmlocs)
+                    logger.info('Would do savesdm here...')
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
@@ -198,7 +198,7 @@ class realfast_controller(Controller):
 
         return sdmlocs
 
-    def inject_transient(self):
+    def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
         into each segment.
         Also pushes mock properties to index.
