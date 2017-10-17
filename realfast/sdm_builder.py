@@ -10,12 +10,18 @@ _sdmbuilder_parser = objectify.makeparser(
         schema=etree.XMLSchema(file=_sdmbuilder_xsd)
         )
 
+_host = 'mctest.evla.nrao.edu'
+_path = 'sdm-builder/offline'
+
 class SDMBuilder(object):
+    """ Use mcaf to create new SDM from bdf
+    """
+
     _E = objectify.ElementMaker(annotate=False)
 
     def __init__(self, datasetId=None, uid=None, dataSize=None,
-            numIntegrations=None, startTime=None, endTime=None,
-            host='mctest.evla.nrao.edu', path='sdm-builder/offline'):
+                 numIntegrations=None, startTime=None, endTime=None,
+                 host=_host, path=_path):
         self.datasetId = datasetId
         self.uid = uid
         self.dataSize = dataSize

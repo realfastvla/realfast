@@ -11,7 +11,7 @@ import random
 from astropy import time
 from evla_mcast.controller import Controller
 import rfpipe
-from realfast import elastic
+from realfast import elastic, sdm_builder
 
 import logging
 ch = logging.StreamHandler()
@@ -87,7 +87,7 @@ class realfast_controller(Controller):
 
     def handle_sdm(self, sdmfile, sdmscan):
         """ Parallel to handle_config, but allows sdm to be passed in.
-        Only gets called directly, so no cleanup done here.
+        Gets called explicitly. No cleanup done.
         """
 
         if self.datasource is None:
@@ -114,6 +114,12 @@ class realfast_controller(Controller):
                                                          vys_timeout=self.vys_timeout)
 
         self.jobs[scanId] = jobs
+
+    def handle_finish(self, dataset):
+        """ Triggered when obs doc defines end of a script.
+        """
+
+        logger.info('End of scheduling block message received.')
 
     def cleanup(self):
         """ Scan job dict, remove finished jobs,
@@ -172,12 +178,12 @@ class realfast_controller(Controller):
             logger.info('Removed {0} jobs, indexed {1}/{2}/{3} cands/mocks/noises.'
                         .format(removed, cindexed, mindexed, nindexed))
 
-    def handle_finish(self, dataset):
-        """ Triggered when obs doc defines end of a script.
+    def savecand(self, datasetId):
+        """ Generate unique id for bdf and call sdm builder.
         """
 
-        logger.info('End of scheduling block message received.')
-
+        uid = int(time.Time(self.startTime, format='mjd').unix*1e3)
+        sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize, numIntegrations, startTime, endTime)
 
     def inject_transient(self):
         """ Randomly sets preferences for scan to injects a transient into each segment.
