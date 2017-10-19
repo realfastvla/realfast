@@ -51,6 +51,11 @@ class realfast_controller(Controller):
         self.datasource = datasource
         self.tags = tags
         self.mockprob = mockprob
+        self.client = None
+
+    def __repr__(self):
+        return ('realfast controller for preffile {0} with {1} jobs'
+                .format(self.datasource, len(self.jobs)))
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -62,7 +67,7 @@ class realfast_controller(Controller):
         if self.datasource is None:
             self.datasource = 'vys'
 
-        self.inject_transient()  # randomly inject mock transient
+        self.inject_transient(config.scanId)  # randomly inject mock transient
 
         if self.runsearch(config):
             logger.info('Config looks good. Generating rfpipe state...')
@@ -79,6 +84,7 @@ class realfast_controller(Controller):
                                                              cfile=vys_cfile,
                                                              vys_timeout=self.vys_timeout)
             self.jobs[config.scanId] = jobs
+            self.client = self.jobs[0].client  # TODO test this
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -114,6 +120,7 @@ class realfast_controller(Controller):
                                                          vys_timeout=self.vys_timeout)
 
         self.jobs[scanId] = jobs
+        self.client = jobs[0].client  # TODO: test this
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -137,18 +144,19 @@ class realfast_controller(Controller):
 
             # one canddf per segment
             for job in removelist:
-                canddf, data = job.result()  # TODO: test for performance
+                candcollection, data = job.result()  # TODO: test for performance
 
-                if len(canddf.df):
-                    res = elastic.indexcands(canddf, scanId,
-                                             prefsname=canddf.prefs.name,
+                if len(candcollection.array):
+#                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
+                    res = elastic.indexcands(candcollection.array, scanId,
+                                             prefsname=candcollection.prefs.name,
                                              tags=self.tags)
                     cindexed += res
                 else:
                     logger.info('No candidates for scanId {0}, scan {1} '
                                 'and segment {2}.'.format(scanId,
-                                                          canddf.scan,
-                                                          canddf.segment))
+                                                          candcollection.scan,
+                                                          candcollection.segment))
 
 # TODO: index noises
 #                if os.path.exists(st.noisefile):
@@ -165,40 +173,13 @@ class realfast_controller(Controller):
                 # for last job of scanId trigger further cleanup
                 if len(self.jobs[scanId]) == 0:
                     _ = self.jobs.pop(scanId)
-                    moveplots(canddf.prefs.workdir, scanId)
-                    cands = self.selectcands(canddf)
-#                    sdmlocs = self.savesdms(cands, data)
-#                    sdms += len(sdmlocs)
-                    logger.info('Would do savesdm here...')
+#                    res = self.client.submit(createproducts, ...)  # make SDM, move plots
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
 
-    def selectcands(self, canddf):
-        """ Given a canddf, define a list of bdf
-        """
-
-        NotImplementedError
-#        datasetId, dataSize, numIntegrations, startTime, endTime
-
-    def savesdms(self, cands, data):
-        """ Generate unique id for bdf and call sdm builder for each cand.
-        """
-
-        sdmlocs = []
-        for cand in cands:
-            datasetId, dataSize, numIntegrations, startTime, endTime = cand
-            uid = int(time.Time(startTime, format='mjd').unix*1e3)
-            sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
-                                          numIntegrations, startTime, endTime)
-            sdmb.send()
-            sdmlocs.append(sdmb.location())
-#            BDFWriter(bdfname, data, nant, shape, uid)...
-
-        return sdmlocs
-
-    def inject_transient(self, scanId):
+     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
         into each segment.
         Also pushes mock properties to index.
@@ -304,14 +285,51 @@ class realfast_controller(Controller):
                 for i in range(len(self.jobs[scanId]))
                 if self.jobs[scanId][i].status == 'error']
 
-    @property
-    def client(self):
-        for scanId in self.jobs:
-            for job in self.jobs[scanId]:
-                if hasattr(job, 'client'):
-                    return job.client
 
-        logger.warn('No jobs or no jobs with a client.')
+def selectcands(candcollection):
+    """ Given a candcollection, define a list of bdf
+    """
+
+    NotImplementedError
+#    datasetId, dataSize, numIntegrations, startTime, endTime
+
+def createproducts():
+    """
+    """
+        moveplots(candcollection.prefs.workdir, scanId)
+        cands = selectcands(candcollection)
+        sdmlocs = savesdms(cands, data)
+        sdms += len(sdmlocs)
+
+def savesdms(cands, data):
+    """ Generate unique id for bdf and call sdm builder for each cand.
+    """
+
+    sdmlocs = []
+    for cand in cands:
+        datasetId, dataSize, numIntegrations, startTime, endTime = cand
+        uid = int(time.Time(startTime, format='mjd').unix*1e3)
+        sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
+                                      numIntegrations, startTime, endTime)
+        sdmb.send()
+        sdmlocs.append(sdmb.location())
+#        BDFWriter(bdfname, data, nant, shape, uid)...
+
+    return sdmlocs
+
+def moveplots(workdir, scanId, destination='/users/claw/public_html/realfast/plots'):
+    """ For given fileroot, move candidate plots to public location
+    """
+
+    datasetId, scan, subscan = scanId.rsplit('.', 2)
+
+    candfiles = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
+    for candfile in candfiles:
+        shutil.copy(candfile, destination)
+    if candfiles:
+        logger.info('Candidate plots copied to {0}'.format(destination))
+    else:
+        logger.warn('No candidate plots found to copy.')
 
 
 class config_controller(Controller):
@@ -344,18 +362,3 @@ class config_controller(Controller):
         if self.preffile:
             prefs = rfpipe.preferences.Preferences(**rfpipe.preferences.parsepreffile(self.preffile))
             elastic.indexscan_config(config, preferences=prefs)
-
-
-def moveplots(workdir, scanId, destination='/users/claw/public_html/realfast/plots'):
-    """ For given fileroot, move candidate plots to public location
-    """
-
-    datasetId, scan, subscan = scanId.rsplit('.', 2)
-
-    candfiles = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
-    for candfile in candfiles:
-        shutil.copy(candfile, destination)
-    if candfiles:
-        logger.info('Candidate plots copied to {0}'.format(destination))
-    else:
-        logger.warn('No candidate plots found to copy.')

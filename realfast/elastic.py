@@ -4,7 +4,6 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import os.path
-from rfpipe import candidates
 from elasticsearch import Elasticsearch
 import logging
 logger = logging.getLogger(__name__)
@@ -103,9 +102,9 @@ def indexprefs(preferences):
         logger.warn('Preferences not indexed')
 
 
-def indexcands(canddf, scanId, prefsname=None, withplots=True,
+def indexcands(candarr, scanId, prefsname=None, withplots=True,
                tags=None):
-    """ Takes candidates from canddf object and pushes to index
+    """ Takes candidates as array and pushes to index
     Optionally adds preferences connection via hashed name
     scanId is added to associate cand to a give scan.
     Assumes scanId is defined as:
@@ -118,10 +117,9 @@ def indexcands(canddf, scanId, prefsname=None, withplots=True,
         tags = 'new'
 
     res = 0
-    for cand in canddf.df.itertuples():
+    for i in range(len(candarr)):
         # get features
-        canddict = dict([(col, cand.__dict__[col])
-                        for col in canddf.df.columns])
+        canddict = dict(zip(candarr.dtype.names, candarr[i]))
 
         # fill optional fields
         canddict['scanId'] = scanId
