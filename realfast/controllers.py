@@ -293,8 +293,8 @@ def selectcands(candcollection):
     """ Given a candcollection, define a list of bdf
     """
 
+#    [(datasetId, dataSize, nint, startTime, endTime)}
     NotImplementedError
-#    datasetId, dataSize, nint, startTime, endTime
 
 
 def createproducts(candcollection, data):
@@ -304,14 +304,13 @@ def createproducts(candcollection, data):
     sdmlocs = []
     cands = selectcands(candcollection)
     for cand in cands:
-        sdmlocs.append(savesdm(cand, candcollection.prefs.metadata))
+        sdmlocs.append(savesdm(cand))
         sdms += len(sdmlocs)
-        savebdf(cand, data)
+        savebdf(cand, candcollection.metadata, data)
 
 
-def savesdm(cands, metadata, data):
+def savesdm(cand):
     """ Generate unique id for bdf and call sdm builder for each cand.
-    metadata is a Metadata object.
     Returns location of newly created SDM.
     """
 
@@ -320,33 +319,32 @@ def savesdm(cands, metadata, data):
     sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
                                   nint, startTime, endTime)
     sdmb.send()
+
     return sdmb.location()
 
 
-def savebdf(cand, data):
+def savebdf(cand, metadata, data):
     """ Create bdf for candidate that contains data array.
-    Data is numpy array of complex64 type with shape (nbl, 1, nchan, npol).
-    Data assumed to span the times defined in cand.
+    Data is numpy array of complex64 type  spanning times in cand.
+    Should have shape (nint, nbl, 1, nchan, npol).
     """
 
     datasetId, dataSize, nint, startTime, endTime = cand
-    nbl, numBin, nchan, npol = data.shape
-    interval = ?
-    nant = int((-1 + np.sqrt(1+4*2*nbl))/2)
+    nint, nbl, numBin, nchan, npol = data.shape
 
     uid = int(time.Time(startTime, format='mjd').unix*1e3)
     spw = bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
                                 sw=1, swbb='AC_8BIT', npol=npol)
     w = bdf.BDFWriter('{0}.bdf'.format(uid), start_mjd=startTime,
-                      uid=uid, num_antenna=nant,
+                      uid=uid, num_antenna=metadata.nants_orig,
                       spws=[spw, ], scan_idx=1, corr_mode='c')
 
     dat = {}
     w.write_header()
     for i in range(nint):
         dat['crossData'] = data[i]
-        ts = startTime+interval/2/86400.  # interval in seconds
-        w.write_integration(mjd=ts, interval=interval, data=dat)
+        ts = startTime+metadata.inttime/2/86400.
+        w.write_integration(mjd=ts, interval=metadata.inttime, data=dat)
     w.close()
 
 
