@@ -1,6 +1,10 @@
+from __future__ import print_function, division, absolute_import #, unicode_literals # not casa compatible
+from builtins import bytes, dict, object, range, map, input#, str # not casa compatible
+from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
+from io import open
+
 from realfast import controllers
-import rfpipe
-import click, os.path
+import click
 
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -11,6 +15,7 @@ vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 default_preffile = '/lustre/evla/test/realfast/realfast.yml'
 default_vys_timeout = 10  # seconds more than segment length
 distributed_host = 'cbe-node-01'
+
 
 @click.group('realfast')
 def cli():
