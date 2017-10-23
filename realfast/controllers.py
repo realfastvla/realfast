@@ -79,7 +79,8 @@ class realfast_controller(Controller):
                                      datasource=self.datasource)  # index prefs
 
             logger.info('Starting pipeline...')
-            # pipeline returns state object per DM/dt
+            # pipeline returns dict of futures
+            # TODO: update for dict structure
             jobs = pipeline.pipeline_scan(st, segments=None,
                                           host=distributed_host,
                                           cfile=vys_cfile,
@@ -305,7 +306,6 @@ def createproducts(candcollection, data):
     cands = selectcands(candcollection)
     for cand in cands:
         sdmlocs.append(savesdm(cand))
-        sdms += len(sdmlocs)
         savebdf(cand, candcollection.metadata, data)
 
 
@@ -326,18 +326,29 @@ def savesdm(cand):
 def savebdf(cand, metadata, data):
     """ Create bdf for candidate that contains data array.
     Data is numpy array of complex64 type  spanning times in cand.
-    Should have shape (nint, nbl, 1, nchan, npol).
+    Should have shape (nint, nbl, 1, nspw, nchan, npol).
+    Assumes one bdf per sdm and one sdm per candidate.
+    Only supports 8bit samplers and IFid of AC/BD.
     """
 
     datasetId, dataSize, nint, startTime, endTime = cand
-    nint, nbl, numBin, nchan, npol = data.shape
+    nint, nbl, numBin, nspw, nchan, npol = data.shape
+
+    IFidspwnum = [spw.split('-') for (spw, freq) in metadata.spworder]
+    spws = [bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
+                                  sw=int(swnum)+1,
+                                  swbb='{0}_8BIT'.format(IFid),
+                                  npol=npol) for (IFid, swnum) in IFidspwnum]
+    # TODO: confirm that sw is 1 based for a proper SDM
+    # TODO: confirm that metadata spworder is 0 based
+
+    assert nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
+                               'in data array.')
 
     uid = int(time.Time(startTime, format='mjd').unix*1e3)
-    spw = bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
-                                sw=1, swbb='AC_8BIT', npol=npol)
     w = bdf.BDFWriter('{0}.bdf'.format(uid), start_mjd=startTime,
                       uid=uid, num_antenna=metadata.nants_orig,
-                      spws=[spw, ], scan_idx=1, corr_mode='c')
+                      spws=spws, scan_idx=1, corr_mode='c')
 
     dat = {}
     w.write_header()
