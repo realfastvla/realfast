@@ -311,28 +311,34 @@ def createproducts(candcollection, data):
 
 def savesdm(cand):
     """ Generate unique id for bdf and call sdm builder for each cand.
+    cand object is tuple of:
+    (datasetId, dataSize_bytes, nint, startTime_mjd, endTime_mjd)
     Returns location of newly created SDM.
     """
 
     datasetId, dataSize, nint, startTime, endTime = cand
-    uid = int(time.Time(startTime, format='mjd').unix*1e3)
+    uid = ('uid:///evla/realfastbdf/{0}'
+           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
     sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
                                   nint, startTime, endTime)
     sdmb.send()
 
-    return sdmb.location()
+    return sdmb.location
 
 
-def savebdf(cand, metadata, data):
+def savebdf(cand, metadata, data, bdfdir='.'):
     """ Create bdf for candidate that contains data array.
+    cand object is tuple of:
+    (datasetId, dataSize, nint, startTime, EndTime)
     Data is numpy array of complex64 type  spanning times in cand.
-    Should have shape (nint, nbl, 1, nspw, nchan, npol).
+    Should have shape (nint, nbl, nspw, nbin, nchan, npol).
+    metadata is a rfpipe.metadata.Metadata object.
     Assumes one bdf per sdm and one sdm per candidate.
     Only supports 8bit samplers and IFid of AC/BD.
     """
 
     datasetId, dataSize, nint, startTime, endTime = cand
-    nint, nbl, numBin, nspw, nchan, npol = data.shape
+    nint, nbl, nspw, numBin, nchan, npol = data.shape
 
     IFidspwnum = [spw.split('-') for (spw, freq) in metadata.spworder]
     spws = [bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
@@ -344,11 +350,13 @@ def savebdf(cand, metadata, data):
 
     assert nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
                                'in data array.')
+    assert os.path.isdir(bdfdir), 'bdfdir does not exist'
 
-    uid = int(time.Time(startTime, format='mjd').unix*1e3)
-    w = bdf.BDFWriter('{0}.bdf'.format(uid), start_mjd=startTime,
-                      uid=uid, num_antenna=metadata.nants_orig,
-                      spws=spws, scan_idx=1, corr_mode='c')
+    uid = ('uid:///evla/realfastbdf/{0}'
+           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
+    w = bdf.BDFWriter(bdfdir, start_mjd=startTime, uid=uid,
+                      num_antenna=metadata.nants_orig, spws=spws, scan_idx=1,
+                      corr_mode='c')
 
     dat = {}
     w.write_header()
