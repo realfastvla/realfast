@@ -46,15 +46,15 @@ class realfast_controller(Controller):
         self.preffile = preffile
         self.inprefs = inprefs
         self.vys_timeout = vys_timeout
-        self.jobs = {}
+        self.futures = {}
         self.datasource = datasource
         self.tags = tags
         self.mockprob = mockprob
         self.client = None
 
     def __repr__(self):
-        return ('realfast controller for preffile {0} with {1} jobs'
-                .format(self.datasource, len(self.jobs)))
+        return ('realfast controller with {0} jobs'
+                .format(len(self.futures)))
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
@@ -79,12 +79,12 @@ class realfast_controller(Controller):
             logger.info('Starting pipeline...')
             # pipeline returns dict of futures
             # TODO: update for dict structure
-            jobs = pipeline.pipeline_scan(st, segments=None,
+            futures = pipeline.pipeline_scan(st, segments=None,
                                           host=distributed_host,
                                           cfile=vys_cfile,
                                           vys_timeout=self.vys_timeout)
-            self.jobs[config.scanId] = jobs
-            self.client = self.jobs[0].client  # TODO test this
+            self.futures[config.scanId] = futures
+            self.client = futures[0]['data'].client
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -115,12 +115,12 @@ class realfast_controller(Controller):
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        jobs = pipeline.pipeline_scan(st, segments=None, host=distributed_host,
-                                      cfile=vys_cfile,
-                                      vys_timeout=self.vys_timeout)
+        futures = pipeline.pipeline_scan(st, segments=None, host=distributed_host,
+                                         cfile=vys_cfile,
+                                         vys_timeout=self.vys_timeout)
 
-        self.jobs[scanId] = jobs
-        self.client = jobs[0].client  # TODO: test this
+        self.futures[scanId] = futures
+        self.client = futures[0]['data'].client
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
@@ -137,26 +137,34 @@ class realfast_controller(Controller):
         cindexed = 0
         sdms = 0
 
-        for scanId in self.jobs:
+
+# TODO: adapt to list of dicts for futures
+        for scanId in self.futures:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
-            removelist = [job for job in self.jobs[scanId]
-                          if job.status in ['finished', 'cancelled']]
+
+            # create list of futures (a dict per segment) that are done
+            removelist = [futures for futurelist in self.futures[scanId]
+                          for futures in futurelist
+                          if futures['candcollection'].status in ['finished',
+                                                                  'cancelled']]
 
             # one canddf per segment
-            for job in removelist:
-                candcollection, data = job.result()  # TODO: test for performance
+            for futures in removelist:
+                candcollection = futures['candcollection'].result()
+                data = futures['data'].result()
 
                 if len(candcollection.array):
+# TODO: can we use client here?
 #                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
                     res = elastic.indexcands(candcollection.array, scanId,
                                              prefsname=candcollection.prefs.name,
                                              tags=self.tags)
                     cindexed += res
                 else:
-                    logger.info('No candidates for scanId {0}, scan {1} '
-                                'and segment {2}.'.format(scanId,
-                                                          candcollection.scan,
-                                                          candcollection.segment))
+                    logger.info('No candidates for scanId {0}, scan {1} and '
+                                'segment {2}.'.format(scanId,
+                                                      candcollection.scan,
+                                                      candcollection.segment))
 
 # TODO: index noises
 #                if os.path.exists(st.noisefile):
@@ -165,15 +173,15 @@ class realfast_controller(Controller):
 #                else:
 #                    logger.info('No noisefile found, no noises indexed.')
 
-
                 # remove job from list
-                self.jobs[scanId].remove(job)
+                self.futures[scanId].remove(futures)
                 removed += 1
 
                 # for last job of scanId trigger further cleanup
-                if len(self.jobs[scanId]) == 0:
-                    _ = self.jobs.pop(scanId)
+                if len(self.futures[scanId]) == 0:
+                    _ = self.futures.pop(scanId)
                     moveplots(candcollection.prefs.workdir, scanId)
+                    createproducts(candcollection, data)
 #                    res = self.client.submit(createproducts, ...)  # make SDMs
 
         if removed:
@@ -202,14 +210,14 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return [self.jobs[scanId][i].status for scanId in self.jobs
-                for i in range(len(self.jobs[scanId]))]
+        return [self.futures[scanId][ftype].status for scanId in self.futures
+                for ftype in self.futures[scanId]]
 
     @property
     def errors(self):
-        return [self.jobs[scanId][i].exception() for scanId in self.jobs
-                for i in range(len(self.jobs[scanId]))
-                if self.jobs[scanId][i].status == 'error']
+        return [self.futures[scanId][ftype].exception() for scanId in self.futures
+                for ftype in self.futures[scanId]
+                if self.futures[scanId][ftype].status == 'error']
 
 
 def runsearch(config):

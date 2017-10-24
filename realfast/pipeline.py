@@ -23,7 +23,7 @@ def pipeline_scan(st, segments=None, host='cbe-node-01', cfile=None,
 
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
-                                  vys_timeout=vys_timeout))
+                                    vys_timeout=vys_timeout))
 
     return futures  # list of dicts
 
@@ -82,7 +82,7 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     # ** or aggregate over dt or dm trials? **
     canddatalist = cl.submit(mergelists, saved, pure=True)
     candcollection = cl.submit(candidates.calc_features, canddatalist,
-                           pure=True)
+                               pure=True)
 
     futures['candcollection'] = candcollection
 
