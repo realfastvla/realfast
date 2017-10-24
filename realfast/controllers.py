@@ -102,7 +102,7 @@ class realfast_controller(Controller):
 
         # TODO: subscan assumed = 1
         subscan = 1
-        scanId = '.'.join([os.path.basename(sdmfile), str(sdmscan),
+        scanId = '.'.join([os.path.basename(sdmfile.rstrip('/')), str(sdmscan),
                            str(subscan)])
         self.inject_transient(scanId)  # randomly inject mock transient
 
