@@ -106,10 +106,9 @@ class realfast_controller(Controller):
                            str(subscan)])
         self.inject_transient(scanId)  # randomly inject mock transient
 
-        st = state.State(sdmfile=sdmfile, sdmscan=sdmscan,
+        st = state.State(sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                          preffile=self.preffile, inprefs=self.inprefs,
-                         inmeta={'datasource': self.datasource,
-                                 'bdfdir': bdfdir})
+                         inmeta={'datasource': self.datasource})
 
         elastic.indexscan_sdm(scanId, preferences=st.prefs,
                               datasource=self.datasource)  # index prefs
