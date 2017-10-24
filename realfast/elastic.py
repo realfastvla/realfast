@@ -57,7 +57,7 @@ def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
     from numpy import degrees
 
     datasetId, sdmscan, sdmsubscan = scanId.rsplit('.', 2)
-    sdm = sdmpy.SDM(datasetId)
+    sdm = sdmpy.SDM(datasetId, use_xsd=False)
     scan = sdm.scan(sdmscan)
 
     scandict = {}
