@@ -24,10 +24,10 @@ default_preffile = '/lustre/evla/test/realfast/realfast.yml'
 default_vys_timeout = 10  # seconds more than segment length
 distributed_host = 'cbe-node-01'
 
-mock_standards = [(0.1, 30, 20, 0.05, 1e-3, 1e-3),
-                  (0.1, 30, 20, 0.05, -1e-3, 1e-3),
-                  (0.1, 30, 20, 0.05, -1e-3, -1e-3),
-                  (0.1, 30, 20, 0.05, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
+mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
+                  (0.1, 30, 20, 0.01, -1e-3, 1e-3),
+                  (0.1, 30, 20, 0.01, -1e-3, -1e-3),
+                  (0.1, 30, 20, 0.01, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
 
 
 class realfast_controller(Controller):
@@ -213,8 +213,7 @@ class realfast_controller(Controller):
     def statuses(self):
         return ['{0}, {1}: {2}'.format(scanId, ftype,
                                        futures[ftype].status)
-                for scanId in self.futures
-                for futurelist in self.futures[scanId]
+                for (scanId, futurelist) in iteritems(self.futures)
                 for futures in futurelist
                 for ftype in futures]
 
@@ -222,8 +221,7 @@ class realfast_controller(Controller):
     def errors(self):
         return ['{0}, {1}: {2}'.format(scanId, ftype,
                                        futures[ftype].exception())
-                for scanId in self.futures
-                for futurelist in self.futures[scanId]
+                for (scanId, futurelist) in iteritems(self.futures)
                 for futures in futurelist
                 for ftype in futures
                 if futures[ftype].status == 'error']
