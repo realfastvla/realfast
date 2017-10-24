@@ -197,8 +197,9 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(mock_standards)
             self.inprefs['simulated_transient'] = [mockparams]
-            mindexed = elastic.indexmocks(self.inprefs, scanId)
-            logger.info("Indexed {0} mock transients.".format(mindexed))
+# TODO: indexmocks function
+#            mindexed = elastic.indexmocks(self.inprefs, scanId)
+#            logger.info("Indexed {0} mock transients.".format(mindexed))
 
             if self.tags is None:
                 self.tags = 'mock'
@@ -210,22 +211,22 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return ['{0} ({1}, {2}): {3}'.format(scanId, i, ftype,
-                                             futurelist[i][ftype].status)
+        return ['{0}, {1}: {2}'.format(scanId, ftype,
+                                       futures[ftype].status)
                 for scanId in self.futures
                 for futurelist in self.futures[scanId]
-                for i in range(len(futurelist))
-                for ftype in futurelist[i]]
+                for futures in futurelist
+                for ftype in futures]
 
     @property
     def errors(self):
-        return ['{0} ({1}, {2}): {3}'.format(scanId, i, ftype,
-                                             futurelist[i][ftype].exception())
+        return ['{0}, {1}: {2}'.format(scanId, ftype,
+                                       futures[ftype].exception())
                 for scanId in self.futures
                 for futurelist in self.futures[scanId]
-                for i in range(len(futurelist))
-                for ftype in futurelist[i]
-                if futurelist[i][ftype].status == 'error']
+                for futures in futurelist
+                for ftype in futures
+                if futures[ftype].status == 'error']
 
 
 def runsearch(config):
@@ -339,7 +340,7 @@ def gencandranges(candcollection):
     """
 
     segment = candcollection.segment
-    st = candcollection.state
+    st = candcollection.getstate()
 
     # save whole segment
     return st.segmenttimes[segment]
