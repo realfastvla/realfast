@@ -45,8 +45,8 @@ class SDMBuilder(object):
                     self._E.uid(self.uid),
                     self._E.dataSize(self.dataSize),
                     self._E.numIntegrations(self.numIntegrations),
-                    self._E.startTime(self.startTime),
-                    self._E.endTime(self.endTime),
+                    self._E.startTime(repr(self.startTime)),
+                    self._E.endTime(repr(self.endTime)),
                     ),
                 # SdmBuilderMessage attributes:
                 {'timestamp': '%.12f' % astropy.time.Time.now().mjd,
