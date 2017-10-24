@@ -210,14 +210,22 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return [self.futures[scanId][ftype].status for scanId in self.futures
-                for ftype in self.futures[scanId]]
+        return ['{0} ({1}, {2}): {3}'.format(scanId, i, ftype,
+                                             futurelist[i][ftype].status)
+                for scanId in self.futures
+                for futurelist in self.futures[scanId]
+                for i in range(len(futurelist))
+                for ftype in futurelist[i]]
 
     @property
     def errors(self):
-        return [self.futures[scanId][ftype].exception() for scanId in self.futures
-                for ftype in self.futures[scanId]
-                if self.futures[scanId][ftype].status == 'error']
+        return ['{0} ({1}, {2}): {3}'.format(scanId, i, ftype,
+                                             futurelist[i][ftype].exception())
+                for scanId in self.futures
+                for futurelist in self.futures[scanId]
+                for i in range(len(futurelist))
+                for ftype in futurelist[i]
+                if futurelist[i][ftype].status == 'error']
 
 
 def runsearch(config):
@@ -299,15 +307,18 @@ def createproducts(candcollection, data, bdfdir='.'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     """
 
+    if len(candcollection.array) == 0:
+        logger.info('No candidates to generate products for.')
+        return []
+
     metadata = candcollection.metadata
     ninttot, nbl, nchantot, npol = data.shape
     nspw = len(metadata.spworder)
     nchan = nchantot//nspw
     segment = candcollection.segment
-    st = candcollection.state
-
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
+    st = candcollection.state
 
     sdmlocs = []
     candranges = gencandranges(candcollection)
