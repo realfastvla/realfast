@@ -11,9 +11,7 @@ import random
 from astropy import time
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences
-from sdmpy import bdf
-from realfast import pipeline
-from realfast import elastic, sdm_builder
+from realfast import pipeline, elastic, sdm_builder
 
 import logging
 ch = logging.StreamHandler()
@@ -117,10 +115,9 @@ class realfast_controller(Controller):
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        jobs = pipeline.pipeline_scan_distributed(st, segments=None,
-                                                  host=distributed_host,
-                                                  cfile=vys_cfile,
-                                                  vys_timeout=self.vys_timeout)
+        jobs = pipeline.pipeline_scan(st, segments=None, host=distributed_host,
+                                      cfile=vys_cfile,
+                                      vys_timeout=self.vys_timeout)
 
         self.jobs[scanId] = jobs
         self.client = jobs[0].client  # TODO: test this
@@ -290,81 +287,43 @@ def summarize(self, config):
                     "Proceeding.")
 
 
-def selectcands(candcollection):
-    """ Given a candcollection, define a list of bdf
+def createproducts(candcollection, data, bdfdir='.'):
+    """ Create SDMs and BDFs for a given candcollection (time segment).
     """
 
-#    [(datasetId, dataSize, nint, startTime, endTime)}
-    NotImplementedError
+    metadata = candcollection.metadata
+    ninttot, nbl, nchantot, npol = data.shape
+    nspw = len(metadata.spworder)
+    nchan = nchantot//nspw
+    segment = candcollection.segment
+    st = candcollection.state
 
-
-def createproducts(candcollection, data):
-    """ Create SDM and manage sdm and plots.
-    """
+    if not isinstance(segment, int):
+        logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
 
     sdmlocs = []
-    cands = selectcands(candcollection)
-    for cand in cands:
-        sdmlocs.append(savesdm(cand))
-        savebdf(cand, candcollection.metadata, data)
+    candranges = gencandranges(candcollection)
+    for (startTime, endTime) in candranges:
+        i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
+        nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)
+        data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
+
+        sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)
+        sdmlocs.append(sdmloc)
+        sdm_builder.makebdf(startTime, endTime, metadata, data_cut, bdfdir=bdfdir)
+
+    return sdmlocs
 
 
-def savesdm(cand):
-    """ Generate unique id for bdf and call sdm builder for each cand.
-    cand object is tuple of:
-    (datasetId, dataSize_bytes, nint, startTime_mjd, endTime_mjd)
-    Returns location of newly created SDM.
+def gencandranges(candcollection):
+    """ Given a candcollection, define a list of candidate time ranges.
     """
 
-    datasetId, dataSize, nint, startTime, endTime = cand
-    uid = ('uid:///evla/realfastbdf/{0}'
-           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
-    sdmb = sdm_builder.SDMBuilder(datasetId, uid, dataSize,
-                                  nint, startTime, endTime)
-    sdmb.send()
+    segment = candcollection.segment
+    st = candcollection.state
 
-    return sdmb.location
-
-
-def savebdf(cand, metadata, data, bdfdir='.'):
-    """ Create bdf for candidate that contains data array.
-    cand object is tuple of:
-    (datasetId, dataSize, nint, startTime, EndTime)
-    Data is numpy array of complex64 type  spanning times in cand.
-    Should have shape (nint, nbl, nspw, nbin, nchan, npol).
-    metadata is a rfpipe.metadata.Metadata object.
-    Assumes one bdf per sdm and one sdm per candidate.
-    Only supports 8bit samplers and IFid of AC/BD.
-    """
-
-    datasetId, dataSize, nint, startTime, endTime = cand
-    nint, nbl, nspw, numBin, nchan, npol = data.shape
-
-    IFidspwnum = [spw.split('-') for (spw, freq) in metadata.spworder]
-    spws = [bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
-                                  sw=int(swnum)+1,
-                                  swbb='{0}_8BIT'.format(IFid),
-                                  npol=npol) for (IFid, swnum) in IFidspwnum]
-    # TODO: confirm that sw is 1 based for a proper SDM
-    # TODO: confirm that metadata spworder is 0 based
-
-    assert nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
-                               'in data array.')
-    assert os.path.isdir(bdfdir), 'bdfdir does not exist'
-
-    uid = ('uid:///evla/realfastbdf/{0}'
-           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
-    w = bdf.BDFWriter(bdfdir, start_mjd=startTime, uid=uid,
-                      num_antenna=metadata.nants_orig, spws=spws, scan_idx=1,
-                      corr_mode='c')
-
-    dat = {}
-    w.write_header()
-    for i in range(nint):
-        dat['crossData'] = data[i]
-        ts = startTime+metadata.inttime/2/86400.
-        w.write_integration(mjd=ts, interval=metadata.inttime, data=dat)
-    w.close()
+    # save whole segment
+    return st.segmenttimes[segment]
 
 
 def moveplots(workdir, scanId,

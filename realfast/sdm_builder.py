@@ -7,7 +7,11 @@ import os.path
 import urllib
 import urlparse
 from lxml import etree, objectify
-import astropy.time
+import time
+from sdmpy import bdf
+from rfpipe.metadata import Metadata
+import logging
+logger = logging.getLogger(__name__)
 
 _install_dir = os.path.abspath(os.path.dirname(__file__))
 _xsd_dir = os.path.join(_install_dir, 'xsd')
@@ -49,7 +53,7 @@ class SDMBuilder(object):
                     self._E.endTime(repr(self.endTime)),
                     ),
                 # SdmBuilderMessage attributes:
-                {'timestamp': '%.12f' % astropy.time.Time.now().mjd,
+                {'timestamp': '%.12f' % time.Time.now().mjd,
                     'sender': 'realfast'}
                 )
 
@@ -77,4 +81,76 @@ class SDMBuilder(object):
         try:
             return str(self.response.result.location)
         except AttributeError:
+            logger.warn("No SDM generated.")
             return None
+
+
+def makesdm(startTime, endTime, metadata, data):
+    """ Generates call to sdm builder server for a single candidate.
+    Generates a unique id for the bdf from the startTime.
+    Uses metadata and data to create call signature to server with:
+    (datasetId, dataSize_bytes, nint, startTime_mjd, endTime_mjd)
+    Returns location of newly created SDM.
+    Data refers to cut out visibilities from startTime to endTime with
+    shape of (nint, nbl, nspw, numBin, nchan, npol).
+    """
+
+    assert type(metadata) == Metadata, ("metadata must be "
+                                        "of type rfpipe.metadata.Metadata")
+
+    assert data.ndim == 6, ("data must have 6 dimensions: "
+                            "nint, nbl, nspw, numBin, nchan, npol.")
+
+    datasetId = metadata.filename
+    nint, nbl, nspw, numBin, nchan, npol = data.shape
+    dataSize = data.nbytes
+    uid = ('uid:///evla/realfastbdf/{0}'
+           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
+    sdmb = SDMBuilder(datasetId, uid, dataSize, nint, startTime, endTime)
+    sdmb.send()
+
+    return sdmb.location
+
+
+def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
+    """ Create bdf for candidate that contains data array.
+    Data is numpy array of complex64 type spanning start/endTime.
+    Should have shape (nint, nbl, nspw, nbin, nchan, npol).
+    metadata is a rfpipe.metadata.Metadata object.
+    Assumes one bdf per sdm and one sdm per candidate.
+    Only supports 8bit samplers and IFid of AC/BD.
+    """
+
+    assert type(metadata) == Metadata, ("metadata must be "
+                                        "of type rfpipe.metadata.Metadata")
+
+    assert data.ndim == 6, ("data must have 6 dimensions: "
+                            "nint, nbl, nspw, numBin, nchan, npol.")
+
+    nint, nbl, nspw, numBin, nchan, npol = data.shape
+
+    IFidspwnum = [spw.split('-') for (spw, freq) in metadata.spworder]
+    spws = [bdf.BDFSpectralWindow(None, numBin=numBin, numSpectralPoint=nchan,
+                                  sw=int(swnum)+1,   # casting from 0->1 based
+                                  swbb='{0}_8BIT'.format(IFid),
+                                  npol=npol) for (IFid, swnum) in IFidspwnum]
+    # TODO: confirm that sw is 1 based for a proper SDM
+    # TODO: confirm that metadata spworder is 0 based
+
+    assert nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
+                               'in data array.')
+    assert os.path.isdir(bdfdir), 'bdfdir does not exist'
+
+    uid = ('uid:///evla/realfastbdf/{0}'
+           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
+    w = bdf.BDFWriter(bdfdir, start_mjd=startTime, uid=uid,
+                      num_antenna=metadata.nants_orig, spws=spws, scan_idx=1,
+                      corr_mode='c')
+
+    dat = {}
+    w.write_header()
+    for i in range(nint):
+        dat['crossData'] = data[i]
+        ts = startTime+metadata.inttime/2/86400.
+        w.write_integration(mjd=ts, interval=metadata.inttime, data=dat)
+    w.close()
