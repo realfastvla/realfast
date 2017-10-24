@@ -92,7 +92,7 @@ class realfast_controller(Controller):
         self.cleanup()
         # TODO: this only runs when new data arrives. how to run at end/ctrl-c?
 
-    def handle_sdm(self, sdmfile, sdmscan):
+    def handle_sdm(self, sdmfile, sdmscan, bdfdir=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
         Gets called explicitly. No cleanup done.
         """
@@ -108,7 +108,8 @@ class realfast_controller(Controller):
 
         st = state.State(sdmfile=sdmfile, sdmscan=sdmscan,
                          preffile=self.preffile, inprefs=self.inprefs,
-                         inmeta={'datasource': self.datasource})
+                         inmeta={'datasource': self.datasource,
+                                 'bdfdir': bdfdir})
 
         elastic.indexscan_sdm(scanId, preferences=st.prefs,
                               datasource=self.datasource)  # index prefs
@@ -317,13 +318,13 @@ def createproducts(candcollection, data, bdfdir='.'):
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
-    st = candcollection.state
+    st = candcollection.getstate()
 
     sdmlocs = []
     candranges = gencandranges(candcollection)
     for (startTime, endTime) in candranges:
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)
+        nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)
@@ -341,7 +342,7 @@ def gencandranges(candcollection):
     st = candcollection.getstate()
 
     # save whole segment
-    return st.segmenttimes[segment]
+    return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
 def moveplots(workdir, scanId,

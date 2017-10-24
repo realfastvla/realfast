@@ -7,7 +7,7 @@ import os.path
 import urllib
 import urlparse
 from lxml import etree, objectify
-import time
+from astropy import time
 from sdmpy import bdf
 from rfpipe.metadata import Metadata
 import logging
