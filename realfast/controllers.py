@@ -51,6 +51,7 @@ class realfast_controller(Controller):
         self.datasource = datasource
         self.tags = tags
         self.mockprob = mockprob
+        self.mockset = mockset
         self.client = None
         self.indexresults = indexresults
         self.saveproducts = saveproducts
@@ -232,7 +233,7 @@ class realfast_controller(Controller):
         """
 
         if random.uniform(0, 1) < self.mockprob:
-            mockparams = random.choice(mock_standards)
+            mockparams = random.choice(self.mockset)
             self.inprefs['simulated_transient'] = [mockparams]
 # TODO: indexmocks function
 #           if self.indexresults:
