@@ -101,12 +101,11 @@ def makesdm(startTime, endTime, metadata, data):
     assert data.ndim == 6, ("data must have 6 dimensions: "
                             "nint, nbl, nspw, numBin, nchan, npol.")
 
-    datasetId = metadata.filename
     nint, nbl, nspw, numBin, nchan, npol = data.shape
     dataSize = data.nbytes
     uid = ('uid:///evla/realfastbdf/{0}'
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
-    sdmb = SDMBuilder(datasetId, uid, dataSize, nint, startTime, endTime)
+    sdmb = SDMBuilder(metadata.datasetId, uid, dataSize, nint, startTime, endTime)
     sdmb.send()
 
     return sdmb.location

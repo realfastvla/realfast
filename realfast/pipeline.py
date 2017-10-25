@@ -39,7 +39,7 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     """
 
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
-                .format(st.metadata.filename, st.metadata.scan, segment))
+                .format(st.metadata.datasetId, st.metadata.scan, segment))
 
     futures = {}
 

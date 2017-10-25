@@ -19,10 +19,10 @@ formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s
 ch.setFormatter(formatter)
 logger = logging.getLogger('realfast_controller')
 
-vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
-default_preffile = '/lustre/evla/test/realfast/realfast.yml'
-default_vys_timeout = 10  # seconds more than segment length
-distributed_host = 'cbe-node-01'
+_vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
+_preffile = '/lustre/evla/test/realfast/realfast.yml'
+_vys_timeout = 10  # seconds more than segment length
+_distributed_host = 'cbe-node-01'
 
 mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
                   (0.1, 30, 20, 0.01, -1e-3, 1e-3),
@@ -32,9 +32,10 @@ mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
 
 class realfast_controller(Controller):
 
-    def __init__(self, preffile=default_preffile, inprefs={},
-                 vys_timeout=default_vys_timeout, datasource=None,
-                 tags=None, mockprob=0.5):
+    def __init__(self, preffile=_preffile, inprefs={},
+                 vys_timeout=_vys_timeout, datasource=None, tags=None,
+                 mockprob=0.5, saveproducts=False, indexresults=True,
+                 archiveproducts=False):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
@@ -51,6 +52,11 @@ class realfast_controller(Controller):
         self.tags = tags
         self.mockprob = mockprob
         self.client = None
+        self.indexresults = indexresults
+        self.saveproducts = saveproducts
+        self.archiveproducts = archiveproducts
+
+        # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'
@@ -73,16 +79,19 @@ class realfast_controller(Controller):
             st = state.State(config=config, preffile=self.preffile,
                              inprefs=self.inprefs,
                              inmeta={'datasource': self.datasource})
-            elastic.indexscan_config(config, preferences=st.prefs,
-                                     datasource=self.datasource)  # index prefs
+            if self.indexresults:
+                elastic.indexscan_config(config, preferences=st.prefs,
+                                         datasource=self.datasource)
+            else:
+                logger.info("Not indexing config or prefs.")
 
             logger.info('Starting pipeline...')
             # pipeline returns dict of futures
             # TODO: update for dict structure
             futures = pipeline.pipeline_scan(st, segments=None,
-                                          host=distributed_host,
-                                          cfile=vys_cfile,
-                                          vys_timeout=self.vys_timeout)
+                                             host=_distributed_host,
+                                             cfile=_vys_cfile,
+                                             vys_timeout=self.vys_timeout)
             self.futures[config.scanId] = futures
             self.client = futures[0]['data'].client
         else:
@@ -102,22 +111,24 @@ class realfast_controller(Controller):
 
         # TODO: subscan assumed = 1
         subscan = 1
-        scanId = '.'.join([os.path.basename(sdmfile.rstrip('/')), str(sdmscan),
-                           str(subscan)])
+        scanId = '{0}.{1}.{2}'.format([os.path.basename(sdmfile.rstrip('/')),
+                                       str(sdmscan), str(subscan)])
         self.inject_transient(scanId)  # randomly inject mock transient
 
         st = state.State(sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                          preffile=self.preffile, inprefs=self.inprefs,
                          inmeta={'datasource': self.datasource})
 
-        elastic.indexscan_sdm(scanId, preferences=st.prefs,
-                              datasource=self.datasource)  # index prefs
+        if self.indexresults:
+            elastic.indexscan_sdm(scanId, preferences=st.prefs,
+                                  datasource=self.datasource)
+        else:
+            logger.info("Not indexing sdm scan or prefs.")
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None, host=distributed_host,
-                                         cfile=vys_cfile,
-                                         vys_timeout=self.vys_timeout)
+        futures = pipeline.pipeline_scan(st, segments=None,
+                                         host=_distributed_host)
 
         self.futures[scanId] = futures
         self.client = futures[0]['data'].client
@@ -137,8 +148,6 @@ class realfast_controller(Controller):
         cindexed = 0
         sdms = 0
 
-
-# TODO: adapt to list of dicts for futures
         for scanId in self.futures:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
 
@@ -156,10 +165,14 @@ class realfast_controller(Controller):
                 if len(candcollection.array):
 # TODO: can we use client here?
 #                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
-                    res = elastic.indexcands(candcollection.array, scanId,
-                                             prefsname=candcollection.prefs.name,
-                                             tags=self.tags)
-                    cindexed += res
+                    if self.indexresults:
+                        res = elastic.indexcands(candcollection.array, scanId,
+                                                 prefsname=candcollection.prefs.name,
+                                                 tags=self.tags)
+                        cindexed += res
+                    else:
+                       logger.info("Not indexing cands.")
+
                 else:
                     logger.info('No candidates for scanId {0}, scan {1} and '
                                 'segment {2}.'.format(scanId,
@@ -168,8 +181,11 @@ class realfast_controller(Controller):
 
 # TODO: index noises
 #                if os.path.exists(st.noisefile):
-#                    res = elastic.indexnoises(st.noisefile, scanId)
-#                    nindexed += res
+#                   if self.indexresults:
+#                       res = elastic.indexnoises(st.noisefile, scanId)
+#                        nindexed += res
+#                   else:
+#                      logger.info("Not indexing noises.")
 #                else:
 #                    logger.info('No noisefile found, no noises indexed.')
 
@@ -180,9 +196,27 @@ class realfast_controller(Controller):
                 # for last job of scanId trigger further cleanup
                 if len(self.futures[scanId]) == 0:
                     _ = self.futures.pop(scanId)
-                    moveplots(candcollection.prefs.workdir, scanId)
-                    createproducts(candcollection, data)
-#                    res = self.client.submit(createproducts, ...)  # make SDMs
+                    if self.saveproducts:
+                        candplots = moveplots(candcollection.prefs.workdir,
+                                              scanId)
+                        if len(candplots):
+                            logger.info('Candidate plots copied from {0}'
+                                        .format(candplots))
+                        else:
+                            logger.info('No candidate plots found to copy.')
+
+                        newsdms = createproducts(candcollection, data)
+                        if len(newsdms):
+                            logger.info("Created new SDMs at: {0}"
+                                        .format(newsdms))
+                        else:
+                            logger.info("No new SDMs created")
+
+                        if self.archiveproducts:
+                            archiveproducts(newsdms)
+
+                    else:
+                        logger.info("Not creating new SDMs or moving cand plots.")
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
@@ -198,8 +232,11 @@ class realfast_controller(Controller):
             mockparams = random.choice(mock_standards)
             self.inprefs['simulated_transient'] = [mockparams]
 # TODO: indexmocks function
-#            mindexed = elastic.indexmocks(self.inprefs, scanId)
-#            logger.info("Indexed {0} mock transients.".format(mindexed))
+#           if self.indexresults:
+#               mindexed = elastic.indexmocks(self.inprefs, scanId)
+#                logger.info("Indexed {0} mock transients.".format(mindexed))
+#            else:
+#                logger.info("Not indexing mocks.")
 
             if self.tags is None:
                 self.tags = 'mock'
@@ -259,6 +296,7 @@ def runsearch(config):
         return False
 
     return True
+
 
 def summarize(self, config):
     """ Print summary info for config
@@ -344,6 +382,13 @@ def gencandranges(candcollection):
     return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
+def archiveproducts(sdms):
+    """ Call archive tool or move data to trigger archiving of sdms.
+    """
+
+    NotImplementedError
+
+
 def moveplots(workdir, scanId,
               destination='/users/claw/public_html/realfast/plots'):
     """ For given fileroot, move candidate plots to public location
@@ -351,18 +396,16 @@ def moveplots(workdir, scanId,
 
     datasetId, scan, subscan = scanId.rsplit('.', 2)
 
-    candfiles = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
-    for candfile in candfiles:
-        shutil.copy(candfile, destination)
-    if candfiles:
-        logger.info('Candidate plots copied to {0}'.format(destination))
-    else:
-        logger.warn('No candidate plots found to copy.')
+    candplots = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
+    for candplot in candplots:
+        shutil.copy(candplot, destination)
+
+    return candplots
 
 
 class config_controller(Controller):
 
-    def __init__(self, pklfile=None, preffile=None):
+    def __init__(self, pklfile=None, preffile=_preffile):
         """ Creates controller object that saves scan configs.
         If pklfile is defined, it will save pickle there.
         If preffile is defined, it will attach a preferences to indexed scan.

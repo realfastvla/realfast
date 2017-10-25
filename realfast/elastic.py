@@ -108,7 +108,7 @@ def indexcands(candarr, scanId, prefsname=None, withplots=True,
     Optionally adds preferences connection via hashed name
     scanId is added to associate cand to a give scan.
     Assumes scanId is defined as:
-    datasetId (a.k.a. metadata.filename) dot scanNo dot subscanNo.
+    datasetId dot scanNo dot subscanNo.
     withplots specifies that only candidates with plots are indexed.
     tags is a comma-delimited string used to fill tag field in index.
     """
@@ -159,7 +159,7 @@ def indexcands(candarr, scanId, prefsname=None, withplots=True,
 def candid(data):
     """ Returns id string for given data dict
     Assumes scanId is defined as:
-    datasetId (a.k.a. metadata.filename) dot scanNum dot subscanNum
+    datasetId dot scanNum dot subscanNum
     ** TODO: maybe allow scan to be defined as scan.subscan?
     """
 
