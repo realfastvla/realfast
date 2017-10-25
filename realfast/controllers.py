@@ -24,18 +24,18 @@ _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # seconds more than segment length
 _distributed_host = 'cbe-node-01'
 
-mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
-                  (0.1, 30, 20, 0.01, -1e-3, 1e-3),
-                  (0.1, 30, 20, 0.01, -1e-3, -1e-3),
-                  (0.1, 30, 20, 0.01, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
+_mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
+                   (0.1, 30, 20, 0.01, -1e-3, 1e-3),
+                   (0.1, 30, 20, 0.01, -1e-3, -1e-3),
+                   (0.1, 30, 20, 0.01, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
 
 
 class realfast_controller(Controller):
 
     def __init__(self, preffile=_preffile, inprefs={},
                  vys_timeout=_vys_timeout, datasource=None, tags=None,
-                 mockprob=0.5, saveproducts=False, indexresults=True,
-                 archiveproducts=False):
+                 mockprob=0.5, mockset=_mock_standards, saveproducts=False,
+                 indexresults=True, archiveproducts=False):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
@@ -175,10 +175,8 @@ class realfast_controller(Controller):
                         logger.info("Not indexing cands.")
 
                 else:
-                    logger.info('No candidates for scanId {0}, scan {1} and '
-                                'segment {2}.'.format(scanId,
-                                                      candcollection.scan,
-                                                      candcollection.segment))
+                    logger.info('No candidates for a segment from scanId {0}'
+                                .format(scanId))
 
 # TODO: index noises
 #                if os.path.exists(st.noisefile):
@@ -191,12 +189,11 @@ class realfast_controller(Controller):
 #                    logger.info('No noisefile found, no noises indexed.')
 
                 # remove job from list
-                self.futures[scanId].remove(futures)  # TODO: not working here?
+                self.futures[scanId].remove(futures)
                 removed += 1
 
                 # for last job of scanId trigger further cleanup
                 if len(self.futures[scanId]) == 0:
-                    _ = self.futures.pop(scanId)
                     if self.saveproducts:
                         candplots = moveplots(candcollection.prefs.workdir,
                                               scanId)
@@ -217,7 +214,12 @@ class realfast_controller(Controller):
                             archiveproducts(newsdms)
 
                     else:
-                        logger.info("Not creating new SDMs or moving cand plots.")
+                        logger.info("Not making new SDMs or moving candplots.")
+
+        removeids = [scanId for scanId in self.futures
+                     if len(self.futures[scanId]) == 0]
+        for scanId in removeids:
+            _ = self.futures.pop(scanId)
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
