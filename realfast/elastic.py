@@ -121,8 +121,8 @@ def indexcands(candarr, scanId, prefsname=None, withplots=True,
 
     res = 0
     for i in range(len(candarr)):
-        # get features
-        canddict = dict(zip(candarr.dtype.names, candarr[i]))
+        # get features. use .item() to cast to default types
+        canddict = dict(zip(candarr.dtype.names, candarr[i].item()))
 
         # fill optional fields
         canddict['scanId'] = scanId

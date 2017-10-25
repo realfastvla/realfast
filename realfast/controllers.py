@@ -172,7 +172,7 @@ class realfast_controller(Controller):
                                                  tags=self.tags)
                         cindexed += res
                     else:
-                       logger.info("Not indexing cands.")
+                        logger.info("Not indexing cands.")
 
                 else:
                     logger.info('No candidates for scanId {0}, scan {1} and '
@@ -191,7 +191,7 @@ class realfast_controller(Controller):
 #                    logger.info('No noisefile found, no noises indexed.')
 
                 # remove job from list
-                self.futures[scanId].remove(futures)
+                self.futures[scanId].remove(futures)  # TODO: not working here?
                 removed += 1
 
                 # for last job of scanId trigger further cleanup
@@ -366,7 +366,8 @@ def createproducts(candcollection, data, bdfdir='.'):
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)
-        sdmlocs.append(sdmloc)
+        if sdmloc is not None:
+            sdmlocs.append(sdmloc)
         sdm_builder.makebdf(startTime, endTime, metadata, data_cut, bdfdir=bdfdir)
 
     return sdmlocs
