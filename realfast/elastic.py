@@ -44,7 +44,8 @@ def indexscan_config(config, preferences=None, datasource='vys'):
         logger.warn('Scan config not indexed')
 
 
-def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
+def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
+                  datasource='sdm'):
     """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
     """
 
@@ -56,8 +57,10 @@ def indexscan_sdm(scanId, preferences=None, datasource='sdm'):
     import sdmpy
     from numpy import degrees
 
-    datasetId, sdmscan, sdmsubscan = scanId.rsplit('.', 2)
-    sdm = sdmpy.SDM(datasetId, use_xsd=False)
+    datasetId = os.path.basename(sdmfile.rstrip('/'))
+    scanId = '{0}.{1}.{2}'.format(datasetId, str(sdmscan), str(sdmsubscan))
+
+    sdm = sdmpy.SDM(sdmfile, use_xsd=False)
     scan = sdm.scan(sdmscan)
 
     scandict = {}

@@ -110,9 +110,9 @@ class realfast_controller(Controller):
             self.datasource = 'sdm'
 
         # TODO: subscan assumed = 1
-        subscan = 1
-        scanId = '{0}.{1}.{2}'.format([os.path.basename(sdmfile.rstrip('/')),
-                                       str(sdmscan), str(subscan)])
+        sdmsubscan = 1
+        scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
+                                      str(sdmscan), str(sdmsubscan))
         self.inject_transient(scanId)  # randomly inject mock transient
 
         st = state.State(sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
@@ -120,7 +120,8 @@ class realfast_controller(Controller):
                          inmeta={'datasource': self.datasource})
 
         if self.indexresults:
-            elastic.indexscan_sdm(scanId, preferences=st.prefs,
+            elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
+                                  preferences=st.prefs,
                                   datasource=self.datasource)
         else:
             logger.info("Not indexing sdm scan or prefs.")
@@ -152,7 +153,7 @@ class realfast_controller(Controller):
             logger.info("Checking on jobs from scanId {0}".format(scanId))
 
             # create list of futures (a dict per segment) that are done
-            removelist = [futures for futurelist in self.futures[scanId]
+            removelist = [futures for (scanId, futurelist) in iteritems(self.futures)
                           for futures in futurelist
                           if futures['candcollection'].status in ['finished',
                                                                   'cancelled']]
