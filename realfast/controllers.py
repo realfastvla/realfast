@@ -212,7 +212,7 @@ class realfast_controller(Controller):
                             logger.info("No new SDMs created")
 
                         if self.archiveproducts:
-                            archiveproducts(newsdms)  # TODO: test tool and implement here
+                            runingest(newsdms)  # TODO: test tool and implement here
 
                     else:
                         logger.info("Not making new SDMs or moving candplots.")
@@ -344,8 +344,12 @@ def summarize(config):
                     "Proceeding.")
 
 
-def createproducts(candcollection, data, bdfdir='.'):
+def createproducts(candcollection, data, sdmdir='.',
+                   bdfdir='/lustre/evla/wcbe/data/no_archive/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
+    This uses the sdm_builder module, which calls the sdm builder server.
+    sdmdir will move and rename output file to "realfast_<obsid>_<uid>".
+    Currently BDFs are moved to no_archive lustre area by default.
     """
 
     if len(candcollection.array) == 0:
@@ -370,8 +374,23 @@ def createproducts(candcollection, data, bdfdir='.'):
 
         sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)
         if sdmloc is not None:
-            sdmlocs.append(sdmloc)
-        sdm_builder.makebdf(startTime, endTime, metadata, data_cut, bdfdir=bdfdir)
+            if sdmdir is not None:
+                uid = ('uid:///evla/realfastbdf/{0}'
+                       .format(int(time.Time(startTime,
+                                             format='mjd').unix*1e3)))
+                newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
+                                         .format(sdmloc.basename, uid))
+                shutil.move(sdmloc, newsdmloc)
+                sdmlocs.append(newsdmloc)
+            else:
+                sdmlocs.append(sdmloc)
+
+            # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
+            sdm_builder.makebdf(startTime, endTime, metadata, data_cut,
+                                bdfdir=bdfdir)
+        else:
+            logger.warn("No sdm/bdf made for start/end time {0}-{1}"
+                        .format(startTime, endTime))
 
     return sdmlocs
 
@@ -387,11 +406,12 @@ def gencandranges(candcollection):
     return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
-def archiveproducts(sdms):
+def runingest(sdms):
     """ Call archive tool or move data to trigger archiving of sdms.
     """
 
     NotImplementedError
+#    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
 def moveplots(workdir, scanId,
