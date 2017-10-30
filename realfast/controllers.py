@@ -88,7 +88,7 @@ class realfast_controller(Controller):
 
             logger.info('Starting pipeline...')
             # pipeline returns dict of futures
-            # TODO: update for dict structure
+            # ** is list of dicts required to be in segment order?
             futures = pipeline.pipeline_scan(st, segments=None,
                                              host=_distributed_host,
                                              cfile=_vys_cfile,
@@ -168,9 +168,17 @@ class realfast_controller(Controller):
 # TODO: can we use client here?
 #                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
                     if self.indexresults:
-                        res = elastic.indexcands(candcollection.array, scanId,
-                                                 prefsname=candcollection.prefs.name,
+                        res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags)
+                    if self.saveproducts:
+                        candplots = moveplots(candcollection.prefs.workdir,
+                                              scanId)
+                        if len(candplots):
+                            logger.info('Candidate plots copied from {0}'
+                                        .format(candplots))
+                        else:
+                            logger.info('No candidate plots found to copy.')
+
                         cindexed += res
                     else:
                         logger.info("Not indexing cands.")
@@ -196,14 +204,6 @@ class realfast_controller(Controller):
                 # for last job of scanId trigger further cleanup
                 if len(self.futures[scanId]) == 0:
                     if self.saveproducts:
-                        candplots = moveplots(candcollection.prefs.workdir,
-                                              scanId)
-                        if len(candplots):
-                            logger.info('Candidate plots copied from {0}'
-                                        .format(candplots))
-                        else:
-                            logger.info('No candidate plots found to copy.')
-
                         newsdms = createproducts(candcollection, data)
                         if len(newsdms):
                             logger.info("Created new SDMs at: {0}"
@@ -212,7 +212,7 @@ class realfast_controller(Controller):
                             logger.info("No new SDMs created")
 
                         if self.archiveproducts:
-                            archiveproducts(newsdms)
+                            archiveproducts(newsdms)  # TODO: test tool and implement here
 
                     else:
                         logger.info("Not making new SDMs or moving candplots.")
@@ -302,7 +302,7 @@ def runsearch(config):
     return True
 
 
-def summarize(self, config):
+def summarize(config):
     """ Print summary info for config
     """
 

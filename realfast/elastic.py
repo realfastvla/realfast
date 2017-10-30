@@ -105,19 +105,20 @@ def indexprefs(preferences):
         logger.warn('Preferences not indexed')
 
 
-def indexcands(candarr, scanId, prefsname=None, withplots=True,
-               tags=None):
-    """ Takes candidates as array and pushes to index
-    Optionally adds preferences connection via hashed name
+def indexcands(candcollection, scanId, tags=None):
+    """ Takes candidate collection and pushes to index
+    Connects to preferences via hashed name
     scanId is added to associate cand to a give scan.
     Assumes scanId is defined as:
     datasetId dot scanNo dot subscanNo.
-    withplots specifies that only candidates with plots are indexed.
     tags is a comma-delimited string used to fill tag field in index.
     """
 
     if tags is None:
         tags = 'new'
+
+    candarr = candcollection.array
+    prefs = candcollection.prefs
 
     res = 0
     for i in range(len(candarr)):
@@ -131,16 +132,26 @@ def indexcands(candarr, scanId, prefsname=None, withplots=True,
         canddict['scan'] = scan
         canddict['subscan'] = subscan
         canddict['tags'] = tags
-        if prefsname:
-            canddict['prefsname'] = prefsname
+        if prefs.name:
+            canddict['prefsname'] = prefs.name
 
         # create id
         uniqueid = candid(canddict)
         candidate_png = 'cands_{0}.png'.format(uniqueid)
+        # TODO: update to field "png_url" with pull url
         if os.path.exists(candidate_png):  # set if png exists
             canddict['candidate_png'] = candidate_png
 
-        if withplots:
+        if 'snr2' in candarr.dtype.names:
+            snr = candarr[i]['snr2']
+        elif 'snr1' in candarr.dtype.names:
+            snr = candarr[i]['snr1']
+        else:
+            logger.warn("Neither snr1 nor snr2 in field names. "
+                        "Pushing all positive candidates into index.")
+            snr = 0
+
+        if snr >= prefs.sigma_plot:
             if os.path.exists(candidate_png):
                 res += pushdata(canddict, index='cands',
                                 Id=uniqueid, command='index')
