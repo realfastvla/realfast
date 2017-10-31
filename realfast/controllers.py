@@ -24,10 +24,11 @@ _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # seconds more than segment length
 _distributed_host = 'cbe-node-01'
 
-_mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 1e-3),
-                   (0.1, 30, 20, 0.01, -1e-3, 1e-3),
-                   (0.1, 30, 20, 0.01, -1e-3, -1e-3),
-                   (0.1, 30, 20, 0.01, 1e-3, -1e-3)]  # (amp, i0, dm, dt, l, m)
+# standards should always have l=0 or m=0
+_mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 0.),
+                   (0.1, 30, 20, 0.01, -1e-3, 0.),
+                   (0.1, 30, 20, 0.01, 0., 1e-3),
+                   (0.1, 30, 20, 0.01, 0., -1e-3)]  # (amp, i0, dm, dt, l, m)
 
 
 class realfast_controller(Controller):
@@ -378,8 +379,12 @@ def createproducts(candcollection, data, sdmdir='.',
                 uid = ('uid:///evla/realfastbdf/{0}'
                        .format(int(time.Time(startTime,
                                              format='mjd').unix*1e3)))
+                if 'sdm-builder' in sdmloc:  # remove default name suffix
+                    sdmlocbase = '-'.join(sdmloc.rsplit('-')[:-3])
+                else:
+                    sdmlocbase = sdmloc
                 newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
-                                         .format(sdmloc.basename, uid))
+                                         .format(os.path.basename(sdmlocbase), uid.rsplit('/')[-1]))
                 shutil.move(sdmloc, newsdmloc)
                 sdmlocs.append(newsdmloc)
             else:
