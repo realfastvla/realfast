@@ -163,8 +163,6 @@ class realfast_controller(Controller):
             # one canddf per segment
             for futures in removelist:
                 candcollection = futures['candcollection'].result()
-                data = futures['data'].result()
-
                 if len(candcollection.array):
 # TODO: can we use client here?
 #                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
@@ -205,6 +203,7 @@ class realfast_controller(Controller):
                 # for last job of scanId trigger further cleanup
                 if len(self.futures[scanId]) == 0:
                     if self.saveproducts:
+                        data = futures['data'].result()
                         newsdms = createproducts(candcollection, data)
                         if len(newsdms):
                             logger.info("Created new SDMs at: {0}"
