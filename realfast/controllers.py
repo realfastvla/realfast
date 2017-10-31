@@ -154,10 +154,11 @@ class realfast_controller(Controller):
             logger.info("Checking on jobs from scanId {0}".format(scanId))
 
             # create list of futures (a dict per segment) that are done
-            removelist = [futures for (scanId, futurelist) in iteritems(self.futures)
+            removelist = [futures for (scanId0, futurelist) in iteritems(self.futures)
                           for futures in futurelist
-                          if futures['candcollection'].status in ['finished',
-                                                                  'cancelled']]
+                          if (futures['candcollection'].status in ['finished',
+                                                                  'cancelled']) and
+                             (scanId0 == scanId)]
 
             # one canddf per segment
             for futures in removelist:
