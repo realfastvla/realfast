@@ -154,15 +154,25 @@ class realfast_controller(Controller):
         for scanId in self.futures:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
 
-            # create list of futures (a dict per segment) that are done
-            removelist = [futures for (scanId0, futurelist) in iteritems(self.futures)
+            # create list of futures (a dict per segment) that are cancelled
+            cancelledlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
                           for futures in futurelist
-                          if (futures['candcollection'].status in ['finished',
-                                                                  'cancelled']) and
+                          if (futures['candcollection'].status == 'cancelled') and
+                             (scanId0 == scanId)]
+
+            # clean them up
+            for futures in cancelledlist:
+                self.futures[scanId].remove(futures)
+                removed += 1
+
+            # create list of futures (a dict per segment) that are done
+            finishedlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
+                          for futures in futurelist
+                          if (futures['candcollection'].status == 'finished') and
                              (scanId0 == scanId)]
 
             # one canddf per segment
-            for futures in removelist:
+            for futures in finishedlist:
                 candcollection = futures['candcollection'].result()
                 if len(candcollection.array):
 # TODO: can we use client here?
