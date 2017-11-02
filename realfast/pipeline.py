@@ -44,6 +44,7 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
+    searchresources = None if st.fftmode == 'fftw' else {'GPU': 1}
 
     if not cl:
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
@@ -53,10 +54,8 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=True)
-#                     resources={'MEMORY': 1.1*st.vismem})
     futures['data'] = data
     data_prep = cl.submit(source.data_prep, st, data, pure=True)
-#                          resources={'MEMORY': 1.1*st.vismem})
 
     saved = []
     for dmind in range(len(st.dmarr)):
@@ -64,20 +63,14 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
                           st.dmarr[dmind], st.inttime, pure=True)
         data_dm = cl.submit(search.dedisperse, data_prep, delay, mode=mode,
                             pure=True)
-#                           , resources={'MEMORY': 1.1*st.vismem})
 
         for dtind in range(len(st.dtarr)):
             data_dmdt = cl.submit(search.resample, data_dm, st.dtarr[dtind],
                                   mode=mode, pure=True)
-#                                  resources={'MEMORY':
-#                                             1.1*st.vismem/st.dtarr[dtind]})
-            resources = None if st.fftmode == 'fftw' else {'GPU': 1}
+
             saved.append(cl.submit(search.search_thresh, st, data_dmdt,
                                    segment, dmind, dtind, wisdom=wisdom,
-                                   pure=True, resources=resources))
-#                                                'MEMORY': 1.1*st.immem})
-#                                     mode='fftw', pure=True,
-#                                     resources={'MEMORY': 1.1*st.immem})
+                                   pure=True, resources=searchresources))
 
     # ** or aggregate over dt or dm trials? **
     canddatalist = cl.submit(mergelists, saved, pure=True)
