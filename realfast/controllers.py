@@ -23,6 +23,8 @@ _vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # seconds more than segment length
 _distributed_host = 'cbe-node-01'
+_candplot_dir = '/users/claw/public_html/realfast/plots'
+_candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 
 # standards should always have l=0 or m=0
 _mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 0.),
@@ -175,19 +177,19 @@ class realfast_controller(Controller):
             for futures in finishedlist:
                 candcollection = futures['candcollection'].result()
                 if len(candcollection.array):
-# TODO: can we use client here?
-#                    res = self.client.submit(elastic.indexcands, job, scanId, tags=self.tags)
                     if self.indexresults:
+                        nplots = moveplots(candcollection.prefs.workdir,
+                                           scanId, destination=_candplot_dir)
+#                       TODO: can we use client here?
                         res = elastic.indexcands(candcollection, scanId,
-                                                 tags=self.tags)
-                    if self.saveproducts:
-                        candplots = moveplots(candcollection.prefs.workdir,
-                                              scanId)
-                        if len(candplots):
-                            logger.info('Candidate plots copied from {0}'
-                                        .format(candplots))
+                                                 tags=self.tags,
+                                                 url_prefix=_candplot_url_prefix)
+                        if res or nplots:
+                            logger.info('Indexed {0} candidates and moved {1} '
+                                        'plots to {2}'
+                                        .format(res, nplots, _candplot_dir))
                         else:
-                            logger.info('No candidate plots found to copy.')
+                            logger.info('No candidates or plots found.')
 
                         cindexed += res
                     else:
@@ -438,9 +440,9 @@ def moveplots(workdir, scanId,
 
     candplots = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
     for candplot in candplots:
-        shutil.copy(candplot, destination)
+        shutil.move(candplot, destination)
 
-    return candplots
+    return len(candplots)
 
 
 class config_controller(Controller):
