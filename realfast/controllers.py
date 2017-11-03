@@ -438,11 +438,17 @@ def moveplots(workdir, scanId,
 
     datasetId, scan, subscan = scanId.rsplit('.', 2)
 
+    nplots = 0
     candplots = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
     for candplot in candplots:
-        shutil.move(candplot, destination)
+        try:
+            shutil.move(candplot, destination)
+            nplots += 1
+        except shutil.Error:
+            logger.warn("Plot {0} already exists at {1}. Skipping..."
+                        .format(candplot, destination))
 
-    return len(candplots)
+    return nplots
 
 
 class config_controller(Controller):

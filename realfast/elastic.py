@@ -115,7 +115,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
     """
 
     if tags is None:
-        tags = 'new'
+        tags = ['new']
 
     candarr = candcollection.array
     prefs = candcollection.prefs
@@ -146,6 +146,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
             snr = -999
 
         if snr >= prefs.sigma_plot:
+            # TODO: test for existance of file prior to setting field?
             candidate_png = 'cands_{0}.png'.format(uniqueid)
             canddict['png_url'] = os.path.join(url_prefix, candidate_png)
 
