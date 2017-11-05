@@ -93,6 +93,48 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
         logger.warn('Scan config not indexed')
 
 
+def indexscan_meta(metadata, preferences=None):
+    """ Takes metadata object and pushes to elasticsearch scans index.
+    """
+
+# must include:
+#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
+#                      'dec_deg', 'scan_intent', 'source', 'startTime',
+#                      'stopTime']
+
+    from numpy import degrees
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = metadata.datasetId
+    scandict['scanId'] = metadata.scanId
+    scandict['projid'] = 'Unknown'
+    scandict['scanNo'] = metadata.scan
+    scandict['subscanNo'] = metadata.subscan
+    scandict['source'] = metadata.source
+    ra, dec = degrees(metadata.radec)
+    scandict['ra_deg'] = ra
+    scandict['dec_deg'] = dec
+    scandict['startTime'] = str(metadata.starttime_mjd)
+    scandict['stopTime'] = str(metadata.endtime_mjd)
+    scandict['datasource'] = metadata.datasource
+    scandict['scan_intent'] = metadata.intent  # assumes ,-delimited string
+
+    # if preferences provided, it will connect them by a unique name
+    if preferences:
+        scandict['prefsname'] = preferences.name
+        indexprefs(preferences)
+
+    # push scan info with unique id of scanId
+    res = pushdata(scandict, index='scans', Id=metadata.scanId,
+                   command='index')
+    if res == 1:
+        logger.info('Successfully indexed scan config')
+    else:
+        logger.warn('Scan config not indexed')
+
+
 def indexprefs(preferences):
     """
     """

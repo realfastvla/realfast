@@ -173,7 +173,7 @@ class realfast_controller(Controller):
                           if (futures['candcollection'].status == 'finished') and
                              (scanId0 == scanId)]
 
-            # one canddf per segment
+            # one candcollection per segment
             for futures in finishedlist:
                 candcollection = futures['candcollection'].result()
                 if len(candcollection.array):
@@ -209,27 +209,31 @@ class realfast_controller(Controller):
 #                else:
 #                    logger.info('No noisefile found, no noises indexed.')
 
+                # optionally save and archive sdm/bdfs for segment
+                if self.saveproducts:
+                    newsdms = createproducts(candcollection, futures['data'])
+                    if len(newsdms):
+                        logger.info("Created new SDMs at: {0}"
+                                    .format(newsdms))
+                    else:
+                        logger.info("No new SDMs created")
+
+                    if self.archiveproducts:
+                        runingest(newsdms)  # TODO: test tool and implement here
+
+                else:
+                    logger.info("Not making new SDMs or moving candplots.")
+
                 # remove job from list
                 self.futures[scanId].remove(futures)
                 removed += 1
 
-                # for last job of scanId trigger further cleanup
+                # last job of scanId triggers further cleanup for scanId
                 if len(self.futures[scanId]) == 0:
-                    if self.saveproducts:
-                        data = futures['data'].result()
-                        newsdms = createproducts(candcollection, data)
-                        if len(newsdms):
-                            logger.info("Created new SDMs at: {0}"
-                                        .format(newsdms))
-                        else:
-                            logger.info("No new SDMs created")
+                    # save summary plot TODO
+                    pass
 
-                        if self.archiveproducts:
-                            runingest(newsdms)  # TODO: test tool and implement here
-
-                    else:
-                        logger.info("Not making new SDMs or moving candplots.")
-
+        # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if len(self.futures[scanId]) == 0]
         for scanId in removeids:
@@ -238,6 +242,7 @@ class realfast_controller(Controller):
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
+
 
     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
@@ -357,9 +362,10 @@ def summarize(config):
                     "Proceeding.")
 
 
-def createproducts(candcollection, data, sdmdir='.',
+def createproducts(candcollection, datafuture, sdmdir='.',
                    bdfdir='/lustre/evla/wcbe/data/no_archive/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
+    Takes data future and calls data only if windows found to cut.
     This uses the sdm_builder module, which calls the sdm builder server.
     sdmdir will move and rename output file to "realfast_<obsid>_<uid>".
     Currently BDFs are moved to no_archive lustre area by default.
@@ -370,7 +376,6 @@ def createproducts(candcollection, data, sdmdir='.',
         return []
 
     metadata = candcollection.metadata
-    ninttot, nbl, nchantot, npol = data.shape
     nspw = len(metadata.spworder)
     nchan = nchantot//nspw
     segment = candcollection.segment
@@ -379,7 +384,13 @@ def createproducts(candcollection, data, sdmdir='.',
     st = candcollection.getstate()
 
     sdmlocs = []
-    candranges = gencandranges(candcollection)
+    candranges = gencandranges(candcollection)  # finds time windows to save from segment
+    if len(candcollection):
+        data = datafuture.result()
+        ninttot, nbl, nchantot, npol = data.shape
+    else:
+        logger.info('No candidate time ranges. Not calling for data.')
+
     for (startTime, endTime) in candranges:
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
