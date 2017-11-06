@@ -8,7 +8,7 @@ import os.path
 import glob
 import shutil
 import random
-import pylab as pl
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy import time
 from evla_mcast.controller import Controller
@@ -477,8 +477,15 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
         dms = np.concatenate((dms, candcoll.canddm))
         snrs = np.concatenate((snrs, candcoll.array['snr1']))
 
-    pl.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3)
-    pl.savefig(summaryplot)
+    fig = plt.Figure(figsize=(6, 4))
+    # DM-time
+    ax = fig.add_subplot(1, 3, 1, facecolor='white')
+    ax.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3)
+    ax.set_xlabel('Time (MJD)')
+    ax.set_ylabel('DM (pc/cm3)')
+    ax = fig.add_subplot(1, 3, 2, facecolor='white')
+    # TODO
+    ax.savefig(summaryplot)
 
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
     shutil.move(summaryplot, summaryplotdest)
