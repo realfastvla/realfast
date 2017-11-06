@@ -277,7 +277,6 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
     # only one doc_type per index and its name is derived from index
     doc_type = index.rstrip('s')
 
-    currentids = getids(index)
     logger.debug('Pushing to index {0} with Id {1}'.format(index, Id))
     res = 0
 
@@ -286,7 +285,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
             res = es.index(index=index, doc_type=doc_type, id=Id,
                            body=datadict)
         else:
-            if Id not in currentids:
+            if not es.exists(index=index, doc_type=doc_type, id=Id)
                 res = es.index(index=index, doc_type=doc_type,
                                id=Id, body=datadict)
             else:
@@ -294,7 +293,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
                             .format(Id))
 
     elif command == 'delete':
-        if Id in currentids:
+        if es.exists(index=index, doc_type=doc_type, id=Id)
             res = es.delete(index=index, doc_type=doc_type, id=Id)
         else:
             logger.warn('Id={0} not in index'.format(Id))
