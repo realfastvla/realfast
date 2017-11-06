@@ -285,7 +285,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
             res = es.index(index=index, doc_type=doc_type, id=Id,
                            body=datadict)
         else:
-            if not es.exists(index=index, doc_type=doc_type, id=Id)
+            if not es.exists(index=index, doc_type=doc_type, id=Id):
                 res = es.index(index=index, doc_type=doc_type,
                                id=Id, body=datadict)
             else:
@@ -293,7 +293,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
                             .format(Id))
 
     elif command == 'delete':
-        if es.exists(index=index, doc_type=doc_type, id=Id)
+        if es.exists(index=index, doc_type=doc_type, id=Id):
             res = es.delete(index=index, doc_type=doc_type, id=Id)
         else:
             logger.warn('Id={0} not in index'.format(Id))

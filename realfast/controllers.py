@@ -8,9 +8,11 @@ import os.path
 import glob
 import shutil
 import random
+import pylab as pl
+import numpy as np
 from astropy import time
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences
+from rfpipe import state, preferences, candidates
 from realfast import pipeline, elastic, sdm_builder
 
 import logging
@@ -158,9 +160,9 @@ class realfast_controller(Controller):
 
             # create list of futures (a dict per segment) that are cancelled
             cancelledlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                          for futures in futurelist
-                          if (futures['candcollection'].status == 'cancelled') and
-                             (scanId0 == scanId)]
+                             for futures in futurelist
+                             if (futures['candcollection'].status == 'cancelled') and
+                                (scanId0 == scanId)]
 
             # clean them up
             for futures in cancelledlist:
@@ -169,9 +171,9 @@ class realfast_controller(Controller):
 
             # create list of futures (a dict per segment) that are done
             finishedlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                          for futures in futurelist
-                          if (futures['candcollection'].status == 'finished') and
-                             (scanId0 == scanId)]
+                            for futures in futurelist
+                            if (futures['candcollection'].status == 'finished') and
+                               (scanId0 == scanId)]
 
             # one candcollection per segment
             for futures in finishedlist:
@@ -194,6 +196,8 @@ class realfast_controller(Controller):
                         cindexed += res
                     else:
                         logger.info("Not indexing cands.")
+
+                    makesummaryplot(candcollection.prefs.workdir, scanId)
 
                 else:
                     logger.info('No candidates for a segment from scanId {0}'
@@ -227,11 +231,6 @@ class realfast_controller(Controller):
                 # remove job from list
                 self.futures[scanId].remove(futures)
                 removed += 1
-
-                # last job of scanId triggers further cleanup for scanId
-                if len(self.futures[scanId]) == 0:
-                    # save summary plot TODO
-                    pass
 
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
@@ -442,15 +441,14 @@ def runingest(sdms):
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
-def moveplots(workdir, scanId,
-              destination='/users/claw/public_html/realfast/plots'):
+def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
     """
 
     datasetId, scan, subscan = scanId.rsplit('.', 2)
 
     nplots = 0
-    candplots = glob.glob('{0}/cands_{1}*.png'.format(workdir, datasetId))
+    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, datasetId))
     for candplot in candplots:
         try:
             shutil.move(candplot, destination)
@@ -459,7 +457,31 @@ def moveplots(workdir, scanId,
             logger.warn("Plot {0} already exists at {1}. Skipping..."
                         .format(candplot, destination))
 
+    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, datasetId))
+
     return nplots
+
+
+def makesummaryplot(workdir, scanId, destination=_candplot_dir):
+    """ Create summary plot for a given scanId and move it
+    """
+
+    candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
+    summaryplot = '{0}/cands_{1}.png'.format(workdir, scanId)
+
+    times = np.zeros(0, dtype=float)
+    dms = np.zeros(0, dtype=float)
+    snrs = np.zeros(0, dtype=float)
+    for candcoll in candidates.iter_cands(candsfile):
+        times = np.concatenate((times, candcoll.candmjd))
+        dms = np.concatenate((dms, candcoll.canddm))
+        snrs = np.concatenate((snrs, candcoll.array['snr1']))
+
+    pl.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3)
+    pl.savefig(summaryplot)
+
+    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
+    shutil.move(summaryplot, summaryplotdest)
 
 
 class config_controller(Controller):
