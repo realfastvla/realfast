@@ -34,7 +34,7 @@ The realfast application is build upon the following libraries:
  
 Install
 ---
-This application is designed to integrate specific protocols and services only availble on the correlator cluster at the VLA. If you'd like to build it yourself, you will need to use the [anaconda](http://anaconda.com) installer and follow instructions at [rfpipe](http://github.com/realfastvla/rfpipe). Then:
+This application is designed to integrate specific protocols and services only availble on the correlator cluster at the VLA. If you'd like to build it yourself, you will need to use the [anaconda](http://anaconda.com) installer and follow instructions at [rfpipe](http://github.com/realfastvla/rfpipe). Then install the dependencies above (vys and pycuda being the trickiest) and:
 
     python setup.py install
 
