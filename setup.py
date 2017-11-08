@@ -4,7 +4,7 @@ import glob
 setup(
     name='realfast',
     description='Real-time data analysis at the VLA',
-    author='Casey Law + SBS',
+    author='Casey Law and the realfast team',
     author_email='caseyjlaw@gmail.com',
     version='3.0',
     url='http://realfast.io',

@@ -8,7 +8,6 @@ import urllib
 import urlparse
 from lxml import etree, objectify
 from astropy import time
-from sdmpy import bdf
 from rfpipe.metadata import Metadata
 import logging
 logger = logging.getLogger(__name__)
@@ -119,6 +118,8 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
     Assumes one bdf per sdm and one sdm per candidate.
     Only supports 8bit samplers and IFid of AC/BD.
     """
+
+    from sdmpy import bdf
 
     assert type(metadata) == Metadata, ("metadata must be "
                                         "of type rfpipe.metadata.Metadata")
