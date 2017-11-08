@@ -6,6 +6,7 @@ import os
 
 _install_dir = os.path.abspath(os.path.dirname(__file__))
 
+
 @pytest.fixture(scope="module")
 def config():
     config = evla_mcast.scan_config.ScanConfig(vci=os.path.join(_install_dir, 'data/vci.xml'),
