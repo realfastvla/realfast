@@ -29,10 +29,11 @@ _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 
 # standards should always have l=0 or m=0
-_mock_standards = [(0.1, 30, 20, 0.01, 1e-3, 0.),
-                   (0.1, 30, 20, 0.01, -1e-3, 0.),
-                   (0.1, 30, 20, 0.01, 0., 1e-3),
-                   (0.1, 30, 20, 0.01, 0., -1e-3)]  # (amp, i0, dm, dt, l, m)
+# list of (seg, i0, dm, dt, amp, l, m)
+_mock_standards = [(0, 1, 20, 0.01, 0.1, 1e-3, 0.),
+                   (0, 1, 20, 0.01, 0.1, -1e-3, 0.),
+                   (0, 1, 20, 0.01, 0.1, 0., 1e-3),
+                   (0, 1, 20, 0.01, 0.1, 0., -1e-3)]
 
 
 class realfast_controller(Controller):
@@ -48,10 +49,12 @@ class realfast_controller(Controller):
         mockprob is a prob (range 0-1) that a mock is added to each segment.
         """
 
+        # TODO: add argument for selecting by datasetId?
         super(realfast_controller, self).__init__()
         self.preffile = preffile
         self.inprefs = inprefs
         self.vys_timeout = vys_timeout
+        self.states = {}
         self.futures = {}
         self.datasource = datasource
         self.tags = tags
@@ -99,6 +102,7 @@ class realfast_controller(Controller):
                                              cfile=_vys_cfile,
                                              vys_timeout=self.vys_timeout)
             self.futures[config.scanId] = futures
+            self.states[config.scanId] = st
             self.client = futures[0]['data'].client
         else:
             logger.info("Config not suitable for realfast. Skipping.")
@@ -138,6 +142,7 @@ class realfast_controller(Controller):
                                          host=_distributed_host)
 
         self.futures[scanId] = futures
+        self.states[config.scanId] = st
         self.client = futures[0]['data'].client
 
     def handle_finish(self, dataset):
@@ -223,7 +228,7 @@ class realfast_controller(Controller):
                         logger.info("No new SDMs created")
 
                     if self.archiveproducts:
-                        runingest(newsdms)  # TODO: test tool and implement here
+                        runingest(newsdms)  # TODO: implement this
 
                 else:
                     logger.info("Not making new SDMs or moving candplots.")
@@ -237,11 +242,11 @@ class realfast_controller(Controller):
                      if len(self.futures[scanId]) == 0]
         for scanId in removeids:
             _ = self.futures.pop(scanId)
+            _ = self.states.pop(scanId)
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
-
 
     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
@@ -252,12 +257,12 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(self.mockset)
             self.inprefs['simulated_transient'] = [mockparams]
-# TODO: indexmocks function
-#           if self.indexresults:
-#               mindexed = elastic.indexmocks(self.inprefs, scanId)
-#                logger.info("Indexed {0} mock transients.".format(mindexed))
-#            else:
-#                logger.info("Not indexing mocks.")
+
+            if self.indexresults:
+                mindexed = elastic.indexmocks(self.inprefs, scanId)
+                logger.info("Indexed {0} mock transients.".format(mindexed))
+            else:
+                logger.info("Not indexing mocks.")
 
             if self.tags is None:
                 self.tags = 'mock'

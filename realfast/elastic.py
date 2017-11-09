@@ -229,6 +229,14 @@ def indexmocks(inprefs, scanId):
     for mock in mocks:
         mockdict = {}
         mockdict['scanId'] = scanId
+        (seg, i0, dm, dt, amp, l, m) = mock
+        mockdict['segment'] = seg
+        mockdict['integration'] = i0
+        mockdict['dm'] = dm
+        mockdict['dt'] = dt
+        mockdict['amp'] = amp
+        mockdict['l'] = l
+        mockdict['m'] = m
 
         res += pushdata(mockdict, index='mocks', command='index')
 
