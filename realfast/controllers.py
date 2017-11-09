@@ -23,7 +23,7 @@ logger = logging.getLogger('realfast_controller')
 
 _vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_vys_timeout = 10  # seconds more than segment length
+_vys_timeout = 30  # seconds more than segment length
 _distributed_host = 'cbe-node-01'
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
@@ -41,12 +41,15 @@ class realfast_controller(Controller):
     def __init__(self, preffile=_preffile, inprefs={},
                  vys_timeout=_vys_timeout, datasource=None, tags=None,
                  mockprob=0.5, mockset=_mock_standards, saveproducts=False,
-                 indexresults=True, archiveproducts=False):
+                 indexresults=True, archiveproducts=False, nameincludes=None,
+                 searchintents=['OBSERVE_TARGET']):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
         tags is a default string for candidates put into index (None -> "new").
         mockprob is a prob (range 0-1) that a mock is added to each segment.
+        nameincludes is a string required to be in datasetId.
+        searchintents is a list of intent names to search.
         """
 
         # TODO: add argument for selecting by datasetId?
@@ -64,6 +67,8 @@ class realfast_controller(Controller):
         self.indexresults = indexresults
         self.saveproducts = saveproducts
         self.archiveproducts = archiveproducts
+        self.nameincludes = nameincludes
+        self.searchintents = searchintents
 
         # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
@@ -83,7 +88,8 @@ class realfast_controller(Controller):
 
         self.inject_transient(config.scanId)  # randomly inject mock transient
 
-        if runsearch(config):
+        if runsearch(config, nameincludes=self.nameincludes,
+                     searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
             st = state.State(config=config, preffile=self.preffile,
                              inprefs=self.inprefs,
@@ -265,12 +271,12 @@ class realfast_controller(Controller):
                 logger.info("Not indexing mocks.")
 
             if self.tags is None:
-                self.tags = 'mock'
+                self.tags = ['mock']
             elif 'mock' not in self.tags:
-                self.tags = ','.join(self.tags.split(',') + ['mock'])
+                self.tags = self.tags.append('mock')
         elif self.tags is not None:
             if 'mock' in self.tags:
-                self.tags = ','.join(self.tags.split(',').remove('mock'))
+                self.tags = self.tags.remove('mock')
 
     @property
     def statuses(self):
@@ -290,7 +296,7 @@ class realfast_controller(Controller):
                 if futures[ftype].status == 'error']
 
 
-def runsearch(config):
+def runsearch(config, nameincludes=None, searchintents=None):
     """ Test whether configuration specifies a config that realfast should search
     """
 
@@ -320,6 +326,18 @@ def runsearch(config):
         logger.warn("Scan startTime and stopTime are in the past ({0}, {1} < {2})"
                     .format(startTime, stopTime, now))
         return False
+
+    # 3) if nameincludes set, reject if datasetId does not have it
+    if nameincludes is not None:
+        if nameincludes not in config.datasetId:
+            logger.warn("datasetId {0} does not include nameincludes {1}"
+                        .format(config.datasetId, nameincludes))
+            return False
+
+    # 4) only search if in searchintents
+    if searchintents is not None:
+        if intent not in searchintents:
+            return False
 
     return True
 
