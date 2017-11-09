@@ -221,8 +221,6 @@ def indexmocks(inprefs, scanId):
     scanId is added to associate cand to a give scan.
     """
 
-    raise NotImplementedError
-
     mocks = inprefs['simulated_transient']
 
     res = 0
@@ -238,7 +236,7 @@ def indexmocks(inprefs, scanId):
         mockdict['l'] = l
         mockdict['m'] = m
 
-        res += pushdata(mockdict, index='mocks', command='index')
+        res += pushdata(mockdict, index='mocks', command='index', force=True)
 
     if res >= 1:
         logger.debug('Successfully indexed {0} mocks'.format(res))

@@ -142,7 +142,7 @@ class realfast_controller(Controller):
                                          host=_distributed_host)
 
         self.futures[scanId] = futures
-        self.states[config.scanId] = st
+        self.states[scanId] = st
         self.client = futures[0]['data'].client
 
     def handle_finish(self, dataset):
