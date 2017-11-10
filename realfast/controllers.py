@@ -76,6 +76,23 @@ class realfast_controller(Controller):
         return ('realfast controller with {0} jobs'
                 .format(len(self.futures)))
 
+    @property
+    def statuses(self):
+        return ['{0}, {1}: {2}'.format(scanId, ftype,
+                                       futures[ftype].status)
+                for (scanId, futurelist) in iteritems(self.futures)
+                for futures in futurelist
+                for ftype in futures]
+
+    @property
+    def errors(self):
+        return ['{0}, {1}: {2}'.format(scanId, ftype,
+                                       futures[ftype].exception())
+                for (scanId, futurelist) in iteritems(self.futures)
+                for futures in futurelist
+                for ftype in futures
+                if futures[ftype].status == 'error']
+
     def handle_config(self, config):
         """ Triggered when obs comes in.
         Downstream logic starts here.
@@ -157,28 +174,21 @@ class realfast_controller(Controller):
 
         logger.info('End of scheduling block message received.')
 
-    def cleanup(self):
+    def cleanup(self, badstatuslist=['cancelled']):
         """ Scan job dict, remove finished jobs,
         and push results to relevant indices.
+        badstatuslist can include 'cancelled', 'error', 'lost'.
         """
 
         removed = 0
         cindexed = 0
         sdms = 0
 
+        for status in badstatuslist:
+            removed += self.removefutures(status)
+
         for scanId in self.futures:
             logger.info("Checking on jobs from scanId {0}".format(scanId))
-
-            # create list of futures (a dict per segment) that are cancelled
-            cancelledlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                             for futures in futurelist
-                             if (futures['candcollection'].status == 'cancelled') and
-                                (scanId0 == scanId)]
-
-            # clean them up
-            for futures in cancelledlist:
-                self.futures[scanId].remove(futures)
-                removed += 1
 
             # create list of futures (a dict per segment) that are done
             finishedlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
@@ -278,22 +288,27 @@ class realfast_controller(Controller):
             if 'mock' in self.tags:
                 self.tags = self.tags.remove('mock')
 
-    @property
-    def statuses(self):
-        return ['{0}, {1}: {2}'.format(scanId, ftype,
-                                       futures[ftype].status)
-                for (scanId, futurelist) in iteritems(self.futures)
-                for futures in futurelist
-                for ftype in futures]
+    def removefutures(self, status):
+        """ Remove jobs with status of 'cancelled'
+        """
 
-    @property
-    def errors(self):
-        return ['{0}, {1}: {2}'.format(scanId, ftype,
-                                       futures[ftype].exception())
-                for (scanId, futurelist) in iteritems(self.futures)
-                for futures in futurelist
-                for ftype in futures
-                if futures[ftype].status == 'error']
+        removed = 0
+        for scanId in self.futures:
+            logger.info("Checking on jobs from scanId {0}".format(scanId))
+
+            # create list of futures (a dict per segment) that are cancelled
+            removelist = [futures for (scanId0, futurelist) in iteritems(self.futures)
+                             for futures in futurelist
+                             if (futures['candcollection'].status == status or
+                                 futures['data'].status == status) and
+                                (scanId0 == scanId)]
+
+            # clean them up
+            for futures in removelist:
+                self.futures[scanId].remove(futures)
+                removed += 1
+
+        return removed
 
 
 def runsearch(config, nameincludes=None, searchintents=None):
