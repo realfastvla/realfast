@@ -44,7 +44,10 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    searchresources = None if st.fftmode == 'fftw' else {'GPU': 1}
+    if st.fftmode == 'fftw':
+        searchresources = {'MEMORY': 2*st.immem}
+    else:
+        searchresources = {'MEMORY': 2*st.immem, 'GPU': 1}
 
     if not cl:
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
@@ -53,20 +56,22 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, pure=True) if st.fftmode == 'fftw' else None
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True)
+                     cfile=cfile, pure=True, resources={'MEMORY': st.vismem})
     futures['data'] = data
-    data_prep = cl.submit(source.data_prep, st, data, pure=True)
+    data_prep = cl.submit(source.data_prep, st, data, pure=True,
+                          resources={'MEMORY': st.vismem})
 
     saved = []
     for dmind in range(len(st.dmarr)):
         delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
                           st.dmarr[dmind], st.inttime, pure=True)
         data_dm = cl.submit(search.dedisperse, data_prep, delay, mode=mode,
-                            pure=True)
+                            pure=True, resources={'MEMORY': st.vismem})
 
         for dtind in range(len(st.dtarr)):
             data_dmdt = cl.submit(search.resample, data_dm, st.dtarr[dtind],
-                                  mode=mode, pure=True)
+                                  mode=mode, pure=True,
+                                  resources={'MEMORY': st.vismem/st.dtarr[dtind]})
 
             saved.append(cl.submit(search.search_thresh, st, data_dmdt,
                                    segment, dmind, dtind, wisdom=wisdom,
