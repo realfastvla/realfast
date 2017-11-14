@@ -8,7 +8,7 @@ from elasticsearch import Elasticsearch
 import logging
 logger = logging.getLogger(__name__)
 
-# eventually should be updated to search.realfast.io/api
+# eventually should be updated to search.realfast.io/api with auth
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
@@ -69,14 +69,14 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
     scandict['datasetId'] = datasetId
     scandict['scanId'] = scanId
     scandict['projid'] = 'Unknown'
-    scandict['scanNo'] = sdmscan
-    scandict['subscanNo'] = sdmsubscan
+    scandict['scanNo'] = int(sdmscan)
+    scandict['subscanNo'] = int(sdmsubscan)
     scandict['source'] = str(scan.source)
     ra, dec = degrees(scan.coordinates)
-    scandict['ra_deg'] = ra
-    scandict['dec_deg'] = dec
-    scandict['startTime'] = str(scan.startMJD)
-    scandict['stopTime'] = str(scan.endMJD)
+    scandict['ra_deg'] = float(ra)
+    scandict['dec_deg'] = float(dec)
+    scandict['startTime'] = float(scan.startMJD)
+    scandict['stopTime'] = float(scan.endMJD)
     scandict['datasource'] = datasource
     scandict['scan_intent'] = ','.join(scan.intents)
 
@@ -110,14 +110,14 @@ def indexscan_meta(metadata, preferences=None):
     scandict['datasetId'] = metadata.datasetId
     scandict['scanId'] = metadata.scanId
     scandict['projid'] = 'Unknown'
-    scandict['scanNo'] = metadata.scan
-    scandict['subscanNo'] = metadata.subscan
+    scandict['scanNo'] = int(metadata.scan)
+    scandict['subscanNo'] = int(metadata.subscan)
     scandict['source'] = metadata.source
     ra, dec = degrees(metadata.radec)
-    scandict['ra_deg'] = ra
-    scandict['dec_deg'] = dec
-    scandict['startTime'] = str(metadata.starttime_mjd)
-    scandict['stopTime'] = str(metadata.endtime_mjd)
+    scandict['ra_deg'] = float(ra)
+    scandict['dec_deg'] = float(dec)
+    scandict['startTime'] = float(metadata.starttime_mjd)
+    scandict['stopTime'] = float(metadata.endtime_mjd)
     scandict['datasource'] = metadata.datasource
     scandict['scan_intent'] = metadata.intent  # assumes ,-delimited string
 
@@ -171,8 +171,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
         canddict['scanId'] = scanId
         datasetId, scan, subscan = scanId.rsplit('.', 2)
         canddict['datasetId'] = datasetId
-        canddict['scan'] = scan
-        canddict['subscan'] = subscan
+        canddict['scan'] = int(scan)
+        canddict['subscan'] = int(subscan)
         canddict['tags'] = tags
         if prefs.name:
             canddict['prefsname'] = prefs.name
@@ -227,13 +227,13 @@ def indexmocks(inprefs, scanId):
         mockdict = {}
         mockdict['scanId'] = scanId
         (seg, i0, dm, dt, amp, l, m) = mock
-        mockdict['segment'] = seg
-        mockdict['integration'] = i0
-        mockdict['dm'] = dm
-        mockdict['dt'] = dt
-        mockdict['amp'] = amp
-        mockdict['l'] = l
-        mockdict['m'] = m
+        mockdict['segment'] = int(seg)
+        mockdict['integration'] = int(i0)
+        mockdict['dm'] = float(dm)
+        mockdict['dt'] = float(dt)
+        mockdict['amp'] = float(amp)
+        mockdict['l'] = float(l)
+        mockdict['m'] = float(m)
 
         res += pushdata(mockdict, index='mocks', command='index', force=True)
 
