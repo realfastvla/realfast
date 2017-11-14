@@ -207,12 +207,11 @@ def candid(data):
     """ Returns id string for given data dict
     Assumes scanId is defined as:
     datasetId dot scanNum dot subscanNum
-    ** TODO: maybe allow scan to be defined as scan.subscan?
     """
 
-    return ('{0}_sc{1}-seg{2}-i{3}-dm{4}-dt{5}'
-            .format(data['datasetId'], data['scan'], data['segment'],
-                    data['integration'], data['dmind'], data['dtind']))
+    return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
+            .format(data['scanId'], data['segment'], data['integration'],
+                    data['dmind'], data['dtind']))
 
 
 def indexmocks(inprefs, scanId):
