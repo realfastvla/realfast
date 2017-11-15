@@ -44,7 +44,7 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    searchresources = {'MEMORY': 6*st.immem}
+    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
     if st.fftmode == 'cuda':
         searchresources['GPU'] = 1
 
@@ -52,34 +52,40 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
 
     # plan, if using fftw
-    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, pure=True) if st.fftmode == 'fftw' else None
+    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
+                       pure=True, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True, resources={'MEMORY': st.vismem})
+                     cfile=cfile, pure=True, resources={'MEMORY': 2*st.vismem,
+                                                        'CORES': 1})
     futures['data'] = data
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
-                          resources={'MEMORY': st.vismem})
+                          resources={'MEMORY': 2*st.vismem,
+                                     'CORES': 1})
 
     saved = []
     for dmind in range(len(st.dmarr)):
         delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                          st.dmarr[dmind], st.inttime, pure=True)
+                          st.dmarr[dmind], st.inttime, pure=True,
+                          resources={'CORES': 1})
         data_dm = cl.submit(search.dedisperse, data_prep, delay, mode=mode,
-                            pure=True, resources={'MEMORY': st.vismem})
+                            pure=True, resources={'MEMORY': 2*st.vismem,
+                                                  'CORES': st.prefs.nthread})
 
         for dtind in range(len(st.dtarr)):
             data_dmdt = cl.submit(search.resample, data_dm, st.dtarr[dtind],
                                   mode=mode, pure=True,
-                                  resources={'MEMORY': st.vismem/st.dtarr[dtind]})
+                                  resources={'MEMMORY': 2*st.vismem/st.dtarr[dtind],
+                                             'CORES': st.prefs.nthread})
 
             saved.append(cl.submit(search.search_thresh, st, data_dmdt,
                                    segment, dmind, dtind, wisdom=wisdom,
                                    pure=True, resources=searchresources))
 
     # ** or aggregate over dt or dm trials? **
-    canddatalist = cl.submit(mergelists, saved, pure=True)
+    canddatalist = cl.submit(mergelists, saved, pure=True, resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
-                               pure=True)
+                               pure=True, resources={'CORES': 1})
 
     futures['candcollection'] = candcollection
 
