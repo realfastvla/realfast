@@ -44,10 +44,9 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    if st.fftmode == 'fftw':
-        searchresources = {'MEMORY': 2*st.immem}
-    else:
-        searchresources = {'MEMORY': 2*st.immem, 'GPU': 1}
+    searchresources = {'MEMORY': 2*st.immem}
+    if st.fftmode == 'cuda':
+        searchresources['GPU'] = 1
 
     if not cl:
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
