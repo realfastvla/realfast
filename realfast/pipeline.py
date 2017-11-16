@@ -45,7 +45,8 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
 #    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
-    searchresources = {'MEMORY': 4*st.npixx*st.npixy*8/1000.**3,
+    maxlen = 10
+    searchresources = {'MEMORY': 4*maxlen*st.npixx*st.npixy*8/1000.**3,
                        'CORES': st.prefs.nthread}
     if st.fftmode == 'cuda':
         searchresources['GPU'] = 1
@@ -84,10 +85,14 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
                                   resources={'MEMORY': 2*st.vismem/st.dtarr[dtind],
                                              'CORES': st.prefs.nthread})
 
-            for i in range(1):
+#            for i in range(1):
+            fulllen = datalen[dmind][dtind]
+            integrationlist = [list(range(fulllen)[i:i+maxlen])
+                               for i in range(0, fulllen, maxlen)]
+            for integrations in integrationlist:
                 saved.append(cl.submit(search.search_thresh, st, data_dmdt,
                                        segment, dmind, dtind,
-                                       integrations=list(range(datalen[dmind][dtind])),
+                                       integrations=integrations,
                                        wisdom=wisdom, pure=True,
                                        resources=searchresources))
 
