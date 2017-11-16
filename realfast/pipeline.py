@@ -44,9 +44,15 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
+#    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
+    searchresources = {'MEMORY': 4*st.npixx*st.npixy*8/1000.**3,
+                       'CORES': st.prefs.nthread}
     if st.fftmode == 'cuda':
         searchresources['GPU'] = 1
+
+    datalen = [[(st.readints-st.dmshifts[dmind])//st.dtarr[dtind]
+                for dtind in range(len(st.dtarr))]
+               for dmind in range(len(st.dmarr))]
 
     if not cl:
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
@@ -75,15 +81,19 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
         for dtind in range(len(st.dtarr)):
             data_dmdt = cl.submit(search.resample, data_dm, st.dtarr[dtind],
                                   mode=mode, pure=True,
-                                  resources={'MEMMORY': 2*st.vismem/st.dtarr[dtind],
+                                  resources={'MEMORY': 2*st.vismem/st.dtarr[dtind],
                                              'CORES': st.prefs.nthread})
 
-            saved.append(cl.submit(search.search_thresh, st, data_dmdt,
-                                   segment, dmind, dtind, wisdom=wisdom,
-                                   pure=True, resources=searchresources))
+            for i in range(1):
+                saved.append(cl.submit(search.search_thresh, st, data_dmdt,
+                                       segment, dmind, dtind,
+                                       integrations=list(range(datalen[dmind][dtind])),
+                                       wisdom=wisdom, pure=True,
+                                       resources=searchresources))
 
     # ** or aggregate over dt or dm trials? **
-    canddatalist = cl.submit(mergelists, saved, pure=True, resources={'CORES': 1})
+    canddatalist = cl.submit(mergelists, saved, pure=True,
+                             resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
                                pure=True, resources={'CORES': 1})
 
