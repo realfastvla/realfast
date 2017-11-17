@@ -46,7 +46,8 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
 #    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
     maxlen = 30
-    searchresources = {'MEMORY': 4*maxlen*st.npixx*st.npixy*8/1000.**3,
+    imgbytes = maxlen*st.npixx*st.npixy*8/1000.**3
+    searchresources = {'MEMORY': 4*imgbytes,
                        'CORES': st.prefs.nthread}
     if st.fftmode == 'cuda':
         searchresources['GPU'] = 1
