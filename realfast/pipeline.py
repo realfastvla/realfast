@@ -44,7 +44,8 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     futures = {}
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    searchresources = {'MEMORY': 4*st.immem, 'CORES': st.prefs.nthread}
+    searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
+                       'CORES': st.prefs.nthread}
 #    maxlen = 30  # sharing data over imaging chunks crashes
 #    imgbytes = maxlen*st.npixx*st.npixy*8/1000.**3
 #    searchresources = {'MEMORY': 4*imgbytes,
@@ -73,31 +74,31 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     saved = []
     for dmind in range(len(st.dmarr)):
-        delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                          st.dmarr[dmind], st.inttime, pure=True,
-                          resources={'CORES': 1})
+#        delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
+#                          st.dmarr[dmind], st.inttime, pure=True,
+#                          resources={'CORES': 1})
 #        data_dm = cl.submit(search.dedisperse, data_prep, delay, mode=mode,
 #                            pure=True, resources={'MEMORY': 2*st.vismem,
 #                                                  'CORES': st.prefs.nthread})
 
         for dtind in range(len(st.dtarr)):
-#            data_dmdt = cl.submit(search.resample, data_dm, st.dtarr[dtind],
-#                                  mode=mode, pure=True,
-#                                  resources={'MEMORY': 2*st.vismem/st.dtarr[dtind],
+            saved.append(cl.submit(search.correct_search_thresh, st, segment,
+                         data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
+                         pure=True, resources=searchresources))
+
+#            data_dmdt = cl.submit(search.dedisperseresample, data_prep, delay,
+#                                  st.dtarr[dtind], mode=mode, pure=True,
+#                                  resources={'MEMORY': 2*st.vismem,
 #                                             'CORES': st.prefs.nthread})
-            data_dmdt = cl.submit(search.dedisperseresample, data_prep, delay,
-                                  st.dtarr[dtind], mode=mode, pure=True,
-                                  resources={'MEMORY': 2*st.vismem,
-                                             'CORES': st.prefs.nthread})
 
 #            fulllen = datalen[dmind][dtind]
 #            integrationlist = [list(range(fulllen)[i:i+maxlen])
 #                               for i in range(0, fulllen, maxlen)]
 #            for integrations in integrationlist:
-            saved.append(cl.submit(search.search_thresh, st, data_dmdt,
-                                   segment, dmind, dtind,
-                                   wisdom=wisdom, pure=True,
-                                   resources=searchresources))
+#            saved.append(cl.submit(search.search_thresh, st, data_dmdt,
+#                                   segment, dmind, dtind,
+#                                   wisdom=wisdom, pure=True,
+#                                   resources=searchresources))
 
     canddatalist = cl.submit(mergelists, saved, pure=True,
                              resources={'CORES': 1})
