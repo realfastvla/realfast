@@ -112,7 +112,7 @@ class realfast_controller(Controller):
                      searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
             st = state.State(config=config, preffile=self.preffile,
-                             inprefs=self.inprefs, lock=self.lock
+                             inprefs=self.inprefs, lock=self.lock,
                              inmeta={'datasource': self.datasource})
             if self.indexresults:
                 elastic.indexscan_config(config, preferences=st.prefs,
