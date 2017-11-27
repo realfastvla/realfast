@@ -11,6 +11,7 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy import time
+import dask.utils
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences, candidates
 from realfast import pipeline, elastic, sdm_builder
@@ -69,6 +70,8 @@ class realfast_controller(Controller):
         self.archiveproducts = archiveproducts
         self.nameincludes = nameincludes
         self.searchintents = searchintents
+        self.lock = dask.utils.SerializableLock()
+
 
         # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
@@ -109,7 +112,7 @@ class realfast_controller(Controller):
                      searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
             st = state.State(config=config, preffile=self.preffile,
-                             inprefs=self.inprefs,
+                             inprefs=self.inprefs, lock=self.lock
                              inmeta={'datasource': self.datasource})
             if self.indexresults:
                 elastic.indexscan_config(config, preferences=st.prefs,
