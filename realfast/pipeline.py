@@ -64,9 +64,10 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
                        pure=True, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
 
+    # will retry to get around thread collision during read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True, resources={'MEMORY': 2*st.vismem,
-                                                        'CORES': 1})
+                     cfile=cfile, pure=True, retries=1,
+                     resources={'MEMORY': 2*st.vismem, 'CORES': 1})
     futures['data'] = data
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
                           resources={'MEMORY': 2*st.vismem,
@@ -74,13 +75,6 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     saved = []
     for dmind in range(len(st.dmarr)):
-#        delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-#                          st.dmarr[dmind], st.inttime, pure=True,
-#                          resources={'CORES': 1})
-#        data_dm = cl.submit(search.dedisperse, data_prep, delay, mode=mode,
-#                            pure=True, resources={'MEMORY': 2*st.vismem,
-#                                                  'CORES': st.prefs.nthread})
-
         for dtind in range(len(st.dtarr)):
             saved.append(cl.submit(search.correct_search_thresh, st, segment,
                          data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
