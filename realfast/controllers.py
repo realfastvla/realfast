@@ -356,7 +356,7 @@ def runsearch(config, nameincludes=None, searchintents=None):
 
     # 4) only search if in searchintents
     if searchintents is not None:
-        if intent not in searchintents:
+        if not any([searchintent in intent for searchintent in searchintents]):
             logger.warn("intent {0} not in searchintents list {1}"
                         .format(intent, searchintents))
             return False
