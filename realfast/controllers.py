@@ -43,7 +43,8 @@ class realfast_controller(Controller):
                  vys_timeout=_vys_timeout, datasource=None, tags=None,
                  mockprob=0.5, mockset=_mock_standards, saveproducts=False,
                  indexresults=True, archiveproducts=False, nameincludes=None,
-                 searchintents=['OBSERVE_TARGET']):
+                 searchintents=['OBSERVE_TARGET', 'CALIBRATE_PHASE',
+                                'CALIBRATE_AMPLI']):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
@@ -153,6 +154,7 @@ class realfast_controller(Controller):
 
         st = state.State(sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                          preffile=self.preffile, inprefs=self.inprefs,
+                         lock=self.lock,
                          inmeta={'datasource': self.datasource})
 
         if self.indexresults:
@@ -340,7 +342,7 @@ def runsearch(config, nameincludes=None, searchintents=None):
     now = time.Time.now().unix
     startTime = time.Time(config.startTime, format='mjd').unix
     stopTime = time.Time(config.stopTime, format='mjd').unix
-    if (startTime > now) and (stopTime > now):
+    if (startTime < now) and (stopTime < now):
         logger.warn("Scan startTime and stopTime are in the past ({0}, {1} < {2})"
                     .format(startTime, stopTime, now))
         return False
@@ -355,6 +357,8 @@ def runsearch(config, nameincludes=None, searchintents=None):
     # 4) only search if in searchintents
     if searchintents is not None:
         if intent not in searchintents:
+            logger.warn("intent {0} not in searchintents list {1}"
+                        .format(intent, searchintents))
             return False
 
     return True

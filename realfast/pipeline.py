@@ -43,19 +43,21 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     futures = {}
 
+    maxlen = 30
+    imgbytes = maxlen*st.npixx*st.npixy*8/1000.**3
+    logger.info("Set maximum im grid len to {0} and im mem usage to {1}"
+                .format(maxlen, imgbytes))
+
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
     searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
                        'CORES': st.prefs.nthread}
-#    maxlen = 30  # sharing data over imaging chunks crashes
-#    imgbytes = maxlen*st.npixx*st.npixy*8/1000.**3
-#    searchresources = {'MEMORY': 4*imgbytes,
-#                       'CORES': st.prefs.nthread}
     if st.fftmode == 'cuda':
         searchresources['GPU'] = 1
 
-#    datalen = [[(st.readints-st.dmshifts[dmind])//st.dtarr[dtind]
-#                for dtind in range(len(st.dtarr))]
-#               for dmind in range(len(st.dmarr))]
+    imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
+                  max(st.get_search_ints(segment, dmind, dtind)))
+                  for dtind in range(len(st.dtarr))]
+                 for dmind in range(len(st.dmarr))]
 
     if not cl:
         cl = distributed.Client(n_workers=1, threads_per_worker=1)
@@ -76,23 +78,14 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
     saved = []
     for dmind in range(len(st.dmarr)):
         for dtind in range(len(st.dtarr)):
-            saved.append(cl.submit(search.correct_search_thresh, st, segment,
-                         data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
-                         pure=True, resources=searchresources))
-
-#            data_dmdt = cl.submit(search.dedisperseresample, data_prep, delay,
-#                                  st.dtarr[dtind], mode=mode, pure=True,
-#                                  resources={'MEMORY': 2*st.vismem,
-#                                             'CORES': st.prefs.nthread})
-
-#            fulllen = datalen[dmind][dtind]
-#            integrationlist = [list(range(fulllen)[i:i+maxlen])
-#                               for i in range(0, fulllen, maxlen)]
-#            for integrations in integrationlist:
-#            saved.append(cl.submit(search.search_thresh, st, data_dmdt,
-#                                   segment, dmind, dtind,
-#                                   wisdom=wisdom, pure=True,
-#                                   resources=searchresources))
+            im0, im1 = imgranges[dmind][dtind]
+            integrationlist = [list(range(im0, im1)[i:i+maxlen])
+                               for i in range(im0, im1, maxlen)]
+            for integrations in integrationlist:
+                saved.append(cl.submit(search.correct_search_thresh, st, segment,
+                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
+                             integrations=integrations,
+                             pure=True, resources=searchresources))
 
     canddatalist = cl.submit(mergelists, saved, pure=True,
                              resources={'CORES': 1})
