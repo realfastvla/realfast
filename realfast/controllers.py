@@ -530,7 +530,7 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
     ax.set_ylabel('DM (pc/cm3)')
     ax = fig.add_subplot(1, 3, 2, facecolor='white')
     # TODO
-    ax.savefig(summaryplot)
+    fig.savefig(summaryplot)
 
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
     shutil.move(summaryplot, summaryplotdest)
