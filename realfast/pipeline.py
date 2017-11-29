@@ -77,15 +77,26 @@ def pipeline_seg(st, segment, cl=None, cfile=None,
 
     saved = []
     for dmind in range(len(st.dmarr)):
+        delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
+                          st.dmarr[dmind], st.inttime)
         for dtind in range(len(st.dtarr)):
+            data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
+                                  st.dtarr[dtind], mode=mode)
+
             im0, im1 = imgranges[dmind][dtind]
             integrationlist = [list(range(im0, im1)[i:i+maxlen])
                                for i in range(im0, im1, maxlen)]
             for integrations in integrationlist:
-                saved.append(cl.submit(search.correct_search_thresh, st, segment,
-                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
-                             integrations=integrations,
-                             pure=True, resources=searchresources))
+                saved.append(cl.submit(search.search_thresh, st, data_corr,
+                                       segment, dmind, dtind,
+                                       integrations=integrations,
+                                       wisdom=wisdom, pure=True,
+                                       resources=searchresources))
+
+#                saved.append(cl.submit(search.correct_search_thresh, st, segment,
+#                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
+#                             integrations=integrations,
+#                             pure=True, resources=searchresources))
 
     canddatalist = cl.submit(mergelists, saved, pure=True,
                              resources={'CORES': 1})
