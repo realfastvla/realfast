@@ -64,7 +64,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
                        pure=True) if st.fftmode == 'fftw' else None
 
-    uvw = cl.submit(util.calc_uvw_segment, st, segment, pure=True)
+    uvw = cl.submit(util.get_uvw_segment, st, segment, pure=True)
 
     # will retry to get around thread collision during read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
