@@ -73,7 +73,6 @@ class realfast_controller(Controller):
         self.searchintents = searchintents
         self.lock = dask.utils.SerializableLock()
 
-
         # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
     def __repr__(self):
