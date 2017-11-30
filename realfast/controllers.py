@@ -517,20 +517,26 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
     times = np.zeros(0, dtype=float)
     dms = np.zeros(0, dtype=float)
     snrs = np.zeros(0, dtype=float)
+    ls = np.zeros(0, dtype=float)
+    ms = np.zeros(0, dtype=float)
     for candcoll in candidates.iter_cands(candsfile):
         times = np.concatenate((times, candcoll.candmjd))
         dms = np.concatenate((dms, candcoll.canddm))
         snrs = np.concatenate((snrs, candcoll.array['snr1']))
+        ls = np.concatenate((ls, candcoll.array['l1']))
+        ms = np.concatenate((ms, candcoll.array['m1']))
 
-    fig = plt.Figure(figsize=(6, 4))
+    fig = plt.Figure(figsize=(8, 4))
     canvas = FigureCanvasAgg(fig)
     # DM-time
-    ax = fig.add_subplot(1, 3, 1, facecolor='white')
-    ax.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3)
+    ax = fig.add_subplot(1, 2, 1, facecolor='white')
+    ax.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3, facecolors=None)
     ax.set_xlabel('Time (MJD)')
     ax.set_ylabel('DM (pc/cm3)')
-    ax = fig.add_subplot(1, 3, 2, facecolor='white')
-    # TODO
+    ax = fig.add_subplot(1, 2, 2, facecolor='white')
+    ax.scatter(ls, ms, s=(snrs/(0.9*snrs.min()))**3, facecolors=None)
+    ax.set_xlabel('l (rad)')
+    ax.set_ylabel('m (rad)')
 
     canvas.print_figure(summaryplot)
 

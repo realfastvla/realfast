@@ -91,15 +91,11 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
             integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
                                for i in range(0, im1-im0, st.chunksize)]
             for integrations in integrationlist:
-                if len(integrations):  # TODO: why is this needed?
-                    saved.append(cl.submit(search.search_thresh, st, data_corr,
-                                           uvw, segment, dmind, dtind,
-                                           integrations=integrations,
-                                           wisdom=wisdom, pure=True,
-                                           resources=searchresources))
-                else:
-                    logger.warn('integrations len=0 for im0={0}, im1={1}, dmdind={2}, dtind={3}, chunksize={4}'
-                                .format(im0, im1, dmind, dtind, st.chunksize))
+                saved.append(cl.submit(search.search_thresh, st, data_corr,
+                                       uvw, segment, dmind, dtind,
+                                       integrations=integrations,
+                                       wisdom=wisdom, pure=True,
+                                       resources=searchresources))
 
 #                saved.append(cl.submit(search.correct_search_thresh, st, segment,
 #                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
