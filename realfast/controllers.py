@@ -9,6 +9,7 @@ import glob
 import shutil
 import random
 import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
 from astropy import time
 import dask.utils
@@ -522,6 +523,7 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
         snrs = np.concatenate((snrs, candcoll.array['snr1']))
 
     fig = plt.Figure(figsize=(6, 4))
+    canvas = FigureCanvasAgg(fig)
     # DM-time
     ax = fig.add_subplot(1, 3, 1, facecolor='white')
     ax.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3)
@@ -529,7 +531,8 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
     ax.set_ylabel('DM (pc/cm3)')
     ax = fig.add_subplot(1, 3, 2, facecolor='white')
     # TODO
-    fig.savefig(summaryplot)
+
+    canvas.print_figure(summaryplot)
 
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
     shutil.move(summaryplot, summaryplotdest)

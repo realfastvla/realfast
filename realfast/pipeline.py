@@ -96,6 +96,9 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                            integrations=integrations,
                                            wisdom=wisdom, pure=True,
                                            resources=searchresources))
+                else:
+                    logger.warn('integrations len=0 for im0={0}, im1={1}, dmdind={2}, dtind={3}, chunksize={4}'
+                                .format(im0, im1, dmind, dtind, st.chunksize))
 
 #                saved.append(cl.submit(search.correct_search_thresh, st, segment,
 #                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
