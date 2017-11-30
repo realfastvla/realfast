@@ -74,6 +74,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
+    cl.replicate(data_prep, n=2)
 
     saved = []
     for dmind in range(len(st.dmarr)):
@@ -89,18 +90,19 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
             integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
                                for i in range(im0, im1, st.chunksize)]
             for integrations in integrationlist:
-                saved.append(cl.submit(search.search_thresh, st, data_corr,
-                                       uvw, segment, dmind, dtind,
-                                       integrations=integrations,
-                                       wisdom=wisdom, pure=True,
-                                       resources=searchresources))
+                if len(integrations):  # TODO: why is this needed?
+                    saved.append(cl.submit(search.search_thresh, st, data_corr,
+                                           uvw, segment, dmind, dtind,
+                                           integrations=integrations,
+                                           wisdom=wisdom, pure=True,
+                                           resources=searchresources))
 
 #                saved.append(cl.submit(search.correct_search_thresh, st, segment,
 #                             data_prep, dmind, dtind, mode=mode, wisdom=wisdom,
 #                             integrations=integrations,
 #                             pure=True, resources=searchresources))
 
-    canddatalist = cl.submit(mergelists, saved, pure=True,
+    canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
                              resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
                                pure=True, resources={'CORES': 1})
