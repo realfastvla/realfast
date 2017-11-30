@@ -61,16 +61,16 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     futures = {}
 
     # plan, if using fftw
-    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
-                       pure=True) if st.fftmode == 'fftw' else None
+    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy) if st.fftmode == 'fftw' else None
 
-    uvw = cl.submit(util.get_uvw_segment, st, segment, pure=True)
+    uvw = cl.submit(util.get_uvw_segment, st, segment)
 
     # will retry to get around thread collision during read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=True, retries=1,
                      resources={'MEMORY': 2*st.vismem, 'CORES': 1})
     futures['data'] = data
+
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
@@ -81,7 +81,9 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                           st.dmarr[dmind], st.inttime)
         for dtind in range(len(st.dtarr)):
             data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
-                                  st.dtarr[dtind], mode=mode)
+                                  st.dtarr[dtind], mode=mode,
+                                  resources={'MEMORY': 2*st.vismem,
+                                             'CORES': st.prefs.nthread})
 
             im0, im1 = imgranges[dmind][dtind]
             integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
