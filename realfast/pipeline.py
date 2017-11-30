@@ -74,7 +74,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
-    cl.replicate(data_prep, n=2)
+
+    cl.replicate(data_prep, n=2)  # slows submission
 
     saved = []
     for dmind in range(len(st.dmarr)):
@@ -88,7 +89,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
             im0, im1 = imgranges[dmind][dtind]
             integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
-                               for i in range(im0, im1, st.chunksize)]
+                               for i in range(0, im1-im0, st.chunksize)]
             for integrations in integrationlist:
                 if len(integrations):  # TODO: why is this needed?
                     saved.append(cl.submit(search.search_thresh, st, data_corr,
