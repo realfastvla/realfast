@@ -22,14 +22,20 @@ def indexscan_config(config, preferences=None, datasource='vys'):
     """
 
     scandict = {}
-    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
-                      'dec_deg', 'scan_intent', 'source', 'startTime',
-                      'stopTime', 'scanId']
 
     # define dict for scan properties to index
-    for prop in scanproperties:
-        scandict[prop] = getattr(config, prop)
+    scandict['datasetId'] = config.datasetId
+    scandict['scanId'] = config.scanId
+    scandict['projid'] = config.projid
+    scandict['scanNo'] = int(config.scanNo)
+    scandict['subscanNo'] = int(config.subscanNo)
+    scandict['source'] = str(config.source)
+    scandict['ra_deg'] = float(config.ra_deg)
+    scandict['dec_deg'] = float(config.dec_deg)
+    scandict['startTime'] = float(config.startTime)
+    scandict['stopTime'] = float(config.stopTime)
     scandict['datasource'] = datasource
+    scandict['scan_intent'] = config.scan_intent
 
     # if preferences provided, it will connect them by a unique name
     if preferences:
@@ -157,10 +163,20 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
     """
 
     if tags is None:
-        tags = ['new']
+        tags = 'new'
+
+    # create new tag string with standard format to fill in blanks
+    allowed_tags = ["new", "rfi", "bad", "noise", "needs flagging",
+                    "needs review", "interesting", "pulsar", "frb", "mock",
+                    "public"]
+    tagstr = ','.join(list(map(lambda tag: tag if tag == tags else '_',
+                               allowed_tags)))
 
     candarr = candcollection.array
     prefs = candcollection.prefs
+    candmjd = candcollection.candmjd
+    canddm = candcollection.canddm
+    canddt = candcollection.canddt
 
     res = 0
     for i in range(len(candarr)):
@@ -173,7 +189,10 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
         canddict['datasetId'] = datasetId
         canddict['scan'] = int(scan)
         canddict['subscan'] = int(subscan)
-        canddict['tags'] = tags
+        canddict['tags'] = tagstr
+        canddict['candmjd'] = float(candmjd[i])
+        canddict['canddm'] = float(canddm[i])
+        canddict['canddt'] = float(canddt[i])
         if prefs.name:
             canddict['prefsname'] = prefs.name
 

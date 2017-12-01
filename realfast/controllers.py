@@ -49,7 +49,7 @@ class realfast_controller(Controller):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
-        tags is a default string for candidates put into index (None -> "new").
+        tags is comma-delimited string for cands put in index (None -> "new").
         mockprob is a prob (range 0-1) that a mock is added to each segment.
         nameincludes is a string required to be in datasetId.
         searchintents is a list of intent names to search.
@@ -285,13 +285,13 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing mocks.")
 
-            if self.tags is None:
-                self.tags = ['mock']
-            elif 'mock' not in self.tags:
-                self.tags = self.tags.append('mock')
-        elif self.tags is not None:
-            if 'mock' in self.tags:
-                self.tags = self.tags.remove('mock')
+#            if self.tags is None:
+#                self.tags = ['mock']
+#            elif 'mock' not in self.tags:
+#                self.tags = self.tags.append('mock')
+#        elif self.tags is not None:
+#            if 'mock' in self.tags:
+#                self.tags = self.tags.remove('mock')
 
     def removefutures(self, status):
         """ Remove jobs with status of 'cancelled'
