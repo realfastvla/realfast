@@ -45,7 +45,7 @@ class realfast_controller(Controller):
                  mockprob=0.5, mockset=_mock_standards, saveproducts=False,
                  indexresults=True, archiveproducts=False, nameincludes=None,
                  searchintents=['OBSERVE_TARGET', 'CALIBRATE_PHASE',
-                                'CALIBRATE_AMPLI']):
+                                'CALIBRATE_AMPLI', 'CALIBRATE_DELAY']):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
