@@ -75,7 +75,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
 
-    cl.replicate(data_prep, n=2)  # slows submission
+#    cl.replicate(data_prep, n=2)  # slows submission per segment
 
     saved = []
     for dmind in range(len(st.dmarr)):
