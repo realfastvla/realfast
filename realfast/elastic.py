@@ -4,7 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import os.path
-from elasticsearch import Elasticsearch
+from elasticsearch import Elasticsearch, RequestError
 import logging
 logger = logging.getLogger(__name__)
 
@@ -310,8 +310,13 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
                            body=datadict)
         else:
             if not es.exists(index=index, doc_type=doc_type, id=Id):
-                res = es.index(index=index, doc_type=doc_type,
-                               id=Id, body=datadict)
+                try:
+                    res = es.index(index=index, doc_type=doc_type,
+                                   id=Id, body=datadict)
+                except RequestError:
+                    logger.warn("Id {0} and data {1} not indexed due to request error."
+                                .format(Id, datadict))
+
             else:
                 logger.warn('Id={0} already exists'
                             .format(Id))
