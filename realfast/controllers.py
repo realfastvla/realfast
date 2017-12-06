@@ -25,7 +25,7 @@ logger = logging.getLogger('realfast_controller')
 
 _vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_vys_timeout = 30  # seconds more than segment length
+_vys_timeout = 30  # scale wait by realtime
 _distributed_host = 'cbe-node-01'
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
@@ -130,7 +130,7 @@ class realfast_controller(Controller):
                                              vys_timeout=self.vys_timeout)
             self.futures[config.scanId] = futures
             self.states[config.scanId] = st
-            self.client = futures[0]['data'].client
+            self.client = futures[0]['candcollection'].client
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -171,7 +171,29 @@ class realfast_controller(Controller):
 
         self.futures[scanId] = futures
         self.states[scanId] = st
-        self.client = futures[0]['data'].client
+        self.client = futures[0]['candcollection'].client
+
+    def handle_meta(self, inmeta):
+        """ Parallel to handle_config, but allows metadata dict to be passed in.
+        Gets called explicitly. No cleanup done.
+        """
+
+        if self.datasource is None:
+            self.datasource = 'vys'
+
+        st = state.State(preffile=self.preffile, inprefs=self.inprefs,
+                         inmeta=inmeta, lock=self.lock)
+
+        logger.info('Starting pipeline...')
+        # pipeline returns state object per DM/dt
+        futures = pipeline.pipeline_scan(st, segments=None,
+                                         host=_distributed_host,
+                                         cfile=_vys_cfile,
+                                         vys_timeout=self.vys_timeout)
+
+        self.futures[st.metadata.scanId] = futures
+        self.states[st.metadata.scanId] = st
+        self.client = futures[0]['candcollection'].client
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
