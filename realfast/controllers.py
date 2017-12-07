@@ -524,12 +524,15 @@ def moveplots(workdir, scanId, destination=_candplot_dir):
             logger.warn("Plot {0} already exists at {1}. Skipping..."
                         .format(candplot, destination))
 
-    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, datasetId))
+    # move summary plot too
+    summaryplot = '{0}/cands_{1}.png'.format(workdir, scanId)
+    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
+    shutil.move(summaryplot, summaryplotdest)
 
     return nplots
 
 
-def makesummaryplot(workdir, scanId, destination=_candplot_dir):
+def makesummaryplot(workdir, scanId):
     """ Create summary plot for a given scanId and move it
     """
 
@@ -561,9 +564,6 @@ def makesummaryplot(workdir, scanId, destination=_candplot_dir):
     ax.set_ylabel('m (rad)')
 
     canvas.print_figure(summaryplot)
-
-    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
-    shutil.move(summaryplot, summaryplotdest)
 
 
 class config_controller(Controller):
