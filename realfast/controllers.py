@@ -295,12 +295,12 @@ class realfast_controller(Controller):
 
     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
-        into each segment.
+        into each segment. At most one per scanId.
         Also pushes mock properties to index.
         """
 
         if random.uniform(0, 1) < self.mockprob:
-            mockparams = random.choice(self.mockset)
+            mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
 
             if self.indexresults:
