@@ -60,14 +60,12 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                   for dtind in range(len(st.dtarr))]
                  for dmind in range(len(st.dmarr))]
 
+    # plan, if using fftw. Done outside scheduler to avoid vys issues.
+    wisdom = search.set_wisdom(st.npixx, st.npixy) if st.fftmode == 'fftw' else None
+
     futures = {}
 
-    # plan, if using fftw
-    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy) if st.fftmode == 'fftw' else None
-
-    uvw = cl.submit(util.get_uvw_segment, st, segment)
-
-    # will retry to get around thread collision during read (?)
+    # will retry to get around thread collision during sdm read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=True, retries=1,
                      resources={'MEMORY': 2*st.vismem, 'CORES': 1})
@@ -78,6 +76,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                      'CORES': 1})
 
 #    cl.replicate(data_prep, n=2)  # slows submission per segment
+
+    uvw = cl.submit(util.get_uvw_segment, st, segment)
 
     saved = []
     for dmind in range(len(st.dmarr)):
