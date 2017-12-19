@@ -61,14 +61,14 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                  for dmind in range(len(st.dmarr))]
 
     # plan, if using fftw. Done outside scheduler to avoid vys issues.
-    wisdom = search.set_wisdom(st.npixx, st.npixy) if st.fftmode == 'fftw' else None
+    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
 
     futures = {}
 
     # will retry to get around thread collision during sdm read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=True, retries=1,
-                     resources={'MEMORY': 2*st.vismem, 'CORES': 1})
+                     resources={'READER': 1})
     futures['data'] = data
 
     data_prep = cl.submit(source.data_prep, st, data, pure=True,
@@ -77,12 +77,12 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
 #    cl.replicate(data_prep, n=2)  # slows submission per segment
 
-    uvw = cl.submit(util.get_uvw_segment, st, segment)
+    uvw = cl.submit(util.get_uvw_segment, st, segment, resources={'CORES': 1})
 
     saved = []
     for dmind in range(len(st.dmarr)):
         delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                          st.dmarr[dmind], st.inttime)
+                          st.dmarr[dmind], st.inttime, resources={'CORES': 1})
         for dtind in range(len(st.dtarr)):
             data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
                                   st.dtarr[dtind], mode=mode,
