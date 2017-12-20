@@ -71,7 +71,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                      resources={'READER': 1})
     futures['data'] = data
 
-    data_prep = cl.submit(source.data_prep, st, data, pure=True,
+    data_prep = cl.submit(source.data_prep, st, segment, data, pure=True,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
 

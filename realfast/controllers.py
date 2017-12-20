@@ -27,7 +27,7 @@ logger = logging.getLogger('realfast_controller')
 
 _vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_vys_timeout = 30  # scale wait by realtime
+_vys_timeout = 10  # scale wait by realtime
 _distributed_host = 'cbe-node-01'
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
@@ -529,7 +529,8 @@ def moveplots(workdir, scanId, destination=_candplot_dir):
     # move summary plot too
     summaryplot = '{0}/cands_{1}.png'.format(workdir, scanId)
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
-    shutil.move(summaryplot, summaryplotdest)
+    if os.path.exists(summaryplot):
+        shutil.move(summaryplot, summaryplotdest)
 
     return nplots
 
@@ -539,33 +540,7 @@ def makesummaryplot(workdir, scanId):
     """
 
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    summaryplot = '{0}/cands_{1}.png'.format(workdir, scanId)
-
-    times = np.zeros(0, dtype=float)
-    dms = np.zeros(0, dtype=float)
-    snrs = np.zeros(0, dtype=float)
-    ls = np.zeros(0, dtype=float)
-    ms = np.zeros(0, dtype=float)
-    for candcoll in candidates.iter_cands(candsfile):
-        times = np.concatenate((times, candcoll.candmjd))
-        dms = np.concatenate((dms, candcoll.canddm))
-        snrs = np.concatenate((snrs, candcoll.array['snr1']))
-        ls = np.concatenate((ls, candcoll.array['l1']))
-        ms = np.concatenate((ms, candcoll.array['m1']))
-
-    fig = plt.Figure(figsize=(8, 4))
-    canvas = FigureCanvasAgg(fig)
-    # DM-time
-    ax = fig.add_subplot(1, 2, 1, facecolor='white')
-    ax.scatter(times, dms, s=(snrs/(0.9*snrs.min()))**3, facecolors=None)
-    ax.set_xlabel('Time (MJD)')
-    ax.set_ylabel('DM (pc/cm3)')
-    ax = fig.add_subplot(1, 2, 2, facecolor='white')
-    ax.scatter(ls, ms, s=(snrs/(0.9*snrs.min()))**3, facecolors=None)
-    ax.set_xlabel('l (rad)')
-    ax.set_ylabel('m (rad)')
-
-    canvas.print_figure(summaryplot)
+    candidates.makesummaryplot(candsfile)
 
 
 class config_controller(Controller):
