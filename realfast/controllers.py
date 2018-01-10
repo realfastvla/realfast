@@ -28,7 +28,8 @@ logger = logging.getLogger('realfast_controller')
 _vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # scale wait by realtime
-_distributed_host = 'cbe-node-01'
+#_distributed_host = 'cbe-node-01'  # for eth0
+_distributed_host = '192.168.201.101'  # for ib0
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 

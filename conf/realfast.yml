@@ -1,20 +1,22 @@
 rfpipe:
   default:
-    nthread: 16
+    nthread: 1
     dtarr: [1]   # integer to integrate in time for independent searches
-    maxdm: 3000
+    maxdm: 100
     flagantsol: False
     timesub: 'mean'
-    searchtype: 'image1stats'    # search algorithm: 'image1' is single image snr threshold
+    searchtype: 'image1'    # search algorithm: 'image1' is single image snr threshold
     sigma_image1: 6.4
     sigma_plot: 7.2
-    npix_max: 2048
+    npix_max: 1024
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: True
     savecands: True
-    memory_limit: 9 # in GB
     selectpol: 'auto'
+    fftmode: 'fftw'
+    memory_limit: 12 # in GB
+    maximmem: 0.5
 
 queue_monitor:
   production: True 
