@@ -49,19 +49,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
+
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
-                       'CORES': st.prefs.nthread}
-    if st.fftmode == 'cuda':
-        searchresources['GPU'] = 1
-
-    imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
-                  max(st.get_search_ints(segment, dmind, dtind)))
-                  for dtind in range(len(st.dtarr))]
-                 for dmind in range(len(st.dmarr))]
-
-    # plan, if using fftw. Done outside scheduler to avoid vys issues.
-    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
 
     futures = {}
 
@@ -80,30 +69,46 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     uvw = cl.submit(util.get_uvw_segment, st, segment, resources={'CORES': 1})
 
     saved = []
-    for dmind in range(len(st.dmarr)):
-        delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                          st.dmarr[dmind], st.inttime, resources={'CORES': 1})
-        for dtind in range(len(st.dtarr)):
-            data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
-                                  st.dtarr[dtind], mode=mode,
-                                  resources={'MEMORY': 2*st.vismem,
-                                             'CORES': st.prefs.nthread})
+    if st.fftmode == "fftw":
+        searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
+                           'CORES': st.prefs.nthread}
+        imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
+                     max(st.get_search_ints(segment, dmind, dtind)))
+                      for dtind in range(len(st.dtarr))]
+                     for dmind in range(len(st.dmarr))]
+        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
 
-            im0, im1 = imgranges[dmind][dtind]
-            integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
-                               for i in range(0, im1-im0, st.chunksize)]
-            for integrations in integrationlist:
-                saved.append(cl.submit(search.search_thresh, st, segment,
-                                       data_corr, dmind, dtind,
-                                       integrations=integrations,
-                                       wisdom=wisdom, pure=True,
-                                       resources=searchresources))
+        for dmind in range(len(st.dmarr)):
+            delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
+                              st.dmarr[dmind], st.inttime, resources={'CORES': 1})
+            for dtind in range(len(st.dtarr)):
+                data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
+                                      st.dtarr[dtind], mode=mode,
+                                      resources={'MEMORY': 2*st.vismem,
+                                                 'CORES': st.prefs.nthread})
+
+                im0, im1 = imgranges[dmind][dtind]
+                integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
+                                   for i in range(0, im1-im0, st.chunksize)]
+                for integrations in integrationlist:
+                    saved.append(cl.submit(search.search_thresh, st, segment,
+                                           data_corr, dmind, dtind,
+                                           integrations=integrations,
+                                           wisdom=wisdom, pure=True,
+                                           resources=searchresources))
+
+    elif st.fftmode == "cuda":
+        searchresources['GPU'] = 1
+        dtind = 0  # TODO iterate!
+
+        for dmind in range(len(st.dmarr)):
+            saved.append(search.dedisperse_image_cuda, st, segment, data_prep,
+                         dmind, dtind, pure=True, resources=searchresources)
 
     canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
                              resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
                                pure=True, resources={'CORES': 1})
-
     futures['candcollection'] = candcollection
 
     return futures
