@@ -22,7 +22,7 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
 
     # TODO: add wait here to reduce early submission of segments?
     for segment in segments:
-        futures.append(pipeline_seg_rfgpu(st, segment, host=host, cl=cl, cfile=cfile,
+        futures.append(pipeline_seg(st, segment, host=host, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout))
 
     return futures  # list of dicts
@@ -48,7 +48,6 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                     local_dir="/lustre/evla/test/realfast/scratch")
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
-
 
     mode = 'single' if st.prefs.nthread == 1 else 'multi'
 
@@ -76,14 +75,16 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                      max(st.get_search_ints(segment, dmind, dtind)))
                       for dtind in range(len(st.dtarr))]
                      for dmind in range(len(st.dmarr))]
-        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
+        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
+                           resources={'CORES': 1})
 
         for dmind in range(len(st.dmarr)):
             delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                              st.dmarr[dmind], st.inttime, resources={'CORES': 1})
+                              st.dmarr[dmind], st.inttime,
+                              resources={'CORES': 1})
             for dtind in range(len(st.dtarr)):
-                data_corr = cl.submit(search.dedisperseresample, data_prep, delay,
-                                      st.dtarr[dtind], mode=mode,
+                data_corr = cl.submit(search.dedisperseresample, data_prep,
+                                      delay, st.dtarr[dtind], mode=mode,
                                       resources={'MEMORY': 2*st.vismem,
                                                  'CORES': st.prefs.nthread})
 
@@ -98,84 +99,18 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                            resources=searchresources))
 
     elif st.fftmode == "cuda":
-        searchresources['GPU'] = 1
+        searchresources = {'GPU': 1}
         dtind = 0  # TODO iterate!
 
         for dmind in range(len(st.dmarr)):
-            saved.append(search.dedisperse_image_cuda, st, segment, data_prep,
-                         dmind, dtind, pure=True, resources=searchresources)
+            saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
+                                   data_prep, dmind, dtind, pure=True,
+                                   resources=searchresources))
 
     canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
                              resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
                                pure=True, resources={'CORES': 1})
-    futures['candcollection'] = candcollection
-
-    return futures
-
-
-def pipeline_seg_rfgpu(st, segment, host=None, cl=None, cfile=None,
-                       vys_timeout=vys_timeout_default):
-    """ Submit pipeline processing of a single segment to scheduler.
-    Can use distributed client or compute locally.
-    Assumes rfgpu is available.
-
-    Uses distributed resources parameter to control scheduling of GPUs.
-    Pipeline produces jobs per DM/dt.
-    Returns a dict with values as futures of certain jobs (data, collection).
-    """
-
-    logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
-                .format(st.metadata.datasetId, st.metadata.scan, segment))
-
-    if cl is None:
-        if host is None:
-            cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"MEMORY": 24, "CORES": 16},
-                                    local_dir="/lustre/evla/test/realfast/scratch")
-        else:
-            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
-
-    mode = 'single' if st.prefs.nthread == 1 else 'multi'
-    if st.fftmode == 'cuda':
-        searchresources['GPU'] = 1
-
-    imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
-                  max(st.get_search_ints(segment, dmind, dtind)))
-                  for dtind in range(len(st.dtarr))]
-                 for dmind in range(len(st.dmarr))]
-
-    # plan, if using fftw. Done outside scheduler to avoid vys issues.
-    wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy, resources={'CORES': 1}) if st.fftmode == 'fftw' else None
-
-    futures = {}
-
-    # will retry to get around thread collision during sdm read (?)
-    data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True, retries=1,
-                     resources={'READER': 1})
-    futures['data'] = data
-
-    data_prep = cl.submit(source.data_prep, st, segment, data, pure=True,
-                          resources={'MEMORY': 2*st.vismem,
-                                     'CORES': 1})
-
-#    cl.replicate(data_prep, n=2)  # slows submission per segment
-
-    uvw = cl.submit(util.get_uvw_segment, st, segment, resources={'CORES': 1})
-
-    saved = []
-    for dmind in range(len(st.dmarr)):
-        dtind = 0
-        saved.append(cl.submit(search.dedisperse_image_rfgpu, st, segment,
-                               data_prep, dmind, dtind, pure=True,
-                               resources={'GPU': 1}))
-
-    canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
-                             resources={'CORES': 1})
-    candcollection = cl.submit(candidates.calc_features, canddatalist,
-                               pure=True, resources={'CORES': 1})
-
     futures['candcollection'] = candcollection
 
     return futures
