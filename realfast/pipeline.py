@@ -49,8 +49,6 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
-    mode = 'single' if st.prefs.nthread == 1 else 'multi'
-
     futures = {}
 
     # will retry to get around thread collision during sdm read (?)
@@ -84,7 +82,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                               resources={'CORES': 1})
             for dtind in range(len(st.dtarr)):
                 data_corr = cl.submit(search.dedisperseresample, data_prep,
-                                      delay, st.dtarr[dtind], mode=mode,
+                                      delay, st.dtarr[dtind],
+                                      parallel = st.prefs.nthread > 1,
                                       resources={'MEMORY': 2*st.vismem,
                                                  'CORES': st.prefs.nthread})
 
@@ -92,8 +91,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                 integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
                                    for i in range(0, im1-im0, st.chunksize)]
                 for integrations in integrationlist:
-                    saved.append(cl.submit(search.search_thresh, st, segment,
-                                           data_corr, dmind, dtind,
+                    saved.append(cl.submit(search.search_thresh_fftw, st,
+                                           segment, data_corr, dmind, dtind,
                                            integrations=integrations,
                                            wisdom=wisdom, pure=True,
                                            resources=searchresources))
@@ -131,8 +130,6 @@ def pipeline_seg_delayed(st, segment, host=None, cl=None, cfile=None,
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
-    mode = 'single' if st.prefs.nthread == 1 else 'multi'
-
     imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
                   max(st.get_search_ints(segment, dmind, dtind)))
                   for dtind in range(len(st.dtarr))]
@@ -162,7 +159,7 @@ def pipeline_seg_delayed(st, segment, host=None, cl=None, cfile=None,
         for dtind in range(len(st.dtarr)):
             data_corr = delayed(search.dedisperseresample, pure=True)(data_prep, delay,
                                                                       st.dtarr[dtind],
-                                                                      mode=mode)
+                                                                      parallel = st.prefs.nthread > 1)
 
             im0, im1 = imgranges[dmind][dtind]
             integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
