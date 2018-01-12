@@ -83,7 +83,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
             for dtind in range(len(st.dtarr)):
                 data_corr = cl.submit(search.dedisperseresample, data_prep,
                                       delay, st.dtarr[dtind],
-                                      parallel = st.prefs.nthread > 1,
+                                      parallel=st.prefs.nthread > 1,
                                       resources={'MEMORY': 2*st.vismem,
                                                  'CORES': st.prefs.nthread})
 
@@ -98,13 +98,12 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                            resources=searchresources))
 
     elif st.fftmode == "cuda":
-        searchresources = {'GPU': 1}
         dtind = 0  # TODO iterate!
 
         for dmind in range(len(st.dmarr)):
             saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
                                    data_prep, dmind, dtind, pure=True,
-                                   resources=searchresources))
+                                   resources={'GPU': 1}))
 
     canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
                              resources={'CORES': 1})
