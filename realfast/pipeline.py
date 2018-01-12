@@ -61,10 +61,6 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                           resources={'MEMORY': 2*st.vismem,
                                      'CORES': 1})
 
-#    cl.replicate(data_prep, n=2)  # slows submission per segment
-
-    uvw = cl.submit(util.get_uvw_segment, st, segment, resources={'CORES': 1})
-
     saved = []
     if st.fftmode == "fftw":
         searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
@@ -137,9 +133,7 @@ def pipeline_seg_delayed(st, segment, host=None, cl=None, cfile=None,
     futures = {}
 
     # plan, if using fftw
-    wisdom = delayed(search.set_wisdom, pure=True)(st.npixx, st.npixy) if st.fftmode == 'fftw' else None
-
-    uvw = delayed(util.get_uvw_segment, pure=True)(st, segment)
+    wisdom = delayed(search.set_wisdom, pure=True)(st.npixx, st.npixy)
 
     # will retry to get around thread collision during read (?)
     data = delayed(source.read_segment, pure=True)(st, segment,
