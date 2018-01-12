@@ -184,6 +184,11 @@ class realfast_controller(Controller):
         if self.datasource is None:
             self.datasource = 'vys'
 
+        scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
+                                      str(inmeta['subscan']))
+
+        self.inject_transient(scanId)  # randomly inject mock transient
+
         st = state.State(preffile=self.preffile, inprefs=self.inprefs,
                          inmeta=inmeta, lock=self.lock)
 
