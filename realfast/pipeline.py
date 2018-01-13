@@ -44,7 +44,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     if cl is None:
         if host is None:
             cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"MEMORY": 24, "CORES": 16},
+                                    resources={"READER": 1, "MEMORY": 24,
+                                               "CORES": 16},
                                     local_dir="/lustre/evla/test/realfast/scratch")
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
@@ -53,13 +54,11 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     # will retry to get around thread collision during sdm read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True, retries=1,
-                     resources={'READER': 1})
+                     cfile=cfile, pure=True, resources={'READER': 1})
     futures['data'] = data
 
     data_prep = cl.submit(source.data_prep, st, segment, data, pure=True,
-                          resources={'MEMORY': 2*st.vismem,
-                                     'CORES': 1})
+                          resources={'CORES': st.prefs.nthread})
 
     saved = []
     if st.fftmode == "fftw":
@@ -94,12 +93,11 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                                            resources=searchresources))
 
     elif st.fftmode == "cuda":
-        dtind = 0  # TODO iterate!
-
         for dmind in range(len(st.dmarr)):
             saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
                                    data_prep, dmind, pure=True,
-                                   resources={'GPU': 1}))
+                                   resources={'GPU': 1,
+                                              'CORES': st.prefs.nthread}))
 
     canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
                              resources={'CORES': 1})
