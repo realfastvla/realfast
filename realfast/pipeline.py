@@ -98,7 +98,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
         for dmind in range(len(st.dmarr)):
             saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
-                                   data_prep, dmind, dtind, pure=True,
+                                   data_prep, dmind, pure=True,
                                    resources={'GPU': 1}))
 
     canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
