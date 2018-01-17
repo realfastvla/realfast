@@ -52,12 +52,12 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     futures = {}
 
-    # will retry to get around thread collision during sdm read (?)
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=True, resources={'READER': 1})
+                     cfile=cfile, pure=False,
+                     resources={'READER': 1, 'MEMORY': 8*st.vismem})
     futures['data'] = data
 
-    data_prep = cl.submit(source.data_prep, st, segment, data, pure=True,
+    data_prep = cl.submit(source.data_prep, st, segment, data,
                           resources={'CORES': st.prefs.nthread})
 
     saved = []
@@ -89,20 +89,20 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
                     saved.append(cl.submit(search.search_thresh_fftw, st,
                                            segment, data_corr, dmind, dtind,
                                            integrations=integrations,
-                                           wisdom=wisdom, pure=True,
+                                           wisdom=wisdom,
                                            resources=searchresources))
 
     elif st.fftmode == "cuda":
         for dmind in range(len(st.dmarr)):
             saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
-                                   data_prep, dmind, pure=True,
+                                   data_prep, dmind,
                                    resources={'GPU': 1,
                                               'CORES': st.prefs.nthread}))
 
-    canddatalist = cl.submit(mergelists, saved, pure=True, retries=1,
+    canddatalist = cl.submit(mergelists, saved,
                              resources={'CORES': 1})
     candcollection = cl.submit(candidates.calc_features, canddatalist,
-                               pure=True, resources={'CORES': 1})
+                               resources={'CORES': 1})
     futures['candcollection'] = candcollection
 
     return futures
