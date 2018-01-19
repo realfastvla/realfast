@@ -54,7 +54,7 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=False,
-                     resources={'READER': 1, 'MEMORY': 8*st.vismem})
+                     resources={'READER': 1})
     futures['data'] = data
 
     data_prep = cl.submit(source.data_prep, st, segment, data,
