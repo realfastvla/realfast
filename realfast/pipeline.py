@@ -6,6 +6,7 @@ from io import open
 import distributed
 from dask import delayed
 from rfpipe import source, search, util, candidates
+from dask.base import tokenize
 
 import logging
 logger = logging.getLogger(__name__)
@@ -176,3 +177,12 @@ def mergelists(futlists):
     """
 
     return [fut for futlist in futlists for fut in futlist]
+
+
+def lazy_read_segment(st, segment, cfile, vys_timeout):
+    name = 'read_segment' + tokenize([st, segment])
+
+    dask = {(name, 0, 0, 0, 0): (source.read_segment, st, segment,
+                                 timeout=vys_timeout, cfile=cfile)}
+    chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))
+    return da.Array(dask=dask, name=name, chunks=chunks, dtype=np.complex64)
