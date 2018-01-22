@@ -54,10 +54,8 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     futures = {}
 
-    data = cl.submit(lazy_read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, pure=False,
-                     resources={'READER': 1})
-    data = cl.persist(data)
+    data = lazy_read_segment(st, segment, cfile, vys_timeout)
+    data = cl.compute(data, resources={'data': {'READER': 1}})
     futures['data'] = data
 
     data_prep = cl.submit(source.data_prep, st, segment, data,
@@ -186,10 +184,11 @@ def lazy_read_segment(st, segment, cfile=None,
     """ rfpipe read_segment as a dask array.
     """
 
-    name = 'read_segment' + tokenize([st, segment])
+    shape = st.datashape
+    chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))
+
+    name = 'read_segment-' + tokenize([st, segment])
     dask = {(name, 0, 0, 0, 0): (source.read_segment, st, segment,
                                  cfile, timeout)}
-    shape = st.datashape
-#    dask = {(name, 0, 0, 0, 0): (np.random.normal, 0, 1, shape)}
-    chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))
+
     return array.Array(dask=dask, name=name, chunks=chunks, dtype=np.complex64)
