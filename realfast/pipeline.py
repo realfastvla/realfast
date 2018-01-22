@@ -4,9 +4,10 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
-from dask import delayed
+from dask import delayed, array
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize
+import numpy as np
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,9 +54,10 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     futures = {}
 
-    data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
+    data = cl.submit(lazy_read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, pure=False,
                      resources={'READER': 1})
+    data = cl.persist(data)
     futures['data'] = data
 
     data_prep = cl.submit(source.data_prep, st, segment, data,
@@ -179,10 +181,15 @@ def mergelists(futlists):
     return [fut for futlist in futlists for fut in futlist]
 
 
-def lazy_read_segment(st, segment, cfile, vys_timeout):
-    name = 'read_segment' + tokenize([st, segment])
+def lazy_read_segment(st, segment, cfile=None,
+                      timeout=vys_timeout_default):
+    """ rfpipe read_segment as a dask array.
+    """
 
+    name = 'read_segment' + tokenize([st, segment])
     dask = {(name, 0, 0, 0, 0): (source.read_segment, st, segment,
-                                 timeout=vys_timeout, cfile=cfile)}
+                                 cfile, timeout)}
+    shape = st.datashape
+#    dask = {(name, 0, 0, 0, 0): (np.random.normal, 0, 1, shape)}
     chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))
-    return da.Array(dask=dask, name=name, chunks=chunks, dtype=np.complex64)
+    return array.Array(dask=dask, name=name, chunks=chunks, dtype=np.complex64)
