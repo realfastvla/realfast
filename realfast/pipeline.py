@@ -1,5 +1,5 @@
-from __future__ import print_function, division, absolute_import #, unicode_literals # not casa compatible
-from builtins import bytes, dict, object, range, map, input#, str # not casa compatible
+from __future__ import print_function, division, absolute_import, unicode_literals # not casa compatible
+from builtins import bytes, dict, object, range, map, input, str # not casa compatible
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
@@ -54,9 +54,14 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
 
     futures = {}
 
+# new style read *TODO: note hack on resources*
     data = lazy_read_segment(st, segment, cfile, vys_timeout)
-    data = cl.compute(data, resources={'data': {'READER': 1}})
-    futures['data'] = data
+    data = cl.compute(data, resources={tuple(data.__dask_keys__()[0][0][0]): {'READER': 1}})
+# old style read
+#    data = cl.submit(source.read_segment, st, segment, cfile, vys_timeout,
+#                     resources={'READER': 1})
+
+    futures['data'] = data  # save future
 
     data_prep = cl.submit(source.data_prep, st, segment, data,
                           resources={'CORES': st.prefs.nthread})
@@ -182,6 +187,8 @@ def mergelists(futlists):
 def lazy_read_segment(st, segment, cfile=None,
                       timeout=vys_timeout_default):
     """ rfpipe read_segment as a dask array.
+    equivalent to making delayed version of function and then:
+    arr = dask.array.from_delayed(dd, st.datashape, np.complex64).
     """
 
     shape = st.datashape

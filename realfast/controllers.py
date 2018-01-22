@@ -1,5 +1,5 @@
-from __future__ import print_function, division, absolute_import  #, unicode_literals # not casa compatible
-from builtins import bytes, dict, object, range, map, input  #, str # not casa compatible
+from __future__ import print_function, division, absolute_import, unicode_literals # not casa compatible
+from builtins import bytes, dict, object, range, map, input, str # not casa compatible
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
@@ -13,6 +13,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
+import distributed
 from astropy import time
 import dask.utils
 from evla_mcast.controller import Controller
@@ -69,13 +70,16 @@ class realfast_controller(Controller):
         self.tags = tags
         self.mockprob = mockprob
         self.mockset = mockset
-        self.client = None
+        self.client = distributed.Client('{0}:{1}'
+                                         .format(_distributed_host, '8786'))
         self.indexresults = indexresults
         self.saveproducts = saveproducts
         self.archiveproducts = archiveproducts
         self.nameincludes = nameincludes
         self.searchintents = searchintents
         self.lock = dask.utils.SerializableLock()
+
+        
 
         # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
@@ -127,13 +131,13 @@ class realfast_controller(Controller):
             logger.info('Starting pipeline...')
             # pipeline returns dict of futures
             # ** is list of dicts required to be in segment order?
-            futures = pipeline.pipeline_scan(st, segments=None,
-                                             host=_distributed_host,
+            futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
+#                                             host=_distributed_host,
                                              cfile=_vys_cfile,
                                              vys_timeout=self.vys_timeout)
             self.futures[config.scanId] = futures
             self.states[config.scanId] = st
-            self.client = futures[0]['candcollection'].client
+#            self.client = futures[0]['candcollection'].client
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -169,12 +173,12 @@ class realfast_controller(Controller):
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None,
-                                         host=_distributed_host)
+        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client)
+#                                         host=_distributed_host)
 
         self.futures[scanId] = futures
         self.states[scanId] = st
-        self.client = futures[0]['candcollection'].client
+#        self.client = futures[0]['candcollection'].client
 
     def handle_meta(self, inmeta):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
@@ -194,14 +198,14 @@ class realfast_controller(Controller):
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None,
-                                         host=_distributed_host,
+        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
+#                                         host=_distributed_host,
                                          cfile=_vys_cfile,
                                          vys_timeout=self.vys_timeout)
 
         self.futures[st.metadata.scanId] = futures
         self.states[st.metadata.scanId] = st
-        self.client = futures[0]['candcollection'].client
+#        self.client = futures[0]['candcollection'].client
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
