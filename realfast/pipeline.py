@@ -4,6 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
+import time
 from dask import delayed, array
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize
@@ -15,22 +16,53 @@ vys_timeout_default = 10
 
 
 def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
-                  vys_timeout=vys_timeout_default):
-    """ Given rfpipe state and dask distributed client, run search pipline """
+                  vys_timeout=vys_timeout_default, throttle=False):
+    """ Given rfpipe state and dask distributed client, run search pipline.
+    throttle option will check workers for memory before submitting.
+    """
+
+    if cl is None:
+        if host is None:
+            cl = distributed.Client(n_workers=1, threads_per_worker=16,
+                                    resources={"READER": 1, "MEMORY": 24,
+                                               "CORES": 16},
+                                    local_dir="/lustre/evla/test/realfast/scratch")
+        else:
+            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
     futures = []
     if not isinstance(segments, list):
         segments = range(st.nsegment)
 
-    # TODO: add wait here to reduce early submission of segments?
+    # set up computations
+    t0 = time.time()
+    timeout = st.metadata.inttime*st.metadata.nints
+    elapsedtime = time.time() - t0
     for segment in segments:
-        futures.append(pipeline_seg(st, segment, host=host, cl=cl, cfile=cfile,
-                                    vys_timeout=vys_timeout))
+        if throttle:
+            # submit if workers ready. timeout of scan length.
+            while (len(futures) < len(segments)) and (elapsedtime < timeout):
+                if workers_ready(cl):
+                    futures.append(pipeline_seg(st, segment, cl=cl,
+                                   cfile=cfile, vys_timeout=vys_timeout))
+                time.sleep(0.1)
+                elapsedtime = time.time() - t0
+
+        else:
+            futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
+                                        vys_timeout=vys_timeout))
 
     return futures  # list of dicts
 
 
-def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
+def workers_ready(cl):
+    """ Use worker state to decide if new reader call can be submitted.
+    """
+
+    return True
+
+
+def pipeline_seg(st, segment, cl, cfile=None,
                  vys_timeout=vys_timeout_default):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
@@ -43,20 +75,12 @@ def pipeline_seg(st, segment, host=None, cl=None, cfile=None,
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
 
-    if cl is None:
-        if host is None:
-            cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"READER": 1, "MEMORY": 24,
-                                               "CORES": 16},
-                                    local_dir="/lustre/evla/test/realfast/scratch")
-        else:
-            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
-
     futures = {}
 
 # new style read *TODO: note hack on resources*
     data = lazy_read_segment(st, segment, cfile, vys_timeout)
-    data = cl.compute(data, resources={tuple(data.__dask_keys__()[0][0][0]): {'READER': 1}})
+    data = cl.compute(data, resources={tuple(data.__dask_keys__()[0][0][0]):
+                                       {'READER': 1}})  # get future
 # old style read
 #    data = cl.submit(source.read_segment, st, segment, cfile, vys_timeout,
 #                     resources={'READER': 1})
