@@ -42,7 +42,7 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
         if throttle:
             # submit if workers ready. timeout of scan length.
             while (len(futures) < len(segments)) and (elapsedtime < timeout):
-                if workers_ready(cl):
+                if worker_ready(cl, st.vismem*1e9):
                     futures.append(pipeline_seg(st, segment, cl=cl,
                                    cfile=cfile, vys_timeout=vys_timeout))
                 else:
@@ -57,11 +57,16 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
     return futures  # list of dicts
 
 
-def workers_ready(cl):
+def worker_ready(cl, memory_required):
     """ Use worker state to decide if new reader call can be submitted.
+    memory_required is the size of the read in bytes
     """
 
-    return True
+    for vals in itervalues(cl.scheduler_info()['workers']):
+        if vals['memory_limit']-vals['memory'] > memory_required:
+            return True
+
+    return False
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
