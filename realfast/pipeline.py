@@ -45,7 +45,9 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
                 if workers_ready(cl):
                     futures.append(pipeline_seg(st, segment, cl=cl,
                                    cfile=cfile, vys_timeout=vys_timeout))
-                time.sleep(0.1)
+                else:
+                    time.sleep(0.1)
+
                 elapsedtime = time.time() - t0
 
         else:
