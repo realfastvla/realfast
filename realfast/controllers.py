@@ -26,8 +26,8 @@ formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s
 ch.setFormatter(formatter)
 logger = logging.getLogger('realfast_controller')
 
-_vys_cfile = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
-#_vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
+_vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
+_vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # scale wait by realtime
 #_distributed_host = 'cbe-node-01'  # for eth0
@@ -105,9 +105,10 @@ class realfast_controller(Controller):
                 for ftype in futures
                 if futures[ftype].status == 'error']
 
-    def handle_config(self, config):
+    def handle_config(self, config, cfile=_vys_cfile_prod):
         """ Triggered when obs comes in.
         Downstream logic starts here.
+        Default vys config file uses production parameters.
         """
 
         summarize(config)
@@ -134,7 +135,7 @@ class realfast_controller(Controller):
             # ** is list of dicts required to be in segment order?
             futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
 #                                             host=_distributed_host,
-                                             cfile=_vys_cfile,
+                                             cfile=cfile,
                                              vys_timeout=self.vys_timeout)
             self.futures[config.scanId] = futures
             self.states[config.scanId] = st
@@ -181,9 +182,10 @@ class realfast_controller(Controller):
         self.states[scanId] = st
 #        self.client = futures[0]['candcollection'].client
 
-    def handle_meta(self, inmeta):
+    def handle_meta(self, inmeta, cfile=_vys_cfile_test):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
         Gets called explicitly. No cleanup done.
+        Default vys config file uses test parameters.
         """
 
         if self.datasource is None:
@@ -201,7 +203,7 @@ class realfast_controller(Controller):
         # pipeline returns state object per DM/dt
         futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
 #                                         host=_distributed_host,
-                                         cfile=_vys_cfile,
+                                         cfile=cfile,
                                          vys_timeout=self.vys_timeout)
 
         self.futures[st.metadata.scanId] = futures
