@@ -21,6 +21,8 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
     throttle option will check workers for memory before submitting.
     """
 
+    read_overhead = 8.
+
     if cl is None:
         if host is None:
             cl = distributed.Client(n_workers=1, threads_per_worker=16,
@@ -42,7 +44,7 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
         if throttle:
             # submit if workers ready. timeout of scan length.
             while (len(futures) < len(segments)) and (elapsedtime < timeout):
-                if worker_ready(cl, st.vismem*1e9):
+                if worker_ready(cl, read_overhead*st.vismem*1e9):
                     futures.append(pipeline_seg(st, segment, cl=cl,
                                    cfile=cfile, vys_timeout=vys_timeout))
                 else:
@@ -63,8 +65,13 @@ def worker_ready(cl, memory_required):
     """
 
     for vals in itervalues(cl.scheduler_info()['workers']):
-        if vals['memory_limit']-vals['memory'] > memory_required:
+        # look for at least one worker with required memory
+        if (('READER' in vals['resources']) and
+           (vals['memory_limit']-vals['memory'] > memory_required)):
             return True
+
+    logger.info("No worker found with required memory of {0} GB"
+                .format(memory_required/1e9))
 
     return False
 

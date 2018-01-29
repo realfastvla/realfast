@@ -30,7 +30,6 @@ _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # product
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _vys_timeout = 10  # scale wait by realtime
-#_distributed_host = 'cbe-node-01'  # for eth0
 _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
@@ -49,6 +48,7 @@ class realfast_controller(Controller):
                  vys_timeout=_vys_timeout, datasource=None, tags=None,
                  mockprob=0.5, mockset=_mock_standards, saveproducts=False,
                  indexresults=True, archiveproducts=False, nameincludes=None,
+                 throttle=False,
                  searchintents=['OBSERVE_TARGET', 'CALIBRATE_PHASE',
                                 'CALIBRATE_AMPLI', 'CALIBRATE_DELAY']):
         """ Creates controller object that can act on a scan configuration.
@@ -60,7 +60,6 @@ class realfast_controller(Controller):
         searchintents is a list of intent names to search.
         """
 
-        # TODO: add argument for selecting by datasetId?
         super(realfast_controller, self).__init__()
         self.preffile = preffile
         self.inprefs = inprefs
@@ -78,9 +77,8 @@ class realfast_controller(Controller):
         self.archiveproducts = archiveproducts
         self.nameincludes = nameincludes
         self.searchintents = searchintents
+        self.throttle = throttle
         self.lock = dask.utils.SerializableLock()
-
-        
 
         # TODO: add yaml parsing to overload via self.preffile['realfast']?
 
@@ -134,9 +132,9 @@ class realfast_controller(Controller):
             # pipeline returns dict of futures
             # ** is list of dicts required to be in segment order?
             futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
-#                                             host=_distributed_host,
                                              cfile=cfile,
-                                             vys_timeout=self.vys_timeout)
+                                             vys_timeout=self.vys_timeout,
+                                             throttle=self.throttle)
             self.futures[config.scanId] = futures
             self.states[config.scanId] = st
 #            self.client = futures[0]['candcollection'].client
@@ -175,8 +173,8 @@ class realfast_controller(Controller):
 
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client)
-#                                         host=_distributed_host)
+        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
+                                         throttle=self.throttle)
 
         self.futures[scanId] = futures
         self.states[scanId] = st
@@ -202,9 +200,9 @@ class realfast_controller(Controller):
         logger.info('Starting pipeline...')
         # pipeline returns state object per DM/dt
         futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
-#                                         host=_distributed_host,
                                          cfile=cfile,
-                                         vys_timeout=self.vys_timeout)
+                                         vys_timeout=self.vys_timeout,
+                                         throttle=self.throttle)
 
         self.futures[st.metadata.scanId] = futures
         self.states[st.metadata.scanId] = st
