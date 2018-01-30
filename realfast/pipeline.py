@@ -40,19 +40,25 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
     t0 = time.time()
     timeout = st.metadata.inttime*st.metadata.nints
     elapsedtime = time.time() - t0
-    for segment in segments:
-        if throttle:
-            # submit if workers ready. timeout of scan length.
-            while (len(futures) < len(segments)) and (elapsedtime < timeout):
-                if worker_ready(cl, read_overhead*st.vismem*1e9):
-                    futures.append(pipeline_seg(st, segment, cl=cl,
-                                   cfile=cfile, vys_timeout=vys_timeout))
-                else:
-                    time.sleep(0.1)
+    if throttle:
+        # submit if workers ready. timeout of scan length.
+        segment = 0
+        while (len(futures) < len(segments)) and (elapsedtime < timeout):
+            if worker_ready(cl, read_overhead*st.vismem*1e9):
+                futures.append(pipeline_seg(st, segment, cl=cl,
+                               cfile=cfile, vys_timeout=vys_timeout))
+                segment += 1
 
+            else:
+                time.sleep(0.1)
                 elapsedtime = time.time() - t0
 
-        else:
+        if elapsedtime > timeout:
+            logger.info("Throttled submission timed out. {0}/{1} segments submitted."
+                        .format(len(futures), len(segments)))
+
+    else:
+        for segment in segments:
             futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                         vys_timeout=vys_timeout))
 

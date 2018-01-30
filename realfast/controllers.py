@@ -8,11 +8,6 @@ import os.path
 import glob
 import shutil
 import random
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-import numpy as np
 import distributed
 from astropy import time
 import dask.utils
@@ -21,6 +16,8 @@ from rfpipe import state, preferences, candidates
 from realfast import pipeline, elastic, sdm_builder
 
 import logging
+import matplotlib
+matplotlib.use('Agg')
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
