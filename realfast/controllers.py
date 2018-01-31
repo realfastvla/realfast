@@ -406,6 +406,11 @@ def runsearch(config, nameincludes=None, searchintents=None):
                         .format(intent, searchintents))
             return False
 
+    # 5) only two antennas
+    if len(antnames) <= 2:
+        logger.warn("Only {0} antennas in array".format(len(antnames)))
+        return False
+
     return True
 
 
