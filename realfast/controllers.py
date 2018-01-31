@@ -63,6 +63,7 @@ class realfast_controller(Controller):
         self.vys_timeout = vys_timeout
         self.states = {}
         self.futures = {}
+        self.futures_removed = {}
         self.datasource = datasource
         self.tags = tags
         self.mockprob = mockprob
@@ -211,7 +212,7 @@ class realfast_controller(Controller):
 
         logger.info('End of scheduling block message received.')
 
-    def cleanup(self, badstatuslist=['cancelled']):
+    def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Scan job dict, remove finished jobs,
         and push results to relevant indices.
         badstatuslist can include 'cancelled', 'error', 'lost'.
@@ -221,12 +222,11 @@ class realfast_controller(Controller):
         cindexed = 0
         sdms = 0
 
-        for status in badstatuslist:
-            removed += self.removefutures(status)
+        scanIds = [scanId for scanId in self.futures]
+        logger.info("Checking on jobs from {0} scanIds: {1}"
+                    .format(len(scanIds), scanIds))
 
         for scanId in self.futures:
-            logger.info("Checking on jobs from scanId {0}".format(scanId))
-
             # create list of futures (a dict per segment) that are done
             finishedlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
                             for futures in futurelist
@@ -290,6 +290,10 @@ class realfast_controller(Controller):
                 self.futures[scanId].remove(futures)
                 removed += 1
 
+        # clean up bad futures
+        for status in badstatuslist:
+            removed += self.removefutures(status)
+
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if len(self.futures[scanId]) == 0]
@@ -325,25 +329,32 @@ class realfast_controller(Controller):
 #            if 'mock' in self.tags:
 #                self.tags = self.tags.remove('mock')
 
-    def removefutures(self, status):
+    def removefutures(self, status, keep=False):
         """ Remove jobs with status of 'cancelled'
+        keep argument defines whether to remove or move to futures_removed
         """
 
         removed = 0
         for scanId in self.futures:
-            logger.info("Checking on jobs from scanId {0}".format(scanId))
 
             # create list of futures (a dict per segment) that are cancelled
             removelist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                             for futures in futurelist
-                             if (futures['candcollection'].status == status or
-                                 futures['data'].status == status) and
-                                (scanId0 == scanId)]
+                          for futures in futurelist
+                          if (futures['candcollection'].status == status or
+                              futures['data'].status == status) and
+                             (scanId0 == scanId)]
 
             # clean them up
             for futures in removelist:
                 self.futures[scanId].remove(futures)
                 removed += 1
+
+                if keep:
+                    if scanId not in self.futures_removed:
+                        self.futures_removed[scanId] = []
+                    self.futures_removed[scanId].append(futures)
+
+        logger.info("Removing {0} bad jobs from scanId {1}".format(removed, scanId))
 
         return removed
 
