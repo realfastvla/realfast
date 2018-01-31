@@ -44,7 +44,7 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
         # submit if workers ready. timeout of scan length.
         segment = 0
         while (len(futures) < len(segments)) and (elapsedtime < timeout):
-            if (worker_ready(cl, read_overhead*st.vismem*1e9) and disk_ready):
+            if (worker_ready(cl, read_overhead*st.vismem*1e9) and disk_ready(cl)):
                 futures.append(pipeline_seg(st, segment, cl=cl,
                                cfile=cfile, vys_timeout=vys_timeout))
                 segment += 1
