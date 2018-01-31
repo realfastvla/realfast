@@ -258,8 +258,8 @@ class realfast_controller(Controller):
                     makesummaryplot(candcollection.prefs.workdir, scanId)
 
                 else:
-                    logger.info('No candidates for a segment from scanId {0}'
-                                .format(scanId))
+                    logger.debug('No candidates for a segment from scanId {0}'
+                                 .format(scanId))
 
 # TODO: index noises
 #                if os.path.exists(st.noisefile):
@@ -284,7 +284,7 @@ class realfast_controller(Controller):
                         runingest(newsdms)  # TODO: implement this
 
                 else:
-                    logger.info("Not making new SDMs or moving candplots.")
+                    logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
                 self.futures[scanId].remove(futures)
@@ -354,7 +354,9 @@ class realfast_controller(Controller):
                         self.futures_removed[scanId] = []
                     self.futures_removed[scanId].append(futures)
 
-        logger.info("Removing {0} bad jobs from scanId {1}".format(removed, scanId))
+        if removed:
+            logger.info("Removing {0} bad jobs from scanId {1}".format(removed,
+                                                                       scanId))
 
         return removed
 
