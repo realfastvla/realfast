@@ -16,12 +16,14 @@ vys_timeout_default = 10
 
 
 def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
-                  vys_timeout=vys_timeout_default, throttle=False):
+                  vys_timeout=vys_timeout_default, throttle=False,
+                  read_overhead=8, read_totfrac=0.3):
     """ Given rfpipe state and dask distributed client, run search pipline.
-    throttle option will check workers for memory before submitting.
+    throttle option will submit only if worker state allows for it.
+    parameters of throttling:
+      read_overhead scales vismem to peak usage during read.
+      read_totfrac is total memory usage allowed in bytes at submission time.
     """
-
-    read_overhead = 8.
 
     if cl is None:
         if host is None:
@@ -32,25 +34,31 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
-    futures = []
     if not isinstance(segments, list):
         segments = range(st.nsegment)
 
-    # set up computations
-    t0 = time.time()
-    timeout = st.metadata.inttime*st.metadata.nints
-    elapsedtime = time.time() - t0
+    # submit, with optional throttling
+    futures = []
     if throttle:
-        # submit if workers ready. timeout of scan length.
+        w_memlim = read_overhead*st.vismem*1e9
+
+        tot_memlim = read_totfrac*sum([v['memory_limit']
+                                      for v in itervalues(cl.client.scheduler_info()['workers'])
+                                      if 'READER' in v['resources']])
+
+        t0 = time.time()
+        timeout = st.metadata.inttime*st.metadata.nints
+        elapsedtime = time.time() - t0
         segment = 0
         while (len(futures) < len(segments)) and (elapsedtime < timeout):
-            if (worker_ready(cl, read_overhead*st.vismem*1e9) and disk_ready(cl)):
+#           Use worker state to decide if new reader call can be submitted.
+            if (worker_memory_ready(cl, w_memlim) and total_memory_ready(cl, tot_memlim)):
                 futures.append(pipeline_seg(st, segment, cl=cl,
                                cfile=cfile, vys_timeout=vys_timeout))
                 segment += 1
 
             else:
-                time.sleep(0.1)
+                time.sleep(1)
                 elapsedtime = time.time() - t0
 
         if elapsedtime > timeout:
@@ -65,8 +73,8 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
     return futures  # list of dicts
 
 
-def worker_ready(cl, memory_required):
-    """ Use worker state to decide if new reader call can be submitted.
+def worker_memory_ready(cl, memory_required):
+    """ Does any READER worker have enough memory?
     memory_required is the size of the read in bytes
     """
 
@@ -82,11 +90,19 @@ def worker_ready(cl, memory_required):
     return False
 
 
-def disk_ready(cl):
-  """ Is disk usage low enough to be able to handle spilled data?
-  """
+def total_memory_ready(cl, memory_limit):
+    """ Is total READER memory usage too high?
+    memory_limit is total memory used in bytes
+    """
 
-  return True
+    if memory_limit is not None:
+        total = sum([v['memory']
+                    for v in itervalues(cl.client.scheduler_info()['workers'])
+                    if 'READER' in v['resources']])
+
+        return total < memory_limit
+    else:
+        return True
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
