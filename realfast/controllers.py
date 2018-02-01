@@ -223,8 +223,9 @@ class realfast_controller(Controller):
         sdms = 0
 
         scanIds = [scanId for scanId in self.futures]
-        logger.info("Checking on jobs from {0} scanIds: {1}"
-                    .format(len(scanIds), scanIds))
+        if len(scanIds):
+            logger.info("Checking on jobs from {0} scanIds: {1}"
+                        .format(len(scanIds), scanIds))
 
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are done
