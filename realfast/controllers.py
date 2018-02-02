@@ -126,16 +126,8 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing config or prefs.")
 
-            logger.info('Starting pipeline...')
-            # pipeline returns dict of futures
-            # ** is list of dicts required to be in segment order?
-            futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
-                                             cfile=cfile,
-                                             vys_timeout=self.vys_timeout,
-                                             throttle=self.throttle)
-            self.futures[config.scanId] = futures
-            self.states[config.scanId] = st
-#            self.client = futures[0]['candcollection'].client
+            self.start_pipeline(self, st, cfile)
+
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
@@ -169,13 +161,7 @@ class realfast_controller(Controller):
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
-        logger.info('Starting pipeline...')
-        # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
-                                         throttle=self.throttle)
-
-        self.futures[scanId] = futures
-        self.states[scanId] = st
+        self.start_pipeline(self, st, None)
 
         self.cleanup()
 
@@ -196,15 +182,7 @@ class realfast_controller(Controller):
         st = state.State(preffile=self.preffile, inprefs=self.inprefs,
                          inmeta=inmeta, lock=self.lock)
 
-        logger.info('Starting pipeline...')
-        # pipeline returns state object per DM/dt
-        futures = pipeline.pipeline_scan(st, segments=None, cl=self.client,
-                                         cfile=cfile,
-                                         vys_timeout=self.vys_timeout,
-                                         throttle=self.throttle)
-
-        self.futures[st.metadata.scanId] = futures
-        self.states[st.metadata.scanId] = st
+        self.start_pipeline(self, st, cfile)
 
         self.cleanup()
 
@@ -213,6 +191,49 @@ class realfast_controller(Controller):
         """
 
         logger.info('End of scheduling block message received.')
+
+    def start_pipeline(self, st, cfile, read_overhead=8, read_totfrac=0.3):
+        """ Start pipeline conditional on cluster state.
+        Sets futures and state after submission keyed by scanId.
+        """
+
+        logger.info('Starting pipeline...')
+
+        # submit, with optional throttling
+        if self.throttle:
+            w_memlim = read_overhead*st.vismem*1e9
+
+            tot_memlim = read_totfrac*sum([v['memory_limit']
+                                          for v in itervalues(self.client.scheduler_info()['workers'])
+                                          if 'READER' in v['resources']])
+
+            t0 = time.time()
+            timeout = st.metadata.inttime*st.metadata.nints
+            elapsedtime = time.time() - t0
+
+            while elapsedtime < timeout:
+#               Use worker state to decide if new reader call can be submitted.
+                if (worker_memory_ready(self.client, w_memlim) and
+                   (total_memory_ready(self.client, tot_memlim))):
+                    futures = pipeline.pipeline_scan(st, cl=self.client,
+                                                     cfile=cfile,
+                                                     vys_timeout=self.vys_timeout)
+                else:
+                    time.sleep(1)
+                    self.cleanup()
+                    elapsedtime = time.time() - t0
+
+            if elapsedtime > timeout:
+                logger.info("Throttle timed out. ScanId {0} not submitted."
+                            .format(st.metadata.scanId))
+
+        else:
+            futures = pipeline.pipeline_scan(st, cl=self.client,
+                                             cfile=cfile,
+                                             vys_timeout=self.vys_timeout)
+
+        self.futures[st.metadata.scanId] = futures
+        self.states[st.metadata.scanId] = st
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Scan job dict, remove finished jobs,
@@ -362,6 +383,42 @@ class realfast_controller(Controller):
                                                                        scanId))
 
         return removed
+
+
+def worker_memory_ready(cl, memory_required):
+    """ Does any READER worker have enough memory?
+    memory_required is the size of the read in bytes
+    """
+
+    for vals in itervalues(cl.scheduler_info()['workers']):
+        # look for at least one worker with required memory
+        if (('READER' in vals['resources']) and
+           (vals['memory_limit']-vals['memory'] > memory_required)):
+            return True
+
+    logger.info("No worker found with required memory of {0} GB"
+                .format(memory_required/1e9))
+
+    return False
+
+
+def total_memory_ready(cl, memory_limit):
+    """ Is total READER memory usage too high?
+    memory_limit is total memory used in bytes
+    """
+
+    if memory_limit is not None:
+        total = sum([v['memory']
+                    for v in itervalues(cl.scheduler_info()['workers'])
+                    if 'READER' in v['resources']])
+
+        if total > memory_limit:
+            logger.info("Total memory of {0} GB in use. Exceeds limit of {1} GB."
+                        .format(total/1e9, memory_limit/1e9))
+
+        return total < memory_limit
+    else:
+        return True
 
 
 def runsearch(config, nameincludes=None, searchintents=None):

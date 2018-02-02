@@ -15,9 +15,8 @@ logger = logging.getLogger(__name__)
 vys_timeout_default = 10
 
 
-def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
-                  vys_timeout=vys_timeout_default, throttle=False,
-                  read_overhead=8, read_totfrac=0.3):
+def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
+                  vys_timeout=vys_timeout_default):
     """ Given rfpipe state and dask distributed client, run search pipline.
     throttle option will submit only if worker state allows for it.
     parameters of throttling:
@@ -37,76 +36,12 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
     if not isinstance(segments, list):
         segments = range(st.nsegment)
 
-    # submit, with optional throttling
     futures = []
-    if throttle:
-        w_memlim = read_overhead*st.vismem*1e9
-
-        tot_memlim = read_totfrac*sum([v['memory_limit']
-                                      for v in itervalues(cl.scheduler_info()['workers'])
-                                      if 'READER' in v['resources']])
-
-        t0 = time.time()
-        timeout = st.metadata.inttime*st.metadata.nints
-        elapsedtime = time.time() - t0
-        segment = 0
-        while (len(futures) < len(segments)) and (elapsedtime < timeout):
-#           Use worker state to decide if new reader call can be submitted.
-            if (worker_memory_ready(cl, w_memlim) and total_memory_ready(cl, tot_memlim)):
-                futures.append(pipeline_seg(st, segment, cl=cl,
-                               cfile=cfile, vys_timeout=vys_timeout))
-                segment += 1
-
-            else:
-                time.sleep(1)
-                elapsedtime = time.time() - t0
-
-        if elapsedtime > timeout:
-            logger.info("Throttled submission timed out. {0}/{1} segments submitted."
-                        .format(len(futures), len(segments)))
-
-    else:
-        for segment in segments:
-            futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
-                                        vys_timeout=vys_timeout))
+    for segment in segments:
+        futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
+                                    vys_timeout=vys_timeout))
 
     return futures  # list of dicts
-
-
-def worker_memory_ready(cl, memory_required):
-    """ Does any READER worker have enough memory?
-    memory_required is the size of the read in bytes
-    """
-
-    for vals in itervalues(cl.scheduler_info()['workers']):
-        # look for at least one worker with required memory
-        if (('READER' in vals['resources']) and
-           (vals['memory_limit']-vals['memory'] > memory_required)):
-            return True
-
-    logger.info("No worker found with required memory of {0} GB"
-                .format(memory_required/1e9))
-
-    return False
-
-
-def total_memory_ready(cl, memory_limit):
-    """ Is total READER memory usage too high?
-    memory_limit is total memory used in bytes
-    """
-
-    if memory_limit is not None:
-        total = sum([v['memory']
-                    for v in itervalues(cl.scheduler_info()['workers'])
-                    if 'READER' in v['resources']])
-
-        if total > memory_limit:
-            logger.info("Total memory of {0} GB in use. Exceeds limit of {1} GB."
-                        .format(total/1e9, memory_limit/1e9))
-
-        return total < memory_limit
-    else:
-        return True
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
