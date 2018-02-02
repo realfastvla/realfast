@@ -4,7 +4,6 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
-import time
 from dask import delayed, array
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize

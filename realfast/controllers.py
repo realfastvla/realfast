@@ -10,6 +10,7 @@ import shutil
 import random
 import distributed
 from astropy import time
+from time import sleep
 import dask.utils
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences, candidates
@@ -126,7 +127,7 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing config or prefs.")
 
-            self.start_pipeline(self, st, cfile)
+            self.start_pipeline(st, cfile)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
@@ -161,7 +162,7 @@ class realfast_controller(Controller):
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
-        self.start_pipeline(self, st, None)
+        self.start_pipeline(st, None)
 
         self.cleanup()
 
@@ -182,7 +183,7 @@ class realfast_controller(Controller):
         st = state.State(preffile=self.preffile, inprefs=self.inprefs,
                          inmeta=inmeta, lock=self.lock)
 
-        self.start_pipeline(self, st, cfile)
+        self.start_pipeline(st, cfile)
 
         self.cleanup()
 
@@ -207,21 +208,22 @@ class realfast_controller(Controller):
                                           for v in itervalues(self.client.scheduler_info()['workers'])
                                           if 'READER' in v['resources']])
 
-            t0 = time.time()
+            t0 = time.Time.now().unix
             timeout = st.metadata.inttime*st.metadata.nints
-            elapsedtime = time.time() - t0
+            elapsedtime = time.Time.now().unix - t0
 
-            while elapsedtime < timeout:
-#               Use worker state to decide if new reader call can be submitted.
+            futures = None
+            while (elapsedtime < timeout) and (futures is None):
+                # Submit if workers are not overloaded
                 if (worker_memory_ready(self.client, w_memlim) and
                    (total_memory_ready(self.client, tot_memlim))):
                     futures = pipeline.pipeline_scan(st, cl=self.client,
                                                      cfile=cfile,
                                                      vys_timeout=self.vys_timeout)
                 else:
-                    time.sleep(1)
+                    sleep(1)
                     self.cleanup()
-                    elapsedtime = time.time() - t0
+                    elapsedtime = time.Time.now().unix - t0
 
             if elapsedtime > timeout:
                 logger.info("Throttle timed out. ScanId {0} not submitted."
