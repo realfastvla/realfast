@@ -472,7 +472,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
 
     metadata = candcollection.metadata
     nspw = len(metadata.spworder)
-    nchan = nchantot//nspw
+    nchan = metadata.nchan//nspw
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))

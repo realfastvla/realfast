@@ -43,7 +43,7 @@ def pipeline_scan(st, segments=None, host=None, cl=None, cfile=None,
         w_memlim = read_overhead*st.vismem*1e9
 
         tot_memlim = read_totfrac*sum([v['memory_limit']
-                                      for v in itervalues(cl.client.scheduler_info()['workers'])
+                                      for v in itervalues(cl.scheduler_info()['workers'])
                                       if 'READER' in v['resources']])
 
         t0 = time.time()
@@ -97,8 +97,12 @@ def total_memory_ready(cl, memory_limit):
 
     if memory_limit is not None:
         total = sum([v['memory']
-                    for v in itervalues(cl.client.scheduler_info()['workers'])
+                    for v in itervalues(cl.scheduler_info()['workers'])
                     if 'READER' in v['resources']])
+
+        if total > memory_limit:
+            logger.info("Total memory of {0} GB in use. Exceeds limit of {1} GB."
+                        .format(total/1e9, memory_limit/1e9))
 
         return total < memory_limit
     else:
