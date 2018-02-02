@@ -176,7 +176,8 @@ class realfast_controller(Controller):
 
         self.futures[scanId] = futures
         self.states[scanId] = st
-#        self.client = futures[0]['candcollection'].client
+
+        self.cleanup()
 
     def handle_meta(self, inmeta, cfile=_vys_cfile_test):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
@@ -204,7 +205,8 @@ class realfast_controller(Controller):
 
         self.futures[st.metadata.scanId] = futures
         self.states[st.metadata.scanId] = st
-#        self.client = futures[0]['candcollection'].client
+
+        self.cleanup()
 
     def handle_finish(self, dataset):
         """ Triggered when obs doc defines end of a script.
