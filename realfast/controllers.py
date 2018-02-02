@@ -201,6 +201,7 @@ class realfast_controller(Controller):
         logger.info('Starting pipeline...')
 
         # submit, with optional throttling
+        futures = None
         if self.throttle:
             w_memlim = read_overhead*st.vismem*1e9
 
@@ -212,7 +213,6 @@ class realfast_controller(Controller):
             timeout = st.metadata.inttime*st.metadata.nints
             elapsedtime = time.Time.now().unix - t0
 
-            futures = None
             while (elapsedtime < timeout) and (futures is None):
                 # Submit if workers are not overloaded
                 if (worker_memory_ready(self.client, w_memlim) and
@@ -234,8 +234,9 @@ class realfast_controller(Controller):
                                              cfile=cfile,
                                              vys_timeout=self.vys_timeout)
 
-        self.futures[st.metadata.scanId] = futures
-        self.states[st.metadata.scanId] = st
+        if futures is not None:
+            self.futures[st.metadata.scanId] = futures
+            self.states[st.metadata.scanId] = st
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Scan job dict, remove finished jobs,
