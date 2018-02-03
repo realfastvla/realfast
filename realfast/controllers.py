@@ -198,8 +198,6 @@ class realfast_controller(Controller):
         Sets futures and state after submission keyed by scanId.
         """
 
-        logger.info('Starting pipeline...')
-
         # submit, with optional throttling
         futures = None
         if self.throttle:
@@ -217,6 +215,7 @@ class realfast_controller(Controller):
                 # Submit if workers are not overloaded
                 if (worker_memory_ready(self.client, w_memlim) and
                    (total_memory_ready(self.client, tot_memlim))):
+                    logger.info('Starting pipeline...')
                     futures = pipeline.pipeline_scan(st, cl=self.client,
                                                      cfile=cfile,
                                                      vys_timeout=self.vys_timeout)
@@ -230,6 +229,7 @@ class realfast_controller(Controller):
                             .format(st.metadata.scanId))
 
         else:
+            logger.info('Starting pipeline...')
             futures = pipeline.pipeline_scan(st, cl=self.client,
                                              cfile=cfile,
                                              vys_timeout=self.vys_timeout)
