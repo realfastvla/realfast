@@ -555,7 +555,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
-    st = candcollection.getstate()
+    st = candcollection.state
 
     sdmlocs = []
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
@@ -602,7 +602,7 @@ def gencandranges(candcollection):
     """
 
     segment = candcollection.segment
-    st = candcollection.getstate()
+    st = candcollection.state
 
     # save whole segment
     return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
