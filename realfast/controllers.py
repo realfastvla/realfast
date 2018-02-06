@@ -47,12 +47,17 @@ class realfast_controller(Controller):
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
         kwargs can include:
-        tags, nameincludes, vys_timeout, mockprob, saveproducts, indexresults,
-        archiveproducts, throttle, searchintents.
-        tags is comma-delimited string for cands put in index (None -> "new").
-        mockprob is a prob (range 0-1) that a mock is added to each segment.
-        nameincludes is a string required to be in datasetId.
-        searchintents is a list of intent names to search.
+        - tags, a comma-delimited string for cands put in index (None -> "new"),
+        - nameincludes, a string required to be in datasetId,
+        - vys_timeout, factor over real-time for vys reading to wait,
+        - mockprob, chance (range 0-1) that a mock is added,
+        - saveproducts, boolean defining generation of mini-sdm,
+        - indexresults, boolean defining push (meta)data to search index,
+        - archiveproducts, boolean defining archiving mini-sdm,
+        - throttle, boolean defining whether to slow pipeline submission,
+        - read_overhead, throttle param requires multiple of vismem in a READERs memory,
+        - read_totfrac, throttle param requires fraction of total READER memory be available,
+        - searchintents, a list of intent names to search.
         """
 
         super(realfast_controller, self).__init__()
