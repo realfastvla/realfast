@@ -217,7 +217,7 @@ class realfast_controller(Controller):
 
         # submit, with optional throttling
         futures = None
-        if self.throttle and self.read_overhead and self.tot_memlim:
+        if self.throttle and self.read_overhead and self.read_totfrac:
             w_memlim = self.read_overhead*st.vismem*1e9
 
             tot_memlim = self.read_totfrac*sum([v['memory_limit']
@@ -316,7 +316,7 @@ class realfast_controller(Controller):
 #                    logger.info('No noisefile found, no noises indexed.')
 
                 # optionally save and archive sdm/bdfs for segment
-                if self.saveproducts:
+                if self.saveproducts and len(candcollection):
                     newsdms = createproducts(candcollection, futures['data'])
                     if len(newsdms):
                         logger.info("Created new SDMs at: {0}"
@@ -551,7 +551,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
 
     metadata = candcollection.metadata
     nspw = len(metadata.spworder)
-    nchan = metadata.nchan//nspw
+    nchan = metadata.nchan_orig//nspw
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
