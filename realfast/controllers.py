@@ -18,6 +18,7 @@ from realfast import pipeline, elastic, sdm_builder
 
 import logging
 import matplotlib
+import yaml
 matplotlib.use('Agg')
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
@@ -27,7 +28,6 @@ logger = logging.getLogger('realfast_controller')
 _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_vys_timeout = 10  # scale wait by realtime
 _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
@@ -42,16 +42,13 @@ _mock_standards = [(0, 1, 20, 0.01, 0.1, 1e-3, 0.),
 
 class realfast_controller(Controller):
 
-    def __init__(self, preffile=_preffile, inprefs={},
-                 vys_timeout=_vys_timeout, datasource=None, tags=None,
-                 mockprob=0.5, mockset=_mock_standards, saveproducts=False,
-                 indexresults=True, archiveproducts=False, nameincludes=None,
-                 throttle=False,
-                 searchintents=['OBSERVE_TARGET', 'CALIBRATE_PHASE',
-                                'CALIBRATE_AMPLI', 'CALIBRATE_DELAY']):
+    def __init__(self, preffile=_preffile, inprefs={}, datasource=None, **kwargs):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation.
         datasource of None defaults to "vys" or "sdm", by sim" is an option.
+        kwargs can include:
+        tags, nameincludes, vys_timeout, mockprob, saveproducts, indexresults,
+        archiveproducts, throttle, searchintents.
         tags is comma-delimited string for cands put in index (None -> "new").
         mockprob is a prob (range 0-1) that a mock is added to each segment.
         nameincludes is a string required to be in datasetId.
@@ -59,27 +56,42 @@ class realfast_controller(Controller):
         """
 
         super(realfast_controller, self).__init__()
-        self.preffile = preffile
-        self.inprefs = inprefs
-        self.vys_timeout = vys_timeout
+
+        self.inprefs = inprefs  # rfpipe preferences
+        self.datasource = datasource
+        self.mockset = _mock_standards
+        self.client = distributed.Client('{0}:{1}'
+                                         .format(_distributed_host, '8786'))
+        self.lock = dask.utils.SerializableLock()
         self.states = {}
         self.futures = {}
         self.futures_removed = {}
-        self.datasource = datasource
-        self.tags = tags
-        self.mockprob = mockprob
-        self.mockset = mockset
-        self.client = distributed.Client('{0}:{1}'
-                                         .format(_distributed_host, '8786'))
-        self.indexresults = indexresults
-        self.saveproducts = saveproducts
-        self.archiveproducts = archiveproducts
-        self.nameincludes = nameincludes
-        self.searchintents = searchintents
-        self.throttle = throttle
-        self.lock = dask.utils.SerializableLock()
 
-        # TODO: add yaml parsing to overload via self.preffile['realfast']?
+        # define attributes from yaml file
+        prefs = {}
+        self.preffile = preffile
+        if self.preffile is not None:
+            if os.path.exists(self.preffile):
+                with open(self.preffile, 'r') as fp:
+                    prefs = yaml.load(fp)['realfast']
+                    logger.info("Parsed realfast preffile {0}"
+                                .format(self.preffile))
+            else:
+                logger.warn("realfast preffile {0} given, but not found"
+                            .format(self.preffile))
+        else:
+            logger.info("No realfast preffile provided.")
+
+        # get arguments from preffile, optional overload from kwargs
+        for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
+                     'indexresults', 'saveproducts', 'archiveproducts',
+                     'searchintents', 'throttle', 'read_overhead',
+                     'read_totfrac']:
+            setattr(self, attr, None)
+            if attr in prefs:
+                setattr(self, attr, prefs[attr])
+            if attr in kwargs:
+                setattr(self, attr, kwargs[attr])
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'
@@ -193,19 +205,19 @@ class realfast_controller(Controller):
 
         logger.info('End of scheduling block message received.')
 
-    def start_pipeline(self, st, cfile, read_overhead=8, read_totfrac=0.3):
+    def start_pipeline(self, st, cfile):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         """
 
         # submit, with optional throttling
         futures = None
-        if self.throttle:
-            w_memlim = read_overhead*st.vismem*1e9
+        if self.throttle and self.read_overhead and self.tot_memlim:
+            w_memlim = self.read_overhead*st.vismem*1e9
 
-            tot_memlim = read_totfrac*sum([v['memory_limit']
-                                          for v in itervalues(self.client.scheduler_info()['workers'])
-                                          if 'READER' in v['resources']])
+            tot_memlim = self.read_totfrac*sum([v['memory_limit']
+                                                for v in itervalues(self.client.scheduler_info()['workers'])
+                                                if 'READER' in v['resources']])
 
             t0 = time.Time.now().unix
             timeout = st.metadata.inttime*st.metadata.nints
