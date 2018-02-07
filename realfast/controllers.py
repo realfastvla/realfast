@@ -128,7 +128,8 @@ class realfast_controller(Controller):
 
         summarize(config)
 
-        self.inject_transient(config.scanId)  # randomly inject mock transient
+        if 'simulated_transient' not in self.inprefs:
+            self.inject_transient(config.scanId)  # randomly inject mock transient
 
         if runsearch(config, nameincludes=self.nameincludes,
                      searchintents=self.searchintents):
@@ -161,7 +162,9 @@ class realfast_controller(Controller):
         sdmsubscan = 1
         scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
                                       str(sdmscan), str(sdmsubscan))
-        self.inject_transient(scanId)  # randomly inject mock transient
+
+        if 'simulated_transient' not in self.inprefs:
+            self.inject_transient(scanId)  # randomly inject mock transient
 
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                        inmeta={'datasource': 'sdm'})
@@ -187,7 +190,8 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
 
-        self.inject_transient(scanId)  # randomly inject mock transient
+        if 'simulated_transient' not in self.inprefs:
+            self.inject_transient(scanId)  # randomly inject mock transient
 
         self.set_state(scanId, inmeta=inmeta)
 
@@ -352,7 +356,7 @@ class realfast_controller(Controller):
         Also pushes mock properties to index.
         """
 
-        if ((random.uniform(0, 1) < self.mockprob) and ('simulated_transient' in self.inprefs)):
+        if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
 

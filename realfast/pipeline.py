@@ -4,7 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
-from dask import delayed, array
+from dask import array
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize
 import numpy as np
@@ -115,68 +115,6 @@ def pipeline_seg(st, segment, cl, cfile=None,
     candcollection = cl.submit(candidates.calc_features, canddatalist,
                                resources={'CORES': 1})
     futures['candcollection'] = candcollection
-
-    return futures
-
-
-def pipeline_seg_delayed(st, segment, host=None, cl=None, cfile=None,
-                         vys_timeout=vys_timeout_default):
-    """ As above, but uses dask delayed to compose graph before computing.
-    """
-
-    logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
-                .format(st.metadata.datasetId, st.metadata.scan, segment))
-
-    if cl is None:
-        if host is None:
-            cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    local_dir="/lustre/evla/test/realfast/scratch")
-        else:
-            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
-
-    imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
-                  max(st.get_search_ints(segment, dmind, dtind)))
-                  for dtind in range(len(st.dtarr))]
-                 for dmind in range(len(st.dmarr))]
-
-    futures = {}
-
-    # plan, if using fftw
-    wisdom = delayed(search.set_wisdom, pure=True)(st.npixx, st.npixy)
-
-    # will retry to get around thread collision during read (?)
-    data = delayed(source.read_segment, pure=True)(st, segment,
-                                                   timeout=vys_timeout,
-                                                   cfile=cfile)
-
-    data_prep = delayed(source.data_prep, pure=True)(st, data)
-
-    futures['data'] = cl.compute(data_prep)
-
-    saved = []
-    for dmind in range(len(st.dmarr)):
-        delay = delayed(util.calc_delay, pure=True)(st.freq, st.freq.max(),
-                                                    st.dmarr[dmind], st.inttime)
-
-        for dtind in range(len(st.dtarr)):
-            data_corr = delayed(search.dedisperseresample, pure=True)(data_prep, delay,
-                                                                      st.dtarr[dtind],
-                                                                      parallel = st.prefs.nthread > 1)
-
-            im0, im1 = imgranges[dmind][dtind]
-            integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
-                               for i in range(0, im1-im0, st.chunksize)]
-            for integrations in integrationlist:
-                saved.append(delayed(search.search_thresh,
-                                     pure=True)(st, segment, data_corr, dmind,
-                                                dtind,
-                                                integrations=integrations,
-                                                wisdom=wisdom))
-
-    canddatalist = delayed(mergelists, pure=True)(saved)
-    candcollection = delayed(candidates.calc_features, pure=True)(canddatalist)
-
-    futures['candcollection'] = cl.compute(candcollection)
 
     return futures
 
