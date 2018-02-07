@@ -352,7 +352,7 @@ class realfast_controller(Controller):
         Also pushes mock properties to index.
         """
 
-        if ((random.uniform(0, 1) < self.mockprob) and ('simulated_transient' not in self.inprefs)):
+        if ((random.uniform(0, 1) < self.mockprob) and ('simulated_transient' in self.inprefs)):
             mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
 
