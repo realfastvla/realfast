@@ -69,11 +69,11 @@ class SDMBuilder(object):
 
     def send(self):
         response_xml = urllib.urlopen(self._url).read()
-        # This will raise an exception if the result is not in the
-        # expected XML format, but it does not currently check for
-        # an 'error' response.  TODO what to do?
-        self.response = objectify.fromstring(response_xml,
-                                             parser=_sdmbuilder_parser)
+        if 'error' in response_xml:
+            self.response = None
+        else:
+            self.response = objectify.fromstring(response_xml,
+                                                 parser=_sdmbuilder_parser)
 
     @property
     def location(self):

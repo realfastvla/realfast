@@ -355,15 +355,16 @@ class realfast_controller(Controller):
         Also pushes mock properties to index.
         """
 
-        if random.uniform(0, 1) < self.mockprob:
+        if ((random.uniform(0, 1) < self.mockprob) and ('simulated_transient' not in self.inprefs)):
             mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
 
-            if self.indexresults:
-                mindexed = elastic.indexmocks(self.inprefs, scanId)
-                logger.info("Indexed {0} mock transients.".format(mindexed))
-            else:
-                logger.info("Not indexing mocks.")
+        mindexed = (elastic.indexmocks(self.inprefs, scanId)
+                    if self.indexresults else 0)
+        if mindexed:
+            logger.info("Indexed {0} mock transient.".format(mindexed))
+        else:
+            logger.info("Not indexing mock transient.")
 
 #            if self.tags is None:
 #                self.tags = ['mock']
@@ -550,8 +551,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
         return []
 
     metadata = candcollection.metadata
-    nspw = len(metadata.spworder)
-    nchan = metadata.nchan_orig//nspw
+    nchan = metadata.nchan_orig//metadata.nspw_orig
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
