@@ -42,12 +42,14 @@ _mock_standards = [(0, 1, 20, 0.01, 0.1, 1e-3, 0.),
 
 class realfast_controller(Controller):
 
-    def __init__(self, preffile=_preffile, inprefs={}, datasource=None, **kwargs):
+    def __init__(self, preffile=_preffile, inprefs={}, **kwargs):
         """ Creates controller object that can act on a scan configuration.
-        Inherits a "run" method that starts asynchronous operation.
-        datasource of None defaults to "vys" or "sdm", by sim" is an option.
+        Inherits a "run" method that starts asynchronous operation that calls
+        handle_config. handle_sdm and handle_meta (with datasource "vys" or
+        "sim") are also supported.
+
         kwargs can include:
-        - tags, a comma-delimited string for cands put in index (None -> "new"),
+        - tags, a comma-delimited string for cands to index (None -> "new"),
         - nameincludes, a string required to be in datasetId,
         - vys_timeout, factor over real-time for vys reading to wait,
         - mockprob, chance (range 0-1) that a mock is added,
@@ -63,7 +65,6 @@ class realfast_controller(Controller):
         super(realfast_controller, self).__init__()
 
         self.inprefs = inprefs  # rfpipe preferences
-        self.datasource = datasource
         self.mockset = _mock_standards
         self.client = distributed.Client('{0}:{1}'
                                          .format(_distributed_host, '8786'))
@@ -127,23 +128,18 @@ class realfast_controller(Controller):
 
         summarize(config)
 
-        if self.datasource is None:
-            self.datasource = 'vys'
-        # TODO: which datasource is really needed?
-        inmeta = {'datasource': self.datasource}
-
         self.inject_transient(config.scanId)  # randomly inject mock transient
 
         if runsearch(config, nameincludes=self.nameincludes,
                      searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config, inmeta=inmeta)
+            self.set_state(config.scanId, config=config, inmeta={'datasource': 'vys'})
 
             if self.indexresults:
                 elastic.indexscan_config(config,
                                          preferences=self.states[config.scanId].prefs,
-                                         datasource=self.datasource)
+                                         datasource='vys')
             else:
                 logger.info("Not indexing config or prefs.")
 
@@ -161,11 +157,6 @@ class realfast_controller(Controller):
         Gets called explicitly. No cleanup done.
         """
 
-        if self.datasource is None:
-            self.datasource = 'sdm'
-        # TODO: do we need two ways to define datasource?
-        inmeta = {'datasource': self.datasource}
-
         # TODO: subscan assumed = 1
         sdmsubscan = 1
         scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
@@ -173,12 +164,12 @@ class realfast_controller(Controller):
         self.inject_transient(scanId)  # randomly inject mock transient
 
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
-                       inmeta=inmeta)
+                       inmeta={'datasource': 'sdm'})
 
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
                                   preferences=self.states[scanId].prefs,
-                                  datasource=self.datasource)  # TODO: this datasource?
+                                  datasource='sdm')
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
@@ -188,15 +179,10 @@ class realfast_controller(Controller):
 
     def handle_meta(self, inmeta, cfile=_vys_cfile_test):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
-        Gets called explicitly. No cleanup done.
+        Gets called explicitly.
         Default vys config file uses test parameters.
+        inmeta datasource key can be 'vys' or 'sim' and is passed to rfpipe.
         """
-
-        if self.datasource is None:
-            self.datasource = 'vys'
-
-        # TODO: figure out which has precedence
-        inmeta['datasource'] = self.datasource
 
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
@@ -555,7 +541,7 @@ def summarize(config):
 
 
 def createproducts(candcollection, datafuture, sdmdir='.',
-                   bdfdir='/lustre/evla/wcbe/data/no_archive/'):
+                   savebdfdir='/lustre/evla/wcbe/data/no_archive/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
     This uses the sdm_builder module, which calls the sdm builder server.
@@ -607,7 +593,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
 
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             sdm_builder.makebdf(startTime, endTime, metadata, data_cut,
-                                bdfdir=bdfdir)
+                                bdfdir=savebdfdir)
         else:
             logger.warn("No sdm/bdf made for start/end time {0}-{1}"
                         .format(startTime, endTime))
