@@ -551,7 +551,6 @@ def createproducts(candcollection, datafuture, sdmdir='.',
         return []
 
     metadata = candcollection.metadata
-    nchan = metadata.nchan_orig//metadata.nspw_orig
     segment = candcollection.segment
     if not isinstance(segment, int):
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
@@ -565,6 +564,8 @@ def createproducts(candcollection, datafuture, sdmdir='.',
     else:
         logger.info('No candidate time ranges. Not calling for data.')
 
+    nchan = metadata.nchan_orig//metadata.nspw_orig
+    nspw = metadata.nspw_orig
     for (startTime, endTime) in candranges:
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
