@@ -129,22 +129,25 @@ class realfast_controller(Controller):
 
         if self.datasource is None:
             self.datasource = 'vys'
+        # TODO: which datasource is really needed?
+        inmeta = {'datasource': self.datasource}
 
         self.inject_transient(config.scanId)  # randomly inject mock transient
 
         if runsearch(config, nameincludes=self.nameincludes,
                      searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
-            st = state.State(config=config, preffile=self.preffile,
-                             inprefs=self.inprefs, lock=self.lock,
-                             inmeta={'datasource': self.datasource})
+
+            self.set_state(config.scanId, config=config, inmeta=inmeta)
+
             if self.indexresults:
-                elastic.indexscan_config(config, preferences=st.prefs,
+                elastic.indexscan_config(config,
+                                         preferences=self.states[config.scanId].prefs,
                                          datasource=self.datasource)
             else:
                 logger.info("Not indexing config or prefs.")
 
-            self.start_pipeline(st, cfile)
+            self.start_pipeline(config.scanId, cfile=cfile)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
@@ -160,6 +163,8 @@ class realfast_controller(Controller):
 
         if self.datasource is None:
             self.datasource = 'sdm'
+        # TODO: do we need two ways to define datasource?
+        inmeta = {'datasource': self.datasource}
 
         # TODO: subscan assumed = 1
         sdmsubscan = 1
@@ -167,19 +172,17 @@ class realfast_controller(Controller):
                                       str(sdmscan), str(sdmsubscan))
         self.inject_transient(scanId)  # randomly inject mock transient
 
-        st = state.State(sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
-                         preffile=self.preffile, inprefs=self.inprefs,
-                         lock=self.lock,
-                         inmeta={'datasource': self.datasource})
+        self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
+                       inmeta=inmeta)
 
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
-                                  preferences=st.prefs,
-                                  datasource=self.datasource)
+                                  preferences=self.states[scanId].prefs,
+                                  datasource=self.datasource)  # TODO: this datasource?
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
-        self.start_pipeline(st, None)
+        self.start_pipeline(scanId)
 
         self.cleanup()
 
@@ -192,28 +195,37 @@ class realfast_controller(Controller):
         if self.datasource is None:
             self.datasource = 'vys'
 
+        # TODO: figure out which has precedence
+        inmeta['datasource'] = self.datasource
+
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
 
         self.inject_transient(scanId)  # randomly inject mock transient
 
-        st = state.State(preffile=self.preffile, inprefs=self.inprefs,
-                         inmeta=inmeta, lock=self.lock)
+        self.set_state(scanId, inmeta=inmeta)
 
-        self.start_pipeline(st, cfile)
+        self.start_pipeline(scanId, cfile=cfile)
 
         self.cleanup()
 
-    def handle_finish(self, dataset):
-        """ Triggered when obs doc defines end of a script.
+    def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
+                  sdmscan=None, bdfdir=None):
+        """ Given metadata source, define state for a scanId.
         """
 
-        logger.info('End of scheduling block message received.')
+        st = state.State(inmeta=inmeta, config=config, preffile=self.preffile,
+                         inprefs=self.inprefs, lock=self.lock,
+                         sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
 
-    def start_pipeline(self, st, cfile):
+        self.states[scanId] = st
+
+    def start_pipeline(self, scanId, cfile=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         """
+
+        st = self.states[scanId]
 
         # submit, with optional throttling
         futures = None
@@ -253,7 +265,6 @@ class realfast_controller(Controller):
 
         if futures is not None:
             self.futures[st.metadata.scanId] = futures
-            self.states[st.metadata.scanId] = st
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Scan job dict, remove finished jobs,
@@ -404,6 +415,12 @@ class realfast_controller(Controller):
                                                                        scanId))
 
         return removed
+
+    def handle_finish(self, dataset):
+        """ Triggered when obs doc defines end of a script.
+        """
+
+        logger.info('End of scheduling block message received.')
 
 
 def worker_memory_ready(cl, memory_required):
