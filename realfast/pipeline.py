@@ -4,7 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
-from dask import array
+from dask import array, delayed
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize
 import numpy as np
@@ -68,8 +68,10 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     futures['data'] = data  # save future
 
+    # TODO: put this on READER worker?
     data_prep = cl.submit(source.data_prep, st, segment, data,
-                          resources={'CORES': st.prefs.nthread})
+                          resources={'CORES': st.prefs.nthread},
+                          priority=1)
 
     saved = []
     if st.fftmode == "fftw":
@@ -108,13 +110,73 @@ def pipeline_seg(st, segment, cl, cfile=None,
             saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
                                    data_prep, dmind,
                                    resources={'GPU': 1,
-                                              'CORES': st.prefs.nthread}))
+                                              'CORES': st.prefs.nthread},
+                                   priority=2))
 
+    # TODO: put these on dedicated worker to ensure quick processing?
     canddatalist = cl.submit(mergelists, saved,
-                             resources={'CORES': 1})
+                             resources={'CORES': 1},
+                             priority=3)
     candcollection = cl.submit(candidates.calc_features, canddatalist,
-                               resources={'CORES': 1})
+                               resources={'CORES': 1}, priority=4)
     futures['candcollection'] = candcollection
+
+    return futures
+
+
+def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
+                          vys_timeout=vys_timeout_default):
+    """ Submit pipeline processing of a single segment to scheduler.
+    Uses delayed function and client.compute to schedule.
+
+    Returns a list of dicts with futures of data, collection jobs.
+    """
+
+    if cl is None:
+        if host is None:
+            cl = distributed.Client(n_workers=1, threads_per_worker=16,
+                                    resources={"READER": 1, "MEMORY": 24,
+                                               "CORES": 16},
+                                    local_dir="/lustre/evla/test/realfast/scratch")
+        else:
+            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
+
+    if not isinstance(segments, list):
+        segments = range(st.nsegment)
+
+    futures = []
+    for segment in segments:
+        future = {}
+        resources = {}
+
+        logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
+                    .format(st.metadata.datasetId, st.metadata.scan, segment))
+
+        data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
+        resources[tuple(data.__dask_keys__())] = {'READER': 1}
+        future['data'] = cl.compute(data, resources=resources)
+
+        data_prep = delayed(source.data_prep)(st, segment, data)
+
+        saved = []
+        assert st.fftmode == "cuda", "only cuda fftmode supported"
+        for dmind in range(len(st.dmarr)):
+            dd = delayed(search.dedisperse_image_cuda)(st, segment,
+                                                       data_prep, dmind)
+            saved.append(dd)
+            resources[tuple(dd.__dask_keys__())] = {'GPU': 1}
+
+        canddatalist = delayed(mergelists)(saved)
+
+        candcollection = delayed(candidates.calc_features)(canddatalist)
+
+        print(resources)
+        future['candcollection'] = cl.compute(candcollection,
+                                              resources=resources,
+                                              priority={canddatalist: 2,
+                                                        candcollection: 1})
+
+        futures.append(future)
 
     return futures
 

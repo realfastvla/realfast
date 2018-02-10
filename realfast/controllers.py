@@ -235,11 +235,12 @@ class realfast_controller(Controller):
                 if (worker_memory_ready(self.client, w_memlim) and
                    (total_memory_ready(self.client, tot_memlim))):
                     logger.info('Starting pipeline...')
-                    futures = pipeline.pipeline_scan(st, cl=self.client,
-                                                     cfile=cfile,
-                                                     vys_timeout=self.vys_timeout)
+                    futures = pipeline.pipeline_scan_delayed(st,
+                                                             cl=self.client,
+                                                             cfile=cfile,
+                                                             vys_timeout=self.vys_timeout)
                 else:
-                    sleep(1)
+                    sleep(min(1, timeout/10))
                     self.cleanup()
                     elapsedtime = time.Time.now().unix - t0
 
@@ -249,9 +250,9 @@ class realfast_controller(Controller):
 
         else:
             logger.info('Starting pipeline...')
-            futures = pipeline.pipeline_scan(st, cl=self.client,
-                                             cfile=cfile,
-                                             vys_timeout=self.vys_timeout)
+            futures = pipeline.pipeline_scan_delayed(st, cl=self.client,
+                                                     cfile=cfile,
+                                                     vys_timeout=self.vys_timeout)
 
         if futures is not None:
             self.futures[st.metadata.scanId] = futures
@@ -433,6 +434,7 @@ def worker_memory_ready(cl, memory_required):
 def total_memory_ready(cl, memory_limit):
     """ Is total READER memory usage too high?
     memory_limit is total memory used in bytes
+    TODO: do we need to add a direct check of dask-worker-space directory?
     """
 
     if memory_limit is not None:

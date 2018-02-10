@@ -239,6 +239,9 @@ def indexmocks(inprefs, scanId):
     scanId is added to associate cand to a give scan.
     """
 
+    if 'simulated_transient' not in inprefs:
+        return 0
+
     mocks = inprefs['simulated_transient']
 
     res = 0
