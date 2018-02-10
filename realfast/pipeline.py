@@ -170,7 +170,6 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         candcollection = delayed(candidates.calc_features)(canddatalist)
 
-        print(resources)
         future['candcollection'] = cl.compute(candcollection,
                                               resources=resources,
                                               priority={canddatalist: 2,
