@@ -14,7 +14,7 @@ from time import sleep
 import dask.utils
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences, candidates
-from realfast import pipeline, elastic, sdm_builder
+from realfast import pipeline, elastic, sdm_builder, heuristics
 
 import logging
 import matplotlib
@@ -131,11 +131,12 @@ class realfast_controller(Controller):
         if 'simulated_transient' not in self.inprefs:
             self.inject_transient(config.scanId)  # randomly inject mock transient
 
-        if runsearch(config, nameincludes=self.nameincludes,
-                     searchintents=self.searchintents):
+        if search_config(config, nameincludes=self.nameincludes,
+                         searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config, inmeta={'datasource': 'vys'})
+            self.set_state(config.scanId, config=config, inmeta={'datasource':
+                                                                 'vys'})
 
             if self.indexresults:
                 elastic.indexscan_config(config,
@@ -232,8 +233,8 @@ class realfast_controller(Controller):
 
             while (elapsedtime < timeout) and (futures is None):
                 # Submit if workers are not overloaded
-                if (worker_memory_ready(self.client, w_memlim) and
-                   (total_memory_ready(self.client, tot_memlim))):
+                if (heuristics.worker_memory_ready(self.client, w_memlim) and
+                   (heuristics.total_memory_ready(self.client, tot_memlim))):
                     logger.info('Starting pipeline...')
                     futures = pipeline.pipeline_scan_delayed(st,
                                                              cl=self.client,
@@ -414,45 +415,10 @@ class realfast_controller(Controller):
         logger.info('End of scheduling block message received.')
 
 
-def worker_memory_ready(cl, memory_required):
-    """ Does any READER worker have enough memory?
-    memory_required is the size of the read in bytes
-    """
-
-    for vals in itervalues(cl.scheduler_info()['workers']):
-        # look for at least one worker with required memory
-        if (('READER' in vals['resources']) and
-           (vals['memory_limit']-vals['memory'] > memory_required)):
-            return True
-
-    logger.info("No worker found with required memory of {0} GB"
-                .format(memory_required/1e9))
-
-    return False
-
-
-def total_memory_ready(cl, memory_limit):
-    """ Is total READER memory usage too high?
-    memory_limit is total memory used in bytes
-    TODO: do we need to add a direct check of dask-worker-space directory?
-    """
-
-    if memory_limit is not None:
-        total = sum([v['memory']
-                    for v in itervalues(cl.scheduler_info()['workers'])
-                    if 'READER' in v['resources']])
-
-        if total > memory_limit:
-            logger.info("Total memory of {0} GB in use. Exceeds limit of {1} GB."
-                        .format(total/1e9, memory_limit/1e9))
-
-        return total < memory_limit
-    else:
-        return True
-
-
-def runsearch(config, nameincludes=None, searchintents=None):
-    """ Test whether configuration specifies a config that realfast should search
+def search_config(config, preffile=None, inprefs=None, nameincludes=None,
+                  searchintents=None):
+    """ Test whether configuration specifies a scan config that realfast should
+    search
     """
 
     # find config properties of interest
@@ -499,6 +465,13 @@ def runsearch(config, nameincludes=None, searchintents=None):
     # 5) only two antennas
     if len(antnames) <= 2:
         logger.warn("Only {0} antennas in array".format(len(antnames)))
+        return False
+
+    # 6) only if state compiles
+    if not heuristics.state_compiles(config=config, preffile=preffile,
+                                     inprefs=inprefs):
+        logger.warn("State does not compile for scanId {0}"
+                    .format(config.scanId))
         return False
 
     return True
