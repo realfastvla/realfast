@@ -5,6 +5,7 @@ from io import open
 
 from rfpipe import state
 import os.path
+from math import log
 import logging
 logger = logging.getLogger(__name__)
 
@@ -71,11 +72,10 @@ def state_compiles(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         return False
 
 
-def total_read_memory(st):
-    return st.nsegment*st.vismem
+def total_images_searched(st):
+    """ Number of images formed (trials) in all segments, dms, dts.
+    """
 
-
-def total_ints_searched(st):
     si = 0
     for segment in range(st.nsegment):
         for dmind in range(len(st.dmarr)):
@@ -84,6 +84,27 @@ def total_ints_searched(st):
     return si
 
 
-def total_compute(st):
-    si = total_ints_searched(st)
-    npix = st.npixx*st.npixy
+def total_compute_time(st):
+    """ Uses a simple model for total GPU compute time based on profiling
+    GPU time per trial (incl data in, amortized over many dm/dt)
+    No distributed data movement time included.
+    2.3e-4 s (512x512)
+    6.1e-4 s (1024x1024)
+    1.2e-3 s (2048x2048)
+    3.8e-3 s (4096x4096)
+    """
+
+    time_ref = 2.3e-4
+    npix_ref = 512
+
+    si = total_images_searched(st)
+    npix = (st.npixx+st.npixy)/2
+
+    return si * time_ref * npix*log(npix)/(npix_ref*log(npix_ref))
+
+
+def total_read_memory(st):
+    """ Memory read, including extra memory at segment boundaries.
+    """
+
+    return st.nsegment*st.vismem
