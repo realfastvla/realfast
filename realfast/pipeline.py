@@ -158,15 +158,12 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         data_prep = delayed(source.data_prep)(st, segment, data)
 
-        saved = []
         assert st.fftmode == "cuda", "only cuda fftmode supported"
-        for dmind in range(len(st.dmarr)):
-            dd = delayed(search.dedisperse_image_cuda)(st, segment,
-                                                       data_prep, dmind)
-            saved.append(dd)
-            resources[tuple(dd.__dask_keys__())] = {'GPU': 1}
+        canddatalist = delayed(search.dedisperse_image_cuda)(st, segment,
+                                                             data_prep)
+        resources[tuple(canddatalist.__dask_keys__())] = {'GPU': 1}
 
-        canddatalist = delayed(mergelists)(saved)
+#        canddatalist = delayed(mergelists)(saved)
 
         candcollection = delayed(candidates.calc_features)(canddatalist)
 
