@@ -209,6 +209,12 @@ class realfast_controller(Controller):
                          inprefs=self.inprefs, lock=self.lock,
                          sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
 
+        logger.info('State set for scanId {0}. {1.1f} GB to be read and approx'
+                    ' {2.3f} GPU-sec to search.'
+                    .format(st.metadata.scanId,
+                            heuristics.total_read_memory(st),
+                            heuristics.total_compute_time(st)))
+
         self.states[scanId] = st
 
     def start_pipeline(self, scanId, cfile=None):
@@ -217,6 +223,9 @@ class realfast_controller(Controller):
         """
 
         st = self.states[scanId]
+        if not heuristics.valid_telcalfile(st):
+            logger.warn("telcalfile {0} for scanId {1} is not yet available"
+                        .format(st.gainfile, scanId))
 
         # submit, with optional throttling
         futures = None

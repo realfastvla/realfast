@@ -85,7 +85,7 @@ def total_images_searched(st):
 
 
 def total_compute_time(st):
-    """ Uses a simple model for total GPU compute time based on profiling
+    """ Uses a simple model for total GPU compute time (in sec) based on profiling.
     GPU time per trial (incl data in, amortized over many dm/dt)
     No distributed data movement time included.
     2.3e-4 s (512x512)
@@ -104,7 +104,7 @@ def total_compute_time(st):
 
 
 def total_read_memory(st):
-    """ Memory read, including extra memory at segment boundaries.
+    """ Memory read (in GB) including overlapping read at segment boundaries.
     """
 
     return st.nsegment*st.vismem
