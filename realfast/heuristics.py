@@ -103,7 +103,7 @@ def total_compute_time(st):
     return si * time_ref * npix*log(npix)/(npix_ref*log(npix_ref))
 
 
-def total_read_memory(st):
+def total_memory_read(st):
     """ Memory read (in GB) including overlapping read at segment boundaries.
     """
 

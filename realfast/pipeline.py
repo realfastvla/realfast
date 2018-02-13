@@ -166,8 +166,9 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
         if cl is not None:
             future['candcollection'] = cl.compute(candcollection,
                                                   resources=resources,
-                                                  priority={canddatalist: 2,
-                                                            candcollection: 1})
+                                                  priority={canddatalist: 3,
+                                                            candcollection: 2,
+                                                            data_prep: 1})
 
             futures.append(future)
         else:

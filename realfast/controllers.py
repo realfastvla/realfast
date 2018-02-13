@@ -212,7 +212,7 @@ class realfast_controller(Controller):
         logger.info('State set for scanId {0}. {1.1f} GB to be read and approx'
                     ' {2.3f} GPU-sec to search.'
                     .format(st.metadata.scanId,
-                            heuristics.total_read_memory(st),
+                            heuristics.total_memory_read(st),
                             heuristics.total_compute_time(st)))
 
         self.states[scanId] = st
