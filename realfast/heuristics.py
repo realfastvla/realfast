@@ -59,7 +59,7 @@ def valid_telcalfile(st):
 
 
 def state_compiles(config=None, inmeta=None, sdmfile=None, sdmscan=None,
-                   bdfdir=None, preffile=None, inprefs=None):
+                   bdfdir=None, preffile=None, inprefs={}):
     """ Try to compile state
     """
 

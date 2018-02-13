@@ -424,7 +424,7 @@ class realfast_controller(Controller):
         logger.info('End of scheduling block message received.')
 
 
-def search_config(config, preffile=None, inprefs=None, nameincludes=None,
+def search_config(config, preffile=None, inprefs={}, nameincludes=None,
                   searchintents=None):
     """ Test whether configuration specifies a scan config that realfast should
     search
