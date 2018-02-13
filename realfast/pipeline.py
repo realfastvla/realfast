@@ -133,12 +133,7 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
     """
 
     if cl is None:
-        if host is None:
-            cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"READER": 1, "MEMORY": 24,
-                                               "CORES": 16},
-                                    local_dir="/lustre/evla/test/realfast/scratch")
-        else:
+        if host is not None:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
     if not isinstance(segments, list):
@@ -154,7 +149,8 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
         resources[tuple(data.__dask_keys__())] = {'READER': 1}
-        future['data'] = cl.compute(data, resources=resources)
+        if cl is not None:
+            future['data'] = cl.compute(data, resources=resources)
 
         data_prep = delayed(source.data_prep)(st, segment, data)
 
@@ -167,12 +163,15 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         candcollection = delayed(candidates.calc_features)(canddatalist)
 
-        future['candcollection'] = cl.compute(candcollection,
-                                              resources=resources,
-                                              priority={canddatalist: 2,
-                                                        candcollection: 1})
+        if cl is not None:
+            future['candcollection'] = cl.compute(candcollection,
+                                                  resources=resources,
+                                                  priority={canddatalist: 2,
+                                                            candcollection: 1})
 
-        futures.append(future)
+            futures.append(future)
+        else:
+            futures.append(candcollection)
 
     return futures
 
