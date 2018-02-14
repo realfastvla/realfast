@@ -110,7 +110,7 @@ def total_images_searched(st):
 
 def total_compute_time(st):
     """ Uses a simple model for total GPU compute time (in sec) based on profiling.
-    GPU time per trial (incl data in, amortized over many dm/dt)
+    Models the GPU time per trial (incl data in, amortized over many dm/dt).
     No distributed data movement time included.
     2.3e-4 s (512x512)
     6.1e-4 s (1024x1024)

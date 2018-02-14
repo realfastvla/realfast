@@ -237,6 +237,7 @@ class realfast_controller(Controller):
                         .format(st.gainfile, scanId))
 
         # submit, with optional throttling
+        futures = []
         if self.throttle and self.read_overhead and self.read_totfrac and self.spill_limit:
             logger.info('Starting pipeline throttled by read_overhead {0}, '
                         'read_totfrac {1}, and spill_limit {2}'
@@ -253,7 +254,6 @@ class realfast_controller(Controller):
             timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
             elapsedtime = time.Time.now().unix - t0
 
-            futures = []
             if segments is None:
                 segments = range(st.nsegment)
 
@@ -283,7 +283,7 @@ class realfast_controller(Controller):
                                                      cfile=cfile,
                                                      vys_timeout=self.vys_timeout)
 
-        if futures is not None:
+        if len(futures):
             self.futures[st.metadata.scanId] = futures
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
