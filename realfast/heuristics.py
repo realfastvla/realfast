@@ -10,7 +10,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def worker_memory_ready(cl, memory_required):
+def worker_memory_ok(cl, memory_required):
     """ Does any READER worker have enough memory?
     memory_required is the size of the read in bytes
     """
@@ -27,7 +27,7 @@ def worker_memory_ready(cl, memory_required):
     return False
 
 
-def total_memory_ready(cl, memory_limit):
+def total_memory_ok(cl, memory_limit):
     """ Is total READER memory usage too high?
     memory_limit is total memory used in bytes
     TODO: do we need to add a direct check of dask-worker-space directory?
@@ -47,13 +47,20 @@ def total_memory_ready(cl, memory_limit):
         return True
 
 
-def spilled_memory(daskdir='/lustre/evla/test/realfast/dask-worker-space'):
+def spilled_memory_ok(limit=1.0, daskdir='/lustre/evla/test/realfast/dask-worker-space'):
     """ Calculate total memory spilled (in GB) by dask distributed.
     """
 
-    return sum([os.path.getsize(os.path.join(dirpath, filename))
-                for dirpath, dirnames, filenames in os.walk(daskdir)
-                for filename in filenames])/1024.**3
+    spilled = sum([os.path.getsize(os.path.join(dirpath, filename))
+                   for dirpath, dirnames, filenames in os.walk(daskdir)
+                   for filename in filenames])/1024.**3
+
+    if spilled < limit:
+        return True
+    else:
+        logger.info("Spilled memory {0:1f} GB exceeds limit of {1:1f}"
+                    .format(spilled, limit))
+        return False
 
 
 def valid_telcalfile(st):

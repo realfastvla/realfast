@@ -215,8 +215,8 @@ class realfast_controller(Controller):
                          lock=self.lock,
                          sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
 
-        logger.info('State set for scanId {0}. {1.1f} GB to be read and approx'
-                    ' {2.3f} GPU-sec to search.'
+        logger.info('State set for scanId {0}. {1:1f} GB to be read and approx'
+                    ' {2:3f} GPU-sec to search.'
                     .format(st.metadata.scanId,
                             heuristics.total_memory_read(st),
                             heuristics.total_compute_time(st)))
@@ -236,7 +236,7 @@ class realfast_controller(Controller):
         # submit, with optional throttling
         if self.throttle and self.read_overhead and self.read_totfrac and self.spill_limit:
             logger.info('Starting pipeline throttled by read_overhead {0}, '
-                        'read_totfrac {1} and spill_limit {2}'
+                        'read_totfrac {1}, and spill_limit {2}'
                         .format(self.read_overhead, self.read_totfrac,
                                 self.spill_limit))
 
@@ -253,9 +253,9 @@ class realfast_controller(Controller):
             futures = None
             while (elapsedtime < timeout) and (futures is None):
                 # Submit if workers are not overloaded
-                if (heuristics.worker_memory_ready(self.client, w_memlim) and
-                   (heuristics.total_memory_ready(self.client, tot_memlim)) and
-                   (heuristics.spilled_memory() < self.spill_limit)):
+                if (heuristics.worker_memory_ok(self.client, w_memlim) and
+                   heuristics.total_memory_ok(self.client, tot_memlim) and
+                   heuristics.spilled_memory_ok(limit=self.spill_limit)):
                     futures = pipeline.pipeline_scan_delayed(st,
                                                              cl=self.client,
                                                              cfile=cfile,
