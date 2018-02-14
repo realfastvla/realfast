@@ -216,8 +216,8 @@ class realfast_controller(Controller):
                          lock=self.lock,
                          sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
 
-        logger.info('State set for scanId {0}. {1:1f} GB to be read and approx'
-                    ' {2:3f} GPU-sec to search.'
+        logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
+                    ' {2:.1f} GPU-sec to search.'
                     .format(st.metadata.scanId,
                             heuristics.total_memory_read(st),
                             heuristics.total_compute_time(st)))
@@ -254,7 +254,10 @@ class realfast_controller(Controller):
             elapsedtime = time.Time.now().unix - t0
 
             futures = []
-            while (elapsedtime < timeout) and (len(futures) < st.nsegment):
+            if segments is None:
+                segments = range(st.nsegment)
+
+            while (elapsedtime < timeout) and (len(futures) < len(segments)):
                 # Submit if workers are not overloaded
                 if (heuristics.worker_memory_ok(self.client, w_memlim) and
                    heuristics.total_memory_ok(self.client, tot_memlim) and

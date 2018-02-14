@@ -50,14 +50,23 @@ def spilled_memory_ok(limit=1.0, daskdir='/lustre/evla/test/realfast/dask-worker
     """ Calculate total memory spilled (in GB) by dask distributed.
     """
 
-    spilled = sum([os.path.getsize(os.path.join(dirpath, filename))
-                   for dirpath, dirnames, filenames in os.walk(daskdir)
-                   for filename in filenames])/1024.**3
+    try:
+        spilled = sum([os.path.getsize(os.path.join(dirpath, filename))
+                       for dirpath, dirnames, filenames in os.walk(daskdir)
+                       for filename in filenames])/1024.**3
+    except OSError:
+        try:
+            spilled = sum([os.path.getsize(os.path.join(dirpath, filename))
+                           for dirpath, dirnames, filenames in os.walk(daskdir)
+                           for filename in filenames])/1024.**3
+        except OSError:
+            logger.warn("Could not calculate spilled memory. Assuming 0 GB spilled.")
+            spilled = 0
 
     if spilled < limit:
         return True
     else:
-        logger.info("Spilled memory {0:1f} GB exceeds limit of {1:1f}"
+        logger.info("Spilled memory {0:.1f} GB exceeds limit of {1:.1f}"
                     .format(spilled, limit))
         return False
 
