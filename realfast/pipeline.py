@@ -159,7 +159,8 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 #        candcollection = delayed(candidates.calc_features)(canddatalist)
         candcollection = delayed(prep_and_search)(st, segment, data)
 
-        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1}
+        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
+                                                            'CORES': st.prefs.nthread}
         if cl is not None:
             future['candcollection'] = cl.compute(candcollection,
                                                   resources=resources)
