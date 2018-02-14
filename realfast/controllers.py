@@ -121,10 +121,12 @@ class realfast_controller(Controller):
                 for ftype in futures
                 if futures[ftype].status == 'error']
 
-    def handle_config(self, config, cfile=_vys_cfile_prod):
+    def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
         """ Triggered when obs comes in.
         Downstream logic starts here.
         Default vys config file uses production parameters.
+        segments arg can be used to submit a subset of all segments.
+
         """
 
         summarize(config)
@@ -146,18 +148,16 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing config or prefs.")
 
-            self.start_pipeline(config.scanId, cfile=cfile)
+            self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
-        # end of job clean up (indexing and removing from job list)
         self.cleanup()
-        # TODO: this only runs when new data arrives. how to run at end/ctrl-c?
 
-    def handle_sdm(self, sdmfile, sdmscan, bdfdir=None):
+    def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
-        Gets called explicitly. No cleanup done.
+        segments arg can be used to submit a subset of all segments.
         """
 
         # TODO: subscan assumed = 1
@@ -178,15 +178,16 @@ class realfast_controller(Controller):
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
-        self.start_pipeline(scanId)
+        self.start_pipeline(scanId, segments=segments)
 
         self.cleanup()
 
-    def handle_meta(self, inmeta, cfile=_vys_cfile_test):
+    def handle_meta(self, inmeta, cfile=_vys_cfile_test, segments=None):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
         Gets called explicitly.
         Default vys config file uses test parameters.
         inmeta datasource key can be 'vys' or 'sim' and is passed to rfpipe.
+        segments arg can be used to submit a subset of all segments.
         """
 
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
@@ -197,7 +198,7 @@ class realfast_controller(Controller):
 
         self.set_state(scanId, inmeta=inmeta)
 
-        self.start_pipeline(scanId, cfile=cfile)
+        self.start_pipeline(scanId, cfile=cfile, segments=segments)
 
         self.cleanup()
 
@@ -223,14 +224,16 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
+        segments arg can be used to select or slow segment submission.
         """
 
         st = self.states[scanId]
         if not heuristics.valid_telcalfile(st):
-            logger.warn("telcalfile {0} for scanId {1} is not yet available"
+            logger.warn("telcalfile {0} for scanId {1} is not available at "
+                        "pipeline submission"
                         .format(st.gainfile, scanId))
 
         # submit, with optional throttling
@@ -247,16 +250,17 @@ class realfast_controller(Controller):
                                                 if 'READER' in v['resources']])
 
             t0 = time.Time.now().unix
-            timeout = st.metadata.inttime*st.metadata.nints
+            timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
             elapsedtime = time.Time.now().unix - t0
 
-            futures = None
-            while (elapsedtime < timeout) and (futures is None):
+            futures = []
+            while (elapsedtime < timeout) and (len(futures) < st.nsegment):
                 # Submit if workers are not overloaded
                 if (heuristics.worker_memory_ok(self.client, w_memlim) and
                    heuristics.total_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit)):
                     futures = pipeline.pipeline_scan_delayed(st,
+                                                             segments=segments,
                                                              cl=self.client,
                                                              cfile=cfile,
                                                              vys_timeout=self.vys_timeout)
@@ -271,7 +275,8 @@ class realfast_controller(Controller):
 
         else:
             logger.info('Starting pipeline...')
-            futures = pipeline.pipeline_scan_delayed(st, cl=self.client,
+            futures = pipeline.pipeline_scan_delayed(st, segments=segments,
+                                                     cl=self.client,
                                                      cfile=cfile,
                                                      vys_timeout=self.vys_timeout)
 
@@ -279,8 +284,8 @@ class realfast_controller(Controller):
             self.futures[st.metadata.scanId] = futures
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
-        """ Scan job dict, remove finished jobs,
-        and push results to relevant indices.
+        """ Clean up job list.
+        Scans futures, removes finished jobs, and pushes results to relevant indices.
         badstatuslist can include 'cancelled', 'error', 'lost'.
         """
 

@@ -30,7 +30,6 @@ def worker_memory_ok(cl, memory_required):
 def total_memory_ok(cl, memory_limit):
     """ Is total READER memory usage too high?
     memory_limit is total memory used in bytes
-    TODO: do we need to add a direct check of dask-worker-space directory?
     """
 
     if memory_limit is not None:
