@@ -152,27 +152,33 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
         if cl is not None:
             future['data'] = cl.compute(data, resources=resources)
 
-        data_prep = delayed(source.data_prep)(st, segment, data)
-
         assert st.fftmode == "cuda", "only cuda fftmode supported"
-        canddatalist = delayed(search.dedisperse_image_cuda)(st, segment,
-                                                             data_prep)
-        resources[tuple(canddatalist.__dask_keys__())] = {'GPU': 1}
+#        data_prep = delayed(source.data_prep)(st, segment, data)
+#        canddatalist = delayed(search.dedisperse_image_cuda)(st, segment,
+#                                                             data_prep)
+#        candcollection = delayed(candidates.calc_features)(canddatalist)
+        candcollection = delayed(prep_and_search)(st, segment, data)
 
-        candcollection = delayed(candidates.calc_features)(canddatalist)
-
+        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1}
         if cl is not None:
             future['candcollection'] = cl.compute(candcollection,
-                                                  resources=resources,
-                                                  priority={canddatalist: 3,   # TODO test if this actually does anything
-                                                            candcollection: 2,
-                                                            data_prep: 1})
-
+                                                  resources=resources)
             futures.append(future)
         else:
             futures.append(candcollection)
 
     return futures
+
+
+def prep_and_search(st, segment, data):
+    """ Bundles prep and search functions to improve performance in distributed.
+    """
+
+    data_prep = source.data_prep(st, segment, data)
+    canddatalist = search.dedisperse_image_cuda(st, segment, data_prep)
+    candcollection = candidates.calc_features(canddatalist)
+
+    return candcollection
 
 
 def mergelists(futlists):
