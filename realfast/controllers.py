@@ -59,6 +59,7 @@ class realfast_controller(Controller):
         - throttle, boolean defining whether to slow pipeline submission,
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
+        - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
         - searchintents, a list of intent names to search.
         """
 
@@ -80,7 +81,7 @@ class realfast_controller(Controller):
             if os.path.exists(self.preffile):
                 with open(self.preffile, 'r') as fp:
                     prefs = yaml.load(fp)['realfast']
-                    logger.info("Parsed realfast preffile {0}"
+                    logger.info("Parsed realfast preferences from {0}"
                                 .format(self.preffile))
             else:
                 logger.warn("realfast preffile {0} given, but not found"
@@ -92,7 +93,7 @@ class realfast_controller(Controller):
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'indexresults', 'saveproducts', 'archiveproducts',
                      'searchintents', 'throttle', 'read_overhead',
-                     'read_totfrac']:
+                     'read_totfrac', 'spill_limit']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -201,12 +202,17 @@ class realfast_controller(Controller):
         self.cleanup()
 
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
-                  sdmscan=None, bdfdir=None):
+                  sdmscan=None, bdfdir=None, prefsname=None):
         """ Given metadata source, define state for a scanId.
         """
 
-        st = state.State(inmeta=inmeta, config=config, preffile=self.preffile,
-                         inprefs=self.inprefs, lock=self.lock,
+        # TODO: define prefsname according to config and/or heuristics
+        prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
+                                                                    name=prefsname,
+                                                                    inprefs=self.inprefs))
+
+        st = state.State(inmeta=inmeta, config=config, inprefs=prefs,
+                         lock=self.lock,
                          sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
 
         logger.info('State set for scanId {0}. {1.1f} GB to be read and approx'
@@ -228,8 +234,12 @@ class realfast_controller(Controller):
                         .format(st.gainfile, scanId))
 
         # submit, with optional throttling
-        futures = None
-        if self.throttle and self.read_overhead and self.read_totfrac:
+        if self.throttle and self.read_overhead and self.read_totfrac and self.spill_limit:
+            logger.info('Starting pipeline throttled by read_overhead {0}, '
+                        'read_totfrac {1} and spill_limit {2}'
+                        .format(self.read_overhead, self.read_totfrac,
+                                self.spill_limit))
+
             w_memlim = self.read_overhead*st.vismem*1e9
 
             tot_memlim = self.read_totfrac*sum([v['memory_limit']
@@ -240,11 +250,12 @@ class realfast_controller(Controller):
             timeout = st.metadata.inttime*st.metadata.nints
             elapsedtime = time.Time.now().unix - t0
 
+            futures = None
             while (elapsedtime < timeout) and (futures is None):
                 # Submit if workers are not overloaded
                 if (heuristics.worker_memory_ready(self.client, w_memlim) and
-                   (heuristics.total_memory_ready(self.client, tot_memlim))):
-                    logger.info('Starting pipeline...')
+                   (heuristics.total_memory_ready(self.client, tot_memlim)) and
+                   (heuristics.spilled_memory() < self.spill_limit)):
                     futures = pipeline.pipeline_scan_delayed(st,
                                                              cl=self.client,
                                                              cfile=cfile,
@@ -669,5 +680,6 @@ class config_controller(Controller):
                 pickle.dump(config, pkl)
 
         if self.preffile:
-            prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile))
+            prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
+                                                                        name='default'))
             elastic.indexscan_config(config, preferences=prefs)

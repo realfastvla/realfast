@@ -39,12 +39,21 @@ def total_memory_ready(cl, memory_limit):
                     if 'READER' in v['resources']])
 
         if total > memory_limit:
-            logger.info("Total memory of {0} GB in use. Exceeds limit of {1} GB."
+            logger.info("Total of {0} GB in use. Exceeds limit of {1} GB."
                         .format(total/1e9, memory_limit/1e9))
 
         return total < memory_limit
     else:
         return True
+
+
+def spilled_memory(daskdir='/lustre/evla/test/realfast/dask-worker-space'):
+    """ Calculate total memory spilled (in GB) by dask distributed.
+    """
+
+    return sum([os.path.getsize(os.path.join(dirpath, filename))
+                for dirpath, dirnames, filenames in os.walk(daskdir)
+                for filename in filenames])/1024.**3
 
 
 def valid_telcalfile(st):

@@ -159,14 +159,12 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
                                                              data_prep)
         resources[tuple(canddatalist.__dask_keys__())] = {'GPU': 1}
 
-#        canddatalist = delayed(mergelists)(saved)
-
         candcollection = delayed(candidates.calc_features)(canddatalist)
 
         if cl is not None:
             future['candcollection'] = cl.compute(candcollection,
                                                   resources=resources,
-                                                  priority={canddatalist: 3,
+                                                  priority={canddatalist: 3,   # TODO test if this actually does anything
                                                             candcollection: 2,
                                                             data_prep: 1})
 
