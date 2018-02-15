@@ -311,7 +311,10 @@ class realfast_controller(Controller):
             # one candcollection per segment
             for futures in finishedlist:
                 candcollection = futures['candcollection'].result()
-                if len(candcollection.array):
+                ncands = len(candcollection)
+#                ncands = self.client.submit(len, futures['candcollection'], priority=3).result() # not dependably scheduled
+                if ncands:
+#                    candcollection = futures['candcollection'].result()
                     if self.indexresults:
                         nplots = moveplots(candcollection.prefs.workdir,
                                            scanId, destination=_candplot_dir)
@@ -328,7 +331,8 @@ class realfast_controller(Controller):
 
                         cindexed += res
                     else:
-                        logger.info("Not indexing cands.")
+                        logger.info("Not indexing cands found in scanId {0}"
+                                    .format(scanId))
 
                     makesummaryplot(candcollection.prefs.workdir, scanId)
 
@@ -347,7 +351,7 @@ class realfast_controller(Controller):
 #                    logger.info('No noisefile found, no noises indexed.')
 
                 # optionally save and archive sdm/bdfs for segment
-                if self.saveproducts and len(candcollection):
+                if self.saveproducts and ncands:
                     newsdms = createproducts(candcollection, futures['data'])
                     if len(newsdms):
                         logger.info("Created new SDMs at: {0}"
