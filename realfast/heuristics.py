@@ -10,15 +10,49 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def worker_memory_ok(cl, memory_required):
+def reader_memory_available(cl):
+    """ Calc memory in use by READERs
+    """
+
+    return [vals['memory_limit']-vals['memory']
+            for vals in itervalues(cl.scheduler_info()['workers'])
+            if 'READER' in vals['resources']]
+
+
+def reader_memory_used(cl):
+    """ Calc memory in use by READERs
+    """
+
+    return [vals['memory']
+            for vals in itervalues(cl.scheduler_info()['workers'])
+            if 'READER' in vals['resources']]
+
+
+def spilled_memory(daskdir='/lustre/evla/test/realfast/dask-worker-space'):
+    """ How much memory has been spilled by dask/distributed?
+    """
+
+    spilled = 0
+    for dirpath, dirnames, filenames in os.walk(daskdir):
+        for filename in filenames:
+            try:
+                spilled += os.path.getsize(os.path.join(dirpath, filename))/1024.**3
+            except OSError:
+                try:
+                    spilled += os.path.getsize(os.path.join(dirpath, filename))/1024.**3
+                except OSError:
+                    logger.warn("Could not get size of spilled file. Skipping.")
+
+    return spilled
+
+
+def reader_memory_ok(cl, memory_required):
     """ Does any READER worker have enough memory?
     memory_required is the size of the read in bytes
     """
 
-    for vals in itervalues(cl.scheduler_info()['workers']):
-        # look for at least one worker with required memory
-        if (('READER' in vals['resources']) and
-           (vals['memory_limit']-vals['memory'] > memory_required)):
+    for worker_memory in reader_memory_available:
+        if worker_memory > memory_required:
             return True
 
     logger.info("No worker found with required memory of {0} GB"
@@ -27,15 +61,13 @@ def worker_memory_ok(cl, memory_required):
     return False
 
 
-def total_memory_ok(cl, memory_limit):
+def readertotal_memory_ok(cl, memory_limit):
     """ Is total READER memory usage too high?
     memory_limit is total memory used in bytes
     """
 
     if memory_limit is not None:
-        total = sum([v['memory']
-                    for v in itervalues(cl.scheduler_info()['workers'])
-                    if 'READER' in v['resources']])
+        total = sum(reader_memory_used(cl))
 
         if total > memory_limit:
             logger.info("Total of {0} GB in use. Exceeds limit of {1} GB."
@@ -50,16 +82,7 @@ def spilled_memory_ok(limit=1.0, daskdir='/lustre/evla/test/realfast/dask-worker
     """ Calculate total memory spilled (in GB) by dask distributed.
     """
 
-    spilled = 0
-    for dirpath, dirnames, filenames in os.walk(daskdir):
-        for filename in filenames:
-            try:
-                spilled += os.path.getsize(os.path.join(dirpath, filename))/1024.**3
-            except OSError:
-                try:
-                    spilled += os.path.getsize(os.path.join(dirpath, filename))/1024.**3
-                except OSError:
-                    logger.warn("Could not get size of spilled file. Skipping.")
+    spilled = spilled_memory(daskdir)
 
     if spilled < limit:
         return True

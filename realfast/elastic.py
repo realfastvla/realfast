@@ -274,7 +274,7 @@ def indexnoises(noisefile, scanId):
 
     raise NotImplementedError
 
-    noises = None
+    noises = None #(segment, noiseperbl, zerofrac, imstd)
 
     res = 0
     for noise in noises:

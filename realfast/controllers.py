@@ -90,6 +90,7 @@ class realfast_controller(Controller):
             logger.info("No realfast preffile provided.")
 
         # get arguments from preffile, optional overload from kwargs
+        self.daskdir = '/lustre/evla/test/realfast/dask-worker-space'
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'indexresults', 'saveproducts', 'archiveproducts',
                      'searchintents', 'throttle', 'read_overhead',
@@ -120,6 +121,18 @@ class realfast_controller(Controller):
                 for futures in futurelist
                 for ftype in futures
                 if futures[ftype].status == 'error']
+
+    @property
+    def reader_memory_available(self):
+        return heuristics.reader_memory_available(self.cl)
+
+    @property
+    def reader_memory_used(self):
+        return heuristics.reader_memory_used(self.cl)
+
+    @property
+    def spilled_memory(self):
+        return heuristics.spilled_memory(self.daskdir)
 
     def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
         """ Triggered when obs comes in.
@@ -261,7 +274,8 @@ class realfast_controller(Controller):
                 # Submit if workers are not overloaded
                 if (heuristics.worker_memory_ok(self.client, w_memlim) and
                    heuristics.total_memory_ok(self.client, tot_memlim) and
-                   heuristics.spilled_memory_ok(limit=self.spill_limit)):
+                   heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                daskdir=self.daskdir)):
                     futures = pipeline.pipeline_scan_delayed(st,
                                                              segments=segments,
                                                              cl=self.client,
