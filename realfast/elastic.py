@@ -5,6 +5,7 @@ from io import open
 
 import os.path
 from elasticsearch import Elasticsearch, RequestError
+import pickle
 import logging
 logger = logging.getLogger(__name__)
 
@@ -272,22 +273,31 @@ def indexnoises(noisefile, scanId):
     scanId is added to associate cand to a give scan.
     """
 
-    raise NotImplementedError
+    noises = []
+    with open(noisefile) as pkl:
+        noises += pickle.load(pkl)
 
-    noises = None #(segment, noiseperbl, zerofrac, imstd)
-
-    res = 0
+    count = 0
     for noise in noises:
+        segment, integration, noiseperbl, zerofrac, imstd = noise
+        Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
         noisedict = {}
         noisedict['scanId'] = scanId
-        res += pushdata(noisedict, index='noises', command='index')
+        noisedict['segment'] = segment
+        noisedict['noiseperbl'] = noiseperbl
+        noisedict['zerofrac'] = zerofrac
+        noisedict['imstd'] = imstd
+        res = pushdata(noisedict, Id=Id, index='noises', command='index')
+        if not res:  # res=0 means this segment already indexed
+            break
+        count += res
 
-    if res >= 1:
-        logger.debug('Successfully indexed {0} noises'.format(res))
+    if count:
+        logger.debug('Successfully indexed {0} noises'.format(count))
     else:
         logger.debug('No noises indexed')
 
-    return res
+    return count
 
 
 def pushdata(datadict, index, Id=None, command='index', force=False):
@@ -319,7 +329,6 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
                 except RequestError:
                     logger.warn("Id {0} and data {1} not indexed due to request error."
                                 .format(Id, datadict))
-
             else:
                 logger.warn('Id={0} already exists'
                             .format(Id))

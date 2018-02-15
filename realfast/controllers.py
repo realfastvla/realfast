@@ -326,13 +326,10 @@ class realfast_controller(Controller):
             for futures in finishedlist:
                 candcollection = futures['candcollection'].result()
                 ncands = len(candcollection)
-#                ncands = self.client.submit(len, futures['candcollection'], priority=3).result() # not dependably scheduled
                 if ncands:
-#                    candcollection = futures['candcollection'].result()
                     if self.indexresults:
                         nplots = moveplots(candcollection.prefs.workdir,
                                            scanId, destination=_candplot_dir)
-#                       TODO: can we use client here?
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
                                                  url_prefix=_candplot_url_prefix)
