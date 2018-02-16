@@ -52,6 +52,7 @@ class realfast_controller(Controller):
         - tags, a comma-delimited string for cands to index (None -> "new"),
         - nameincludes, a string required to be in datasetId,
         - vys_timeout, factor over real-time for vys reading to wait,
+        - vys_sec_per_spec, time in sec to allow for vys reading (overloaded by vys_timeout)
         - mockprob, chance (range 0-1) that a mock is added,
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
@@ -92,9 +93,9 @@ class realfast_controller(Controller):
         # get arguments from preffile, optional overload from kwargs
         self.daskdir = '/lustre/evla/test/realfast/dask-worker-space'
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
-                     'indexresults', 'saveproducts', 'archiveproducts',
-                     'searchintents', 'throttle', 'read_overhead',
-                     'read_totfrac', 'spill_limit']:
+                     'vys_sec_per_spec', 'indexresults', 'saveproducts',
+                     'archiveproducts', 'searchintents', 'throttle',
+                     'read_overhead', 'read_totfrac', 'spill_limit']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -244,6 +245,19 @@ class realfast_controller(Controller):
         """
 
         st = self.states[scanId]
+
+        if st.metadata.datasource == 'vys':
+            if self.vys_timeout is not None:
+                vys_timeout = self.vys_timeout
+                logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
+                            .format(vys_timeout))
+            else:
+                assert self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout"
+                nspec = st.readints*st.nbl*st.nspw*st.npol
+                vys_timeout = 1 + self.vys_sec_per_spec*nspec
+                logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
+                            .format(vys_timeout))
+
         if not heuristics.valid_telcalfile(st):
             logger.warn("telcalfile {0} for scanId {1} is not available at "
                         "pipeline submission"
@@ -272,15 +286,15 @@ class realfast_controller(Controller):
 
             while (elapsedtime < timeout) and (len(futures) < len(segments)):
                 # Submit if workers are not overloaded
-                if (heuristics.worker_memory_ok(self.client, w_memlim) and
-                   heuristics.total_memory_ok(self.client, tot_memlim) and
+                if (heuristics.reader_memory_ok(self.client, w_memlim) and
+                   heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                 daskdir=self.daskdir)):
                     futures = pipeline.pipeline_scan_delayed(st,
                                                              segments=segments,
                                                              cl=self.client,
                                                              cfile=cfile,
-                                                             vys_timeout=self.vys_timeout)
+                                                             vys_timeout=vys_timeout)
                 else:
                     sleep(min(1, timeout/10))
                     self.cleanup()
@@ -295,7 +309,7 @@ class realfast_controller(Controller):
             futures = pipeline.pipeline_scan_delayed(st, segments=segments,
                                                      cl=self.client,
                                                      cfile=cfile,
-                                                     vys_timeout=self.vys_timeout)
+                                                     vys_timeout=vys_timeout)
 
         if len(futures):
             self.futures[st.metadata.scanId] = futures
@@ -355,11 +369,11 @@ class realfast_controller(Controller):
 
                 # index noises
                 if os.path.exists(st.noisefile):
-                   if self.indexresults:
-                       res = elastic.indexnoises(st.noisefile, scanId)
+                    if self.indexresults:
+                        res = elastic.indexnoises(st.noisefile, scanId)
                         nindexed += res
-                   else:
-                      logger.info("Not indexing noises.")
+                    else:
+                        logger.info("Not indexing noises.")
                 else:
                     logger.info('No noisefile found, no noises indexed.')
 

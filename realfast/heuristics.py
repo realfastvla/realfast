@@ -51,7 +51,7 @@ def reader_memory_ok(cl, memory_required):
     memory_required is the size of the read in bytes
     """
 
-    for worker_memory in reader_memory_available:
+    for worker_memory in reader_memory_available(cl):
         if worker_memory > memory_required:
             return True
 
