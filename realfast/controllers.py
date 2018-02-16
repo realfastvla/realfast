@@ -324,6 +324,8 @@ class realfast_controller(Controller):
 
             # one candcollection per segment
             for futures in finishedlist:
+
+                # index cands
                 candcollection = futures['candcollection'].result()
                 ncands = len(candcollection)
                 if ncands:
@@ -351,15 +353,15 @@ class realfast_controller(Controller):
                     logger.debug('No candidates for a segment from scanId {0}'
                                  .format(scanId))
 
-# TODO: index noises
-#                if os.path.exists(st.noisefile):
-#                   if self.indexresults:
-#                       res = elastic.indexnoises(st.noisefile, scanId)
-#                        nindexed += res
-#                   else:
-#                      logger.info("Not indexing noises.")
-#                else:
-#                    logger.info('No noisefile found, no noises indexed.')
+                # index noises
+                if os.path.exists(st.noisefile):
+                   if self.indexresults:
+                       res = elastic.indexnoises(st.noisefile, scanId)
+                        nindexed += res
+                   else:
+                      logger.info("Not indexing noises.")
+                else:
+                    logger.info('No noisefile found, no noises indexed.')
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:

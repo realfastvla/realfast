@@ -282,11 +282,12 @@ def indexnoises(noisefile, scanId):
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
         noisedict = {}
-        noisedict['scanId'] = scanId
-        noisedict['segment'] = segment
-        noisedict['noiseperbl'] = noiseperbl
-        noisedict['zerofrac'] = zerofrac
-        noisedict['imstd'] = imstd
+        noisedict['scanId'] = str(scanId)
+        noisedict['segment'] = int(segment)
+        noisedict['integration'] = int(integration)
+        noisedict['noiseperbl'] = float(noiseperbl)
+        noisedict['zerofrac'] = float(zerofrac)
+        noisedict['imstd'] = float(imstd)
         res = pushdata(noisedict, Id=Id, index='noises', command='index')
         if not res:  # res=0 means this segment already indexed
             break
