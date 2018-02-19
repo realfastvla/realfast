@@ -383,6 +383,7 @@ class realfast_controller(Controller):
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
                     newsdms = createproducts(candcollection, futures['data'])
+                    sdms += len(newsdms)
                     if len(newsdms):
                         logger.info("Created new SDMs at: {0}"
                                     .format(newsdms))
@@ -600,19 +601,20 @@ def createproducts(candcollection, datafuture, sdmdir='.',
         logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
     st = candcollection.state
 
-    sdmlocs = []
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
-    if len(candcollection):
-        data = datafuture.result()
-        ninttot, nbl, nchantot, npol = data.shape
-    else:
-        logger.info('No candidate time ranges. Not calling for data.')
+    logger.info('Getting data for candidate time ranges {0}.'.format(candranges))
 
+    data = datafuture.result()
+    ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
+
+    sdmlocs = []
     for (startTime, endTime) in candranges:
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
+        logger.info("Cutting {0} ints from int {1} for candidate at {2}"
+                    .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)

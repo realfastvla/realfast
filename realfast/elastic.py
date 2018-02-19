@@ -8,6 +8,7 @@ from elasticsearch import Elasticsearch, RequestError
 import pickle
 import logging
 logger = logging.getLogger(__name__)
+logger.propagate = 0
 
 # eventually should be updated to search.realfast.io/api with auth
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])

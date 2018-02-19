@@ -104,7 +104,10 @@ def makesdm(startTime, endTime, metadata, data):
     dataSize = data.nbytes
     uid = ('uid:///evla/realfastbdf/{0}'
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
-    sdmb = SDMBuilder(metadata.datasetId, uid, dataSize, nint, startTime, endTime)
+    logger.info("Building SDM for datasetId {0} with uid {1}"
+                .format(metadata.datasetId, uid))
+    sdmb = SDMBuilder(metadata.datasetId, uid, dataSize, nint, startTime,
+                      endTime)
     sdmb.send()
 
     return sdmb.location
