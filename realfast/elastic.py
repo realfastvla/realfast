@@ -258,7 +258,7 @@ def indexmocks(inprefs, scanId):
         mockdict['l'] = float(l)
         mockdict['m'] = float(m)
 
-        res += pushdata(mockdict, Id=scanId, index='mocks', command='index', force=True)
+        res += pushdata(mockdict, Id=scanId, index='mocks', command='index')
 
     if res >= 1:
         logger.debug('Successfully indexed {0} mocks'.format(res))
@@ -281,17 +281,16 @@ def indexnoises(noisefile, scanId):
     for noise in noises:
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
-        noisedict = {}
-        noisedict['scanId'] = str(scanId)
-        noisedict['segment'] = int(segment)
-        noisedict['integration'] = int(integration)
-        noisedict['noiseperbl'] = float(noiseperbl)
-        noisedict['zerofrac'] = float(zerofrac)
-        noisedict['imstd'] = float(imstd)
-        res = pushdata(noisedict, Id=Id, index='noises', command='index')
-        if not res:  # res=0 means this segment already indexed
-            break
-        count += res
+        if not es.exists(index='noises', doc_type='noise', id=Id):
+            noisedict = {}
+            noisedict['scanId'] = str(scanId)
+            noisedict['segment'] = int(segment)
+            noisedict['integration'] = int(integration)
+            noisedict['noiseperbl'] = float(noiseperbl)
+            noisedict['zerofrac'] = float(zerofrac)
+            noisedict['imstd'] = float(imstd)
+            count += pushdata(noisedict, Id=Id, index='noises',
+                              command='index')
 
     if count:
         logger.debug('Successfully indexed {0} noises'.format(count))

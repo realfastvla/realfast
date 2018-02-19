@@ -376,7 +376,7 @@ class realfast_controller(Controller):
                             logger.info("Indexed {0} noises for scanId {1}"
                                         .format(res, scanId))
                     else:
-                        logger.debug("Not indexing noises.")
+                        logger.info("Not indexing noises.")
                 else:
                     logger.debug('No noisefile found, no noises indexed.')
 
