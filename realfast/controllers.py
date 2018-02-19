@@ -125,11 +125,11 @@ class realfast_controller(Controller):
 
     @property
     def reader_memory_available(self):
-        return heuristics.reader_memory_available(self.cl)
+        return heuristics.reader_memory_available(self.client)
 
     @property
     def reader_memory_used(self):
-        return heuristics.reader_memory_used(self.cl)
+        return heuristics.reader_memory_used(self.client)
 
     @property
     def spilled_memory(self):
@@ -246,9 +246,9 @@ class realfast_controller(Controller):
 
         st = self.states[scanId]
 
+        vys_timeout = self.vys_timeout
         if st.metadata.datasource == 'vys':
             if self.vys_timeout is not None:
-                vys_timeout = self.vys_timeout
                 logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
                             .format(vys_timeout))
             else:
@@ -351,8 +351,8 @@ class realfast_controller(Controller):
                                                  url_prefix=_candplot_url_prefix)
                         if res or nplots:
                             logger.info('Indexed {0} candidates and moved {1} '
-                                        'plots to {2}'
-                                        .format(res, nplots, _candplot_dir))
+                                        'plots to {2} for scanId {3}'
+                                        .format(res, nplots, _candplot_dir, scanId))
                         else:
                             logger.info('No candidates or plots found.')
 
@@ -368,14 +368,17 @@ class realfast_controller(Controller):
                                  .format(scanId))
 
                 # index noises
-                if os.path.exists(st.noisefile):
+                noisefile = self.states[scanId].noisefile
+                if os.path.exists(noisefile):
                     if self.indexresults:
-                        res = elastic.indexnoises(st.noisefile, scanId)
-                        nindexed += res
+                        res = elastic.indexnoises(noisefile, scanId)
+                        if res:
+                            logger.info("Indexed {0} noises for scanId {1}"
+                                        .format(res, scanId))
                     else:
-                        logger.info("Not indexing noises.")
+                        logger.debug("Not indexing noises.")
                 else:
-                    logger.info('No noisefile found, no noises indexed.')
+                    logger.debug('No noisefile found, no noises indexed.')
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
