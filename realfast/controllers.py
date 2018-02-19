@@ -628,7 +628,9 @@ def createproducts(candcollection, datafuture, sdmdir='.',
                 else:
                     sdmlocbase = sdmloc
                 newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
-                                         .format(os.path.basename(sdmlocbase), uid.rsplit('/')[-1]))
+                                         .format(os.path.basename(sdmlocbase),
+                                                 uid.rsplit('/')[-1]))
+                assert not os.path.exists(newsdmloc), "newsdmloc {0} already exists".format(newsdmloc)
                 shutil.move(sdmloc, newsdmloc)
                 sdmlocs.append(newsdmloc)
             else:
