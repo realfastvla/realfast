@@ -425,7 +425,7 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
-        else:
+        elif 'simulated_transient' in self.inprefs:
             _ = self.inprefs.pop('simulated_transient')
 
         mindexed = (elastic.indexmocks(self.inprefs, scanId)
