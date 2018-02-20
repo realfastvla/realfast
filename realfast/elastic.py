@@ -47,9 +47,9 @@ def indexscan_config(config, preferences=None, datasource='vys'):
     # push scan info with unique id of scanId
     res = pushdata(scandict, index='scans', Id=config.scanId, command='index')
     if res == 1:
-        logger.info('Successfully indexed scan config')
+        logger.info('Indexed scan config {0}'.format(config.scanId))
     else:
-        logger.warn('Scan config not indexed')
+        logger.warn('Scan config not indexed for {0}'.format(config.scanId))
 
 
 def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
@@ -96,9 +96,9 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
     # push scan info with unique id of scanId
     res = pushdata(scandict, index='scans', Id=scanId, command='index')
     if res == 1:
-        logger.info('Successfully indexed scan config')
+        logger.info('Indexed scan config {0}'.format(scanId))
     else:
-        logger.warn('Scan config not indexed')
+        logger.warn('Scan config not indexed for {0}'.format(scanId))
 
 
 def indexscan_meta(metadata, preferences=None):
@@ -138,9 +138,10 @@ def indexscan_meta(metadata, preferences=None):
     res = pushdata(scandict, index='scans', Id=metadata.scanId,
                    command='index')
     if res == 1:
-        logger.info('Successfully indexed scan config')
+        logger.info('Indexed scan config for {0}'
+                    .format(metadata.scanId))
     else:
-        logger.warn('Scan config not indexed')
+        logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
 def indexprefs(preferences):
@@ -150,9 +151,10 @@ def indexprefs(preferences):
     res = pushdata(preferences.ordered, index='preferences',
                    Id=preferences.name, command='index')
     if res == 1:
-        logger.info('Successfully indexed preferences')
+        logger.info('Successfully indexed preferences for {0}'
+                    .format(preferences.name))
     else:
-        logger.warn('Preferences not indexed')
+        logger.warn('Preferences not indexed for {0}'.format(preferences.name))
 
 
 def indexcands(candcollection, scanId, tags=None, url_prefix=None):
@@ -217,22 +219,11 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
                             Id=uniqueid, command='index')
 
     if res >= 1:
-        logger.debug('Successfully indexed {0} candidates'.format(res))
+        logger.info('Indexed {0} cands for {1}'.format(res, scanId))
     else:
-        logger.debug('No candidates indexed')
+        logger.warn('No cands indexed for {0}'.format(scanId))
 
     return res
-
-
-def candid(data):
-    """ Returns id string for given data dict
-    Assumes scanId is defined as:
-    datasetId dot scanNum dot subscanNum
-    """
-
-    return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
-            .format(data['scanId'], data['segment'], data['integration'],
-                    data['dmind'], data['dtind']))
 
 
 def indexmocks(inprefs, scanId):
@@ -262,9 +253,9 @@ def indexmocks(inprefs, scanId):
         res += pushdata(mockdict, Id=scanId, index='mocks', command='index')
 
     if res >= 1:
-        logger.debug('Successfully indexed {0} mocks'.format(res))
+        logger.info('Indexed {0} mocks for {1}'.format(res, scanId))
     else:
-        logger.debug('No mocks indexed')
+        logger.warn('No mocks indexed for {0}'.format(scanId))
 
     return res
 
@@ -294,9 +285,9 @@ def indexnoises(noisefile, scanId):
                               command='index')
 
     if count:
-        logger.debug('Successfully indexed {0} noises'.format(count))
+        logger.info('Indexed {0} noises for {1}'.format(count, scanId))
     else:
-        logger.debug('No noises indexed')
+        logger.warn('No noises indexed for {0}'.format(scanId))
 
     return count
 
@@ -331,8 +322,8 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
                     logger.warn("Id {0} and data {1} not indexed due to request error."
                                 .format(Id, datadict))
             else:
-                logger.warn('Id={0} already exists'
-                            .format(Id))
+                logger.warn('Id={0} already exists in index {1}'
+                            .format(Id, index))
 
     elif command == 'delete':
         if es.exists(index=index, doc_type=doc_type, id=Id):
@@ -344,6 +335,17 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
         return res['_shards']['successful']
     else:
         return res
+
+
+def candid(data):
+    """ Returns id string for given data dict
+    Assumes scanId is defined as:
+    datasetId dot scanNum dot subscanNum
+    """
+
+    return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
+            .format(data['scanId'], data['segment'], data['integration'],
+                    data['dmind'], data['dtind']))
 
 
 def getids(index):

@@ -227,8 +227,8 @@ class realfast_controller(Controller):
                                                                     inprefs=self.inprefs))
 
         st = state.State(inmeta=inmeta, config=config, inprefs=prefs,
-                         lock=self.lock,
-                         sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir)
+                         lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
+                         bdfdir=bdfdir)
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
@@ -352,7 +352,8 @@ class realfast_controller(Controller):
                         if res or nplots:
                             logger.info('Indexed {0} candidates and moved {1} '
                                         'plots to {2} for scanId {3}'
-                                        .format(res, nplots, _candplot_dir, scanId))
+                                        .format(res, nplots, _candplot_dir,
+                                                scanId))
                         else:
                             logger.info('No candidates or plots found.')
 
@@ -424,6 +425,8 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
             self.inprefs['simulated_transient'] = [mockparams]
+        else:
+            _ = self.inprefs.pop('simulated_transient')
 
         mindexed = (elastic.indexmocks(self.inprefs, scanId)
                     if self.indexresults else 0)
@@ -669,10 +672,8 @@ def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
     """
 
-    datasetId, scan, subscan = scanId.rsplit('.', 2)
-
     nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, datasetId))
+    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, scanId))
     for candplot in candplots:
         try:
             shutil.move(candplot, destination)
