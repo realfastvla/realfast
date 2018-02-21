@@ -5,6 +5,7 @@ from io import open
 
 import os.path
 from elasticsearch import Elasticsearch, RequestError
+from elasticsearch import helpers
 import pickle
 import logging
 logging.getLogger('elasticsearch').setLevel(30)
@@ -348,15 +349,21 @@ def candid(data):
                     data['dmind'], data['dtind']))
 
 
-def getids(index):
+def getids(index, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
+    Can optionally pass key-value pairs of field-string to search.
+    Must match exactly (e.g., "scanId"="test.1.1")
     """
 
     # only one doc_type per index and its name is derived from index
     doc_type = index.rstrip('s')
 
-    count = es.count(index)['count']
-    res = es.search(index=index, doc_type=doc_type, stored_fields=['_id'],
-                    body={"query": {"match_all": {}}, "size": count})
-    return [hit['_id'] for hit in res['hits']['hits']]
+    if len(kwargs):
+        query = {"query": {"match": kwargs}, "stored_fields": []}
+    else:
+        query = {"query": {"match_all": {}}, "stored_fields": []}
+
+    res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
+
+    return [hit['_id'] for hit in res]
