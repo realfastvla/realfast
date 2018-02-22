@@ -367,3 +367,21 @@ def getids(index, **kwargs):
     res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
 
     return [hit['_id'] for hit in res]
+
+
+def updatefield(index, field, value, **kwargs):
+    """ Replace an index's field with a value.
+    Optionally query the index with kwargs.
+    Use with caution.
+    """
+
+    doc_type = index.rstrip('s')
+
+    searchquery = {"query": {"match": kwargs}, "stored_fields": []}
+    query = {"query": searchquery,
+             "script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
+                        "lang": "painless"}}
+
+    res = es.update_by_query(body=q, doc_type=doc_type, index=index)
+
+    return res
