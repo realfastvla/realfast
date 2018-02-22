@@ -384,4 +384,8 @@ def updatefield(index, field, value, **kwargs):
 
     res = es.update_by_query(body=q, doc_type=doc_type, index=index)
 
-    return res
+    response_info = {"total": resp["total"], "updated": resp["updated"], "type": "success"}
+    if resp["failures"] != []:
+        response_info["type"] = "failure"
+
+    return response_info
