@@ -5,6 +5,8 @@ python:
    - 3.6
 
 install:
+  - sudo apt-get update -y
+  - sudo apt-get install -y libfftw3-dev
   - pip install git+git://github.com/realfastvla/evla_mcast.git
   - python setup.py install
 
