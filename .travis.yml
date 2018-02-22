@@ -8,6 +8,7 @@ install:
   - sudo apt-get update -y
   - sudo apt-get install -y libfftw3-dev
   - pip install git+git://github.com/realfastvla/evla_mcast.git
+  - pip install git+git://github.com/realfastvla/rfpipe.git
   - python setup.py install
 
 script:
