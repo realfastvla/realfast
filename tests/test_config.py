@@ -54,4 +54,4 @@ def test_sim(config, inprefs):
 
     segment = 0
     data = rfpipe.source.read_segment(st, segment)
-    assert data.shape == st.datashape
+    assert data.shape == st.datashape_orig

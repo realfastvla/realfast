@@ -42,11 +42,12 @@ _mock_standards = [(0, 1, 20, 0.01, 0.1, 1e-3, 0.),
 
 class realfast_controller(Controller):
 
-    def __init__(self, preffile=_preffile, inprefs={}, **kwargs):
+    def __init__(self, preffile=None, inprefs={}, host=None, **kwargs):
         """ Creates controller object that can act on a scan configuration.
         Inherits a "run" method that starts asynchronous operation that calls
         handle_config. handle_sdm and handle_meta (with datasource "vys" or
         "sim") are also supported.
+        host allows specification of 'localhost' for distributed client.
 
         kwargs can include:
         - tags, a comma-delimited string for cands to index (None -> "new"),
@@ -68,27 +69,33 @@ class realfast_controller(Controller):
 
         self.inprefs = inprefs  # rfpipe preferences
         self.mockset = _mock_standards
-        self.client = distributed.Client('{0}:{1}'
-                                         .format(_distributed_host, '8786'))
+        if host is None:
+            self.client = distributed.Client('{0}:{1}'
+                                             .format(_distributed_host,
+                                                     '8786'))
+        elif host == 'localhost':
+            self.client = distributed.Client(n_workers=1,
+                                             threads_per_worker=4,
+                                             resources={"READER": 1,
+                                                        "MEMORY": 10,
+                                                        "CORES": 4})
+
         self.lock = dask.utils.SerializableLock()
         self.states = {}
         self.futures = {}
         self.futures_removed = {}
 
         # define attributes from yaml file
+        self.preffile = preffile if preffile is not None else _preffile
         prefs = {}
-        self.preffile = preffile
-        if self.preffile is not None:
-            if os.path.exists(self.preffile):
-                with open(self.preffile, 'r') as fp:
-                    prefs = yaml.load(fp)['realfast']
-                    logger.info("Parsed realfast preferences from {0}"
-                                .format(self.preffile))
-            else:
-                logger.warn("realfast preffile {0} given, but not found"
+        if os.path.exists(self.preffile):
+            with open(self.preffile, 'r') as fp:
+                prefs = yaml.load(fp)['realfast']
+                logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
         else:
-            logger.info("No realfast preffile provided.")
+            logger.warn("realfast preffile {0} given, but not found"
+                        .format(self.preffile))
 
         # get arguments from preffile, optional overload from kwargs
         self.daskdir = '/lustre/evla/test/realfast/dask-worker-space'

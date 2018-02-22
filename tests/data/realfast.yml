@@ -1,6 +1,6 @@
 rfpipe:
   default:
-    nthread: 1
+    nthread: 4  # not taking all in case multiple workers going
     dtarr: [1]   # integer to integrate in time for independent searches
     maxdm: 100
     flagantsol: False
@@ -16,14 +16,34 @@ rfpipe:
     selectpol: 'auto'
     fftmode: 'cuda'
     memory_limit: 1 # in GB
+  A_L_16spw:   # option to define preferences according to outside factors
+    nthread: 1
+    dtarr: [1]   # integer to integrate in time for independent searches
+    maxdm: 100
+    flagantsol: False
+    timesub: 'mean'
+    searchtype: 'image1'    # search algorithm: 'image1' is single image snr threshold
+    sigma_image1: 7.5
+    sigma_plot: 8.5
+    npix_max: 2048
+    badspwpol: 2.
+    uvoversample: 1.5
+    savenoise: True
+    savecands: True
+    selectpol: 'auto'
+    fftmode: 'cuda'
+    memory_limit: 1 # in GB
+    
 
 realfast:
-  vys_timeout: 10
-  mockprob: 0.3
-  indexresults: True
-  saveproducts: False
-  archiveproducts: False
+  vys_timeout:  # fixed timeout factor relative to realtime reading
+  vys_sec_per_spec: !!float 4e-6  # timeout factor from time per spectrum
+  mockprob: 0.3  # chance of injecting mock transient per scan
+  indexresults: True  # push info to elasticsearch indices
+  saveproducts: False  # save minisdm
+  archiveproducts: False  # push minisdm to archive
   searchintents: ['OBSERVE_TARGET', 'CALIBRATE_PHASE', 'CALIBRATE_AMPLI', 'CALIBRATE_DELAY']
-  throttle: True
-  read_overhead: 8
-  read_totfrac: 0.3
+  throttle: True  # submission of scan conditional on cluster status
+  read_overhead: 8  # require reader memory 8x higher than nominal vismem requirement
+  read_totfrac: 0.5  # require total of readers memories usage
+  spill_limit: 100  # limit spilled memory in GB
