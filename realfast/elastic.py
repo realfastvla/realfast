@@ -174,8 +174,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
     allowed_tags = ["new", "rfi", "bad", "noise", "needs flagging",
                     "needs review", "interesting", "pulsar", "frb", "mock",
                     "public"]
-    tagstr = ','.join(list(map(lambda tag: tag if tag == tags else '_',
-                               allowed_tags)))
+    tagstr = ','.join([tag if tag in tags.split(',') else '_'
+                       for tag in allowed_tags])
 
     candarr = candcollection.array
     prefs = candcollection.prefs
@@ -186,7 +186,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
     res = 0
     for i in range(len(candarr)):
         # get features. use .item() to cast to default types
-        canddict = dict(zip(candarr.dtype.names, candarr[i].item()))
+        canddict = dict(list(zip(candarr.dtype.names, candarr[i].item())))
 
         # fill optional fields
         canddict['scanId'] = scanId

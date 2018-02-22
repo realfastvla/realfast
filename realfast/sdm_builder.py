@@ -2,10 +2,10 @@ from __future__ import print_function, division, absolute_import #, unicode_lite
 from builtins import bytes, dict, object, range, map, input#, str # not casa compatible
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
+from future.moves.urllib.parse import urlparse, urlunparse, urlencode
+from future.moves.urllib.request import urlopen
 
 import os.path
-import urllib
-import urlparse
 from lxml import etree, objectify
 from astropy import time
 from rfpipe.metadata import Metadata
@@ -63,12 +63,12 @@ class SDMBuilder(object):
 
     @property
     def _url(self):
-        query = urllib.urlencode({'xml': self.xml})
-        url = urlparse.urlunparse(('https', self.host, self.path, '', query, ''))
+        query = urlencode({'xml': self.xml})
+        url = urlunparse(('https', self.host, self.path, '', query, ''))
         return url
 
     def send(self):
-        response_xml = urllib.urlopen(self._url).read()
+        response_xml = urlopen(self._url).read()
         if 'error' in response_xml:
             self.response = None
         else:

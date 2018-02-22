@@ -282,7 +282,7 @@ class realfast_controller(Controller):
             elapsedtime = time.Time.now().unix - t0
 
             if segments is None:
-                segments = range(st.nsegment)
+                segments = list(range(st.nsegment))
 
             while (elapsedtime < timeout) and (len(futures) < len(segments)):
                 # Submit if workers are not overloaded

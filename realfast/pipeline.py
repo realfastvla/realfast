@@ -33,7 +33,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
     if not isinstance(segments, list):
-        segments = range(st.nsegment)
+        segments = list(range(st.nsegment))
 
     futures = []
     for segment in segments:
@@ -137,7 +137,7 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
 
     if not isinstance(segments, list):
-        segments = range(st.nsegment)
+        segments = list(range(st.nsegment))
 
     futures = []
     for segment in segments:
