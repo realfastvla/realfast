@@ -14,7 +14,7 @@ setup(
     data_files=[('conf', glob.glob('conf/*'))],
 #    scripts=['scripts/sdm_chop-n-serve.pl'],   # add non-python scripts
     install_requires=['rfpipe', 'evla_mcast', 'sdmpy', 'click',
-                      'elasticsearch', 'distributed', 'pyfft', 'futures'],
+                      'elasticsearch', 'distributed', 'pyfft', 'future'],
                       # 'rfgpu', 'vysmaw_reader'],
     entry_points='''
         [console_scripts]
