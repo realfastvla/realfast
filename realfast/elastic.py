@@ -214,7 +214,13 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
         if snr >= prefs.sigma_plot:
             # TODO: test for existance of file prior to setting field?
             candidate_png = 'cands_{0}.png'.format(uniqueid)
-            canddict['png_url'] = os.path.join(url_prefix, candidate_png)
+            if os.path.exists(candidate_png):
+                logger.info("Found png {0} and setting cands index to serve it"
+                            .format(candidate_png))
+                canddict['png_url'] = os.path.join(url_prefix, candidate_png)
+            else:
+                logger.info("png {0} not found. cands index field not set")
+                canddict['png_url'] = ''
 
             res += pushdata(canddict, index='cands',
                             Id=uniqueid, command='index')
@@ -376,15 +382,18 @@ def updatefield(index, field, value, **kwargs):
     """
 
     doc_type = index.rstrip('s')
-
-    searchquery = {"query": {"match": kwargs}, "stored_fields": []}
+    if len(kwargs):
+        searchquery = {"match": kwargs}
+    else:
+        searchquery = {"match_all": {}}
     query = {"query": searchquery,
              "script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                         "lang": "painless"}}
 
-    res = es.update_by_query(body=q, doc_type=doc_type, index=index)
+    res = es.update_by_query(body=query, doc_type=doc_type, index=index)
 
-    response_info = {"total": resp["total"], "updated": resp["updated"], "type": "success"}
+    response_info = {"total": resp["total"], "updated": resp["updated"],
+                     "type": "success"}
     if resp["failures"] != []:
         response_info["type"] = "failure"
 
