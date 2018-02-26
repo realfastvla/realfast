@@ -152,11 +152,6 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
         if cl is not None:
             future['data'] = cl.compute(data, resources=resources)
 
-        assert st.fftmode == "cuda", "only cuda fftmode supported"
-#        data_prep = delayed(source.data_prep)(st, segment, data)
-#        canddatalist = delayed(search.dedisperse_image_cuda)(st, segment,
-#                                                             data_prep)
-#        candcollection = delayed(candidates.calc_features)(canddatalist)
         candcollection = delayed(prep_and_search)(st, segment, data)
 
         resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
@@ -176,7 +171,14 @@ def prep_and_search(st, segment, data):
     """
 
     data_prep = source.data_prep(st, segment, data)
-    canddatalist = search.dedisperse_image_cuda(st, segment, data_prep)
+    if st.prefs.fftmode == "cuda":
+        canddatalist = search.dedisperse_image_cuda(st, segment, data_prep)
+    elif st.prefs.fftmode == "fftw":
+        canddatalist = search.dedisperse_image_fftw(st, segment, data_prep)
+    else:
+        logger.warn("fftmode {0} not recognized (cuda, fftw allowed)"
+                    .format(st.prefs.fftmode))
+
     candcollection = candidates.calc_features(canddatalist)
 
     return candcollection
