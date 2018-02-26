@@ -14,7 +14,7 @@ rfpipe:
     savenoise: True
     savecands: True
     selectpol: 'auto'
-    fftmode: 'cuda'
+    fftmode: 'fftw'
     memory_limit: 1 # in GB
   A_L_16spw:   # option to define preferences according to outside factors
     nthread: 1
@@ -31,7 +31,7 @@ rfpipe:
     savenoise: True
     savecands: True
     selectpol: 'auto'
-    fftmode: 'cuda'
+    fftmode: 'fftw'
     memory_limit: 1 # in GB
     
 
