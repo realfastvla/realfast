@@ -94,11 +94,11 @@ def makesdm(startTime, endTime, metadata, data):
     shape of (nint, nbl, nspw, numBin, nchan, npol).
     """
 
-    assert type(metadata) == Metadata, ("metadata must be "
-                                        "of type rfpipe.metadata.Metadata")
+    assert(type(metadata) == Metadata, ("metadata must be "
+                                        "of type rfpipe.metadata.Metadata"))
 
-    assert data.ndim == 6, ("data must have 6 dimensions: "
-                            "nint, nbl, nspw, numBin, nchan, npol.")
+    assert(data.ndim == 6, ("data must have 6 dimensions: "
+                            "nint, nbl, nspw, numBin, nchan, npol."))
 
     nint, nbl, nspw, numBin, nchan, npol = data.shape
     dataSize = data.nbytes
@@ -124,11 +124,11 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
 
     from sdmpy import bdf
 
-    assert type(metadata) == Metadata, ("metadata must be "
-                                        "of type rfpipe.metadata.Metadata")
+    assert(type(metadata) == Metadata, ("metadata must be "
+                                        "of type rfpipe.metadata.Metadata"))
 
-    assert data.ndim == 6, ("data must have 6 dimensions: "
-                            "nint, nbl, nspw, numBin, nchan, npol.")
+    assert(data.ndim == 6, ("data must have 6 dimensions: "
+                            "nint, nbl, nspw, numBin, nchan, npol."))
 
     nint, nbl, nspw, numBin, nchan, npol = data.shape
 
@@ -140,9 +140,9 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
     # TODO: confirm that sw is 1 based for a proper SDM
     # TODO: confirm that metadata spworder is 0 based
 
-    assert nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
-                               'in data array.')
-    assert os.path.isdir(bdfdir), 'bdfdir does not exist'
+    assert(nspw == len(spws), ('Expected one spw in metadata.spworder per spw '
+                               'in data array.'))
+    assert(os.path.isdir(bdfdir), 'bdfdir does not exist')
 
     uid = ('uid:///evla/realfastbdf/{0}'
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))

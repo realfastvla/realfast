@@ -259,7 +259,7 @@ class realfast_controller(Controller):
                 logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
                             .format(vys_timeout))
             else:
-                assert self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout"
+                assert(self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout")
                 nspec = st.readints*st.nbl*st.nspw*st.npol
                 vys_timeout = 1 + self.vys_sec_per_spec*nspec
                 logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
@@ -640,7 +640,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
                 newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
                                          .format(os.path.basename(sdmlocbase),
                                                  uid.rsplit('/')[-1]))
-                assert not os.path.exists(newsdmloc), "newsdmloc {0} already exists".format(newsdmloc)
+                assert(not os.path.exists(newsdmloc), "newsdmloc {0} already exists".format(newsdmloc))
                 shutil.move(sdmloc, newsdmloc)
                 sdmlocs.append(newsdmloc)
             else:
