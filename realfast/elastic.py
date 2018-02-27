@@ -308,7 +308,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
     To update, index with existing key and force=True.
     """
 
-    assert(isinstance(datadict, dict))
+    assert isinstance(datadict, dict)
 
     # only one doc_type per index and its name is derived from index
     doc_type = index.rstrip('s')
