@@ -273,7 +273,7 @@ def indexnoises(noisefile, scanId):
     """
 
     noises = []
-    with open(noisefile) as pkl:
+    with open(noisefile, 'rb') as pkl:
         noises += pickle.load(pkl)
 
     count = 0
