@@ -219,6 +219,11 @@ class realfast_controller(Controller):
 
         self.set_state(scanId, inmeta=inmeta)
 
+        if self.indexresults:
+            elastic.indexscan_meta(inmeta, preferences=self.states[scanId].prefs)
+        else:
+            logger.info("Not indexing sdm scan or prefs.")
+
         self.start_pipeline(scanId, cfile=cfile, segments=segments)
 
         self.cleanup()
