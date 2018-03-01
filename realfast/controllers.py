@@ -356,12 +356,12 @@ class realfast_controller(Controller):
                 ncands = len(candcollection)
                 if ncands:
                     if self.indexresults:
-                        makesummaryplot(candcollection.prefs.workdir, scanId)
-                        nplots = moveplots(candcollection.prefs.workdir,
-                                           scanId, destination=_candplot_dir)
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
                                                  url_prefix=_candplot_url_prefix)
+                        makesummaryplot(candcollection.prefs.workdir, scanId)
+                        nplots = moveplots(candcollection.prefs.workdir,
+                                           scanId, destination=_candplot_dir)
                         if res or nplots:
                             logger.info('Indexed {0} candidates and moved {1} '
                                         'plots to {2} for scanId {3}'
@@ -672,6 +672,7 @@ def gencandranges(candcollection):
 
 def runingest(sdms):
     """ Call archive tool or move data to trigger archiving of sdms.
+    This function will ultimately be triggered by candidate portal.
     """
 
     NotImplementedError
@@ -696,10 +697,12 @@ def moveplots(workdir, scanId, destination=_candplot_dir):
                         .format(candplot, destination))
 
     # move summary plot too
-    summaryplot = '{0}/cands_{1}.png'.format(workdir, scanId)
+    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
     if os.path.exists(summaryplot):
         shutil.move(summaryplot, summaryplotdest)
+    else:
+        logger.warn("No summary plot {0} found".format(summaryplot))
 
     return nplots
 
