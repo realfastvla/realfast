@@ -215,20 +215,21 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
             # TODO: test for existance of file prior to setting field?
             candidate_png = 'cands_{0}.png'.format(uniqueid)
             if os.path.exists(candidate_png):
-                logger.info("Found png {0} and setting cands index to serve it"
-                            .format(candidate_png))
+                logger.debug("Found png {0} and setting cands index field"
+                             .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
             else:
-                logger.info("png {0} not found. cands index field not set")
+                logger.debug("png {0} not found. cands index field not set"
+                             .format(candidate_png))
                 canddict['png_url'] = ''
 
             res += pushdata(canddict, index='cands',
                             Id=uniqueid, command='index')
 
     if res >= 1:
-        logger.info('Indexed {0} cands for {1}'.format(res, scanId))
+        logger.debug('Indexed {0} cands for {1}'.format(res, scanId))
     else:
-        logger.warn('No cands indexed for {0}'.format(scanId))
+        logger.debug('No cands indexed for {0}'.format(scanId))
 
     return res
 
@@ -260,9 +261,9 @@ def indexmocks(inprefs, scanId):
         res += pushdata(mockdict, Id=scanId, index='mocks', command='index')
 
     if res >= 1:
-        logger.info('Indexed {0} mocks for {1}'.format(res, scanId))
+        logger.debug('Indexed {0} mocks for {1}'.format(res, scanId))
     else:
-        logger.warn('No mocks indexed for {0}'.format(scanId))
+        logger.debug('No mocks indexed for {0}'.format(scanId))
 
     return res
 
@@ -292,9 +293,9 @@ def indexnoises(noisefile, scanId):
                               command='index')
 
     if count:
-        logger.info('Indexed {0} noises for {1}'.format(count, scanId))
+        logger.debug('Indexed {0} noises for {1}'.format(count, scanId))
     else:
-        logger.warn('No noises indexed for {0}'.format(scanId))
+        logger.debug('No noises indexed for {0}'.format(scanId))
 
     return count
 
@@ -390,7 +391,7 @@ def updatefield(index, field, value, **kwargs):
              "script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                         "lang": "painless"}}
 
-    res = es.update_by_query(body=query, doc_type=doc_type, index=index)
+    resp = es.update_by_query(body=query, doc_type=doc_type, index=index)
 
     response_info = {"total": resp["total"], "updated": resp["updated"],
                      "type": "success"}
