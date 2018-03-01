@@ -356,6 +356,7 @@ class realfast_controller(Controller):
                 ncands = len(candcollection)
                 if ncands:
                     if self.indexresults:
+                        makesummaryplot(candcollection.prefs.workdir, scanId)
                         nplots = moveplots(candcollection.prefs.workdir,
                                            scanId, destination=_candplot_dir)
                         res = elastic.indexcands(candcollection, scanId,
@@ -373,9 +374,6 @@ class realfast_controller(Controller):
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
-
-                    makesummaryplot(candcollection.prefs.workdir, scanId)
-
                 else:
                     logger.debug('No candidates for a segment from scanId {0}'
                                  .format(scanId))
@@ -683,6 +681,9 @@ def runingest(sdms):
 def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
     """
+
+    logger.info("Moving plots for scanId {0} to {1}"
+                .format(scanId, destination))
 
     nplots = 0
     candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, scanId))
