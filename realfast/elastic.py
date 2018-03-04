@@ -201,8 +201,6 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
         if prefs.name:
             canddict['prefsname'] = prefs.name
 
-        # create id
-        uniqueid = candid(canddict)
         if 'snr2' in candarr.dtype.names:
             snr = candarr[i]['snr2']
         elif 'snr1' in candarr.dtype.names:
@@ -211,7 +209,10 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
             logger.warn("Neither snr1 nor snr2 in field names. Not pushing.")
             snr = -999
 
+        # create id
+        uniqueid = candid(canddict)
         if snr >= prefs.sigma_plot:
+
             # TODO: test for existance of file prior to setting field?
             candidate_png = 'cands_{0}.png'.format(uniqueid)
             if os.path.exists(candidate_png):
@@ -223,8 +224,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
                              .format(candidate_png))
                 canddict['png_url'] = ''
 
-            res += pushdata(canddict, index='cands',
-                            Id=uniqueid, command='index')
+        res += pushdata(canddict, index='cands',
+                        Id=uniqueid, command='index')
 
     if res >= 1:
         logger.debug('Indexed {0} cands for {1}'.format(res, scanId))
