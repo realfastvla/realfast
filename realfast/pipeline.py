@@ -147,13 +147,14 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
         logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                     .format(st.metadata.datasetId, st.metadata.scan, segment))
 
+        # get data
         data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
         resources[tuple(data.__dask_keys__())] = {'READER': 1}
         if cl is not None:
             future['data'] = cl.compute(data, resources=resources)
 
-        candcollection = delayed(prep_and_search)(st, segment, data)
-
+        # search data
+        candcollection = delayed(search.prep_and_search)(st, segment, data)
         resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
                                                             'CORES': st.prefs.nthread}
         if cl is not None:
@@ -164,24 +165,6 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
             futures.append(candcollection)
 
     return futures
-
-
-def prep_and_search(st, segment, data):
-    """ Bundles prep and search functions to improve performance in distributed.
-    """
-
-    data_prep = source.data_prep(st, segment, data)
-    if st.prefs.fftmode == "cuda":
-        canddatalist = search.dedisperse_image_cuda(st, segment, data_prep)
-    elif st.prefs.fftmode == "fftw":
-        canddatalist = search.dedisperse_image_fftw(st, segment, data_prep)
-    else:
-        logger.warn("fftmode {0} not recognized (cuda, fftw allowed)"
-                    .format(st.prefs.fftmode))
-
-    candcollection = candidates.calc_features(canddatalist)
-
-    return candcollection
 
 
 def mergelists(futlists):
