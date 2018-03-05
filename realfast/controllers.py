@@ -371,8 +371,8 @@ class realfast_controller(Controller):
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
                         makesummaryplot(candcollection.prefs.workdir, scanId)
-                        nplots = moveplots(candcollection.prefs.workdir,
-                                           scanId, destination=_candplot_dir)
+                        nplots = moveplots(candcollection, scanId,
+                                           destination=_candplot_dir)
                         if res or nplots:
                             logger.info('Indexed {0} candidates and moved {1} '
                                         'plots to {2} for scanId {3}'
@@ -692,15 +692,19 @@ def runingest(sdms):
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
-def moveplots(workdir, scanId, destination=_candplot_dir):
+def moveplots(candcollection, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
     """
 
-    logger.info("Moving plots for scanId {0} to {1}"
-                .format(scanId, destination))
+    workdir = candcollection.prefs.workdir
+    segment = candcollection.segment
+
+    logger.info("Moving plots for scanId {0} segment {1} to {2}"
+                .format(scanId, segment, destination))
 
     nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_*.png'.format(workdir, scanId))
+    candplots = glob.glob('{0}/cands_{1}_seg{1}-*.png'
+                          .format(workdir, segment, scanId))
     for candplot in candplots:
         try:
             shutil.move(candplot, destination)
