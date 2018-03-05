@@ -703,8 +703,8 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
                 .format(scanId, segment, destination))
 
     nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_seg{1}-*.png'
-                          .format(workdir, segment, scanId))
+    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
+                          .format(workdir, scanId, segment))
     for candplot in candplots:
         try:
             shutil.move(candplot, destination)
