@@ -419,11 +419,10 @@ def clean():
                 res += pushdata({}, index, Id, command='delete')
 
     # clearing preferences should save just one to keep mapping working
-    Ids = elastic.getids('preferences')
-    confirm = input("Type anything to confirm removal of all but 1 {0} entries"
-                    .format(index))
+    confirm = input("Type anything to confirm removal of all but 1 preferences entries")
     if confirm:
+        Ids = getids('preferences')
         for Id in Ids[1:]:
-            res += pushdata({}, index, Id, command='delete')
+            res += pushdata({}, 'preferences', Id, command='delete')
 
     logger.info("Cleared {0} entries in all indices".format(res))
