@@ -359,6 +359,8 @@ class realfast_controller(Controller):
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
                                                  url_prefix=_candplot_url_prefix)
+                        # TODO: makesumaryplot logs cands in all segments
+                        # this is confusing when only one segment being handled here
                         makesummaryplot(candcollection.prefs.workdir, scanId)
                         nplots = moveplots(candcollection.prefs.workdir,
                                            scanId, destination=_candplot_dir)

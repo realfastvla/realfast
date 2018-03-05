@@ -198,6 +198,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
         canddict['candmjd'] = float(candmjd[i])
         canddict['canddm'] = float(canddm[i])
         canddict['canddt'] = float(canddt[i])
+        canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
 
@@ -211,18 +212,11 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
 
         # create id
         uniqueid = candid(canddict)
-        if snr >= prefs.sigma_plot:
-
-            # TODO: test for existance of file prior to setting field?
-            candidate_png = 'cands_{0}.png'.format(uniqueid)
-            if os.path.exists(candidate_png):
+        candidate_png = 'cands_{0}.png'.format(uniqueid)
+        if snr >= prefs.sigma_plot and os.path.exists(candidate_png):
                 logger.debug("Found png {0} and setting cands index field"
                              .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
-            else:
-                logger.debug("png {0} not found. cands index field not set"
-                             .format(candidate_png))
-                canddict['png_url'] = ''
 
         res += pushdata(canddict, index='cands',
                         Id=uniqueid, command='index')
