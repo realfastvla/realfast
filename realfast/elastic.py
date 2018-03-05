@@ -400,3 +400,30 @@ def updatefield(index, field, value, **kwargs):
         response_info["type"] = "failure"
 
     return response_info
+
+
+def clean():
+    """ Remove entries from indices
+    *BE SURE YOU KNOW WHAT YOU ARE DOING*
+    """
+
+    # TODO: add prefix
+
+    res = 0
+    for index in ['noises', 'mocks', 'cands', 'scans']:
+        confirm = input("Type anything to confirm removal of {0} entries"
+                        .format(index))
+        if confirm:
+            Ids = getids(index)
+            for Id in Ids:
+                res += pushdata({}, index, Id, command='delete')
+
+    # clearing preferences should save just one to keep mapping working
+    Ids = elastic.getids('preferences')
+    confirm = input("Type anything to confirm removal of all but 1 {0} entries"
+                    .format(index))
+    if confirm:
+        for Id in Ids[1:]:
+            res += pushdata({}, index, Id, command='delete')
+
+    logger.info("Cleared {0} entries in all indices".format(res))
