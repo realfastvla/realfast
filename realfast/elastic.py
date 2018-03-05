@@ -15,13 +15,15 @@ logger = logging.getLogger(__name__)
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
-def indexscan_config(config, preferences=None, datasource='vys'):
+def indexscan_config(config, preferences=None, datasource='vys', indexprefix=''):
     """ Takes scan config and creates dict to push
     to elasticsearch scnas index.
     Optionally pushes rfpipe preferences object as separate doc
     and connects them via the hexdigest name.
     Note index names must end in s and types are derived as singular form.
     datasource is assumed to be 'vys', but 'sim' is an option.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
     scandict = {}
@@ -46,7 +48,8 @@ def indexscan_config(config, preferences=None, datasource='vys'):
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index='scans', Id=config.scanId, command='index')
+    res = pushdata(scandict, index=indexprefix+'scans', Id=config.scanId,
+                   command='index')
     if res == 1:
         logger.info('Indexed scan config {0}'.format(config.scanId))
     else:
@@ -54,8 +57,10 @@ def indexscan_config(config, preferences=None, datasource='vys'):
 
 
 def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
-                  datasource='sdm'):
+                  datasource='sdm', indexprefix=''):
     """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
 # must include:
@@ -95,15 +100,18 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index='scans', Id=scanId, command='index')
+    res = pushdata(scandict, index=indexprefix+'scans', Id=scanId,
+                   command='index')
     if res == 1:
         logger.info('Indexed scan config {0}'.format(scanId))
     else:
         logger.warn('Scan config not indexed for {0}'.format(scanId))
 
 
-def indexscan_meta(metadata, preferences=None):
+def indexscan_meta(metadata, preferences=None, indexprefix=''):
     """ Takes metadata object and pushes to elasticsearch scans index.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
 # must include:
@@ -136,7 +144,7 @@ def indexscan_meta(metadata, preferences=None):
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index='scans', Id=metadata.scanId,
+    res = pushdata(scandict, index=indexprefix+'scans', Id=metadata.scanId,
                    command='index')
     if res == 1:
         logger.info('Indexed scan config for {0}'
@@ -145,11 +153,13 @@ def indexscan_meta(metadata, preferences=None):
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
-def indexprefs(preferences):
-    """
+def indexprefs(preferences, indexprefix=''):
+    """ Index preferences with id equal to hash of contents.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
-    res = pushdata(preferences.ordered, index='preferences',
+    res = pushdata(preferences.ordered, index=indexprefix+'preferences',
                    Id=preferences.name, command='index')
     if res == 1:
         logger.info('Successfully indexed preferences for {0}'
@@ -158,13 +168,16 @@ def indexprefs(preferences):
         logger.warn('Preferences not indexed for {0}'.format(preferences.name))
 
 
-def indexcands(candcollection, scanId, tags=None, url_prefix=None):
+def indexcands(candcollection, scanId, tags=None, url_prefix=None,
+               indexprefix=''):
     """ Takes candidate collection and pushes to index
     Connects to preferences via hashed name
     scanId is added to associate cand to a give scan.
     Assumes scanId is defined as:
     datasetId dot scanNo dot subscanNo.
     tags is a comma-delimited string used to fill tag field in index.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
     if tags is None:
@@ -218,7 +231,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
                              .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
 
-        res += pushdata(canddict, index='cands',
+        res += pushdata(canddict, index=indexprefix+'cands',
                         Id=uniqueid, command='index')
 
     if res >= 1:
@@ -229,10 +242,12 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None):
     return res
 
 
-def indexmocks(inprefs, scanId):
+def indexmocks(inprefs, scanId, indexprefix=''):
     """ Reads simulated_transient from preferences dict and pushes to index
     Mock index must include scanId to reference data that was received.
     scanId is added to associate cand to a give scan.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
     if 'simulated_transient' not in inprefs:
@@ -253,7 +268,8 @@ def indexmocks(inprefs, scanId):
         mockdict['l'] = float(l)
         mockdict['m'] = float(m)
 
-        res += pushdata(mockdict, Id=scanId, index='mocks', command='index')
+        res += pushdata(mockdict, Id=scanId, index=indexprefix+'mocks',
+                        command='index')
 
     if res >= 1:
         logger.debug('Indexed {0} mocks for {1}'.format(res, scanId))
@@ -263,9 +279,11 @@ def indexmocks(inprefs, scanId):
     return res
 
 
-def indexnoises(noisefile, scanId):
+def indexnoises(noisefile, scanId, indexprefix=''):
     """ Reads noises from noisefile and pushes to index
     scanId is added to associate cand to a give scan.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
     """
 
     noises = []
@@ -276,7 +294,8 @@ def indexnoises(noisefile, scanId):
     for noise in noises:
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
-        if not es.exists(index='noises', doc_type='noise', id=Id):
+        if not es.exists(index=indexprefix+'noises',
+                         doc_type=indexprefix+'noise', id=Id):
             noisedict = {}
             noisedict['scanId'] = str(scanId)
             noisedict['segment'] = int(segment)
@@ -284,7 +303,7 @@ def indexnoises(noisefile, scanId):
             noisedict['noiseperbl'] = float(noiseperbl)
             noisedict['zerofrac'] = float(zerofrac)
             noisedict['imstd'] = float(imstd)
-            count += pushdata(noisedict, Id=Id, index='noises',
+            count += pushdata(noisedict, Id=Id, index=indexprefix+'noises',
                               command='index')
 
     if count:
@@ -396,15 +415,17 @@ def updatefield(index, field, value, **kwargs):
     return response_info
 
 
-def clean():
-    """ Remove entries from indices
+def clean_indices(indexprefix):
+    """ Remove entries from set of indices with a given indexprefix.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='' for production.
+
     *BE SURE YOU KNOW WHAT YOU ARE DOING*
     """
 
-    # TODO: add prefix
-
     res = 0
-    for index in ['noises', 'mocks', 'cands', 'scans']:
+    for index in [indexprefix+'noises', indexprefix+'mocks',
+                  indexprefix+'cands', indexprefix+'scans']:
         confirm = input("Type anything to confirm removal of {0} entries"
                         .format(index))
         if confirm:
@@ -415,7 +436,7 @@ def clean():
     # clearing preferences should save just one to keep mapping working
     confirm = input("Type anything to confirm removal of all but 1 preferences entries")
     if confirm:
-        Ids = getids('preferences')
+        Ids = getids(indexprefix+'preferences')
         for Id in Ids[1:]:
             res += pushdata({}, 'preferences', Id, command='delete')
 

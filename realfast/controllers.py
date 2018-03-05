@@ -62,7 +62,8 @@ class realfast_controller(Controller):
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
         - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
-        - searchintents, a list of intent names to search.
+        - searchintents, a list of intent names to search,
+        - indexprefix, a string defining set of indices to save results.
         """
 
         super(realfast_controller, self).__init__()
@@ -102,12 +103,16 @@ class realfast_controller(Controller):
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
-                     'read_overhead', 'read_totfrac', 'spill_limit']:
+                     'read_overhead', 'read_totfrac', 'spill_limit',
+                     'indexprefix']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
             if attr in kwargs:
                 setattr(self, attr, kwargs[attr])
+
+        if self.indexprefix is None:
+            self.indexprefix = ''
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'
@@ -165,7 +170,8 @@ class realfast_controller(Controller):
             if self.indexresults:
                 elastic.indexscan_config(config,
                                          preferences=self.states[config.scanId].prefs,
-                                         datasource='vys')
+                                         datasource='vys',
+                                         indexprefix=self.indexprefix)
             else:
                 logger.info("Not indexing config or prefs.")
 
@@ -195,7 +201,8 @@ class realfast_controller(Controller):
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
                                   preferences=self.states[scanId].prefs,
-                                  datasource='sdm')
+                                  datasource='sdm',
+                                  indexprefix=self.indexprefix)
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
@@ -220,7 +227,8 @@ class realfast_controller(Controller):
         self.set_state(scanId, inmeta=inmeta)
 
         if self.indexresults:
-            elastic.indexscan_meta(inmeta, preferences=self.states[scanId].prefs)
+            elastic.indexscan_meta(inmeta, preferences=self.states[scanId].prefs,
+                                   indexprefix=self.indexprefix)
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
@@ -358,7 +366,8 @@ class realfast_controller(Controller):
                     if self.indexresults:
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
-                                                 url_prefix=_candplot_url_prefix)
+                                                 url_prefix=_candplot_url_prefix,
+                                                 indexprefix=self.indexprefix)
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
                         makesummaryplot(candcollection.prefs.workdir, scanId)
@@ -384,7 +393,8 @@ class realfast_controller(Controller):
                 noisefile = self.states[scanId].noisefile
                 if os.path.exists(noisefile):
                     if self.indexresults:
-                        res = elastic.indexnoises(noisefile, scanId)
+                        res = elastic.indexnoises(noisefile, scanId,
+                                                  indexprefix=self.indexprefix)
                         if res:
                             logger.info("Indexed {0} noises for scanId {1}"
                                         .format(res, scanId))
@@ -440,7 +450,8 @@ class realfast_controller(Controller):
         elif 'simulated_transient' in self.inprefs:
             _ = self.inprefs.pop('simulated_transient')
 
-        mindexed = (elastic.indexmocks(self.inprefs, scanId)
+        mindexed = (elastic.indexmocks(self.inprefs, scanId,
+                                       indexprefix=self.indexprefix)
                     if self.indexresults else 0)
         if mindexed:
             logger.info("Indexed {0} mock transient.".format(mindexed))
