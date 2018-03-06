@@ -346,8 +346,8 @@ class realfast_controller(Controller):
 
         scanIds = [scanId for scanId in self.futures]
         if len(scanIds):
-            logger.info("Checking on jobs from {0} scanIds: {1}"
-                        .format(len(scanIds), scanIds))
+            logger.info("Checking on {0} jobs with scanId: {1}"
+                        .format(len(scanIds), ','.join(scanIds)))
 
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are done
@@ -399,7 +399,8 @@ class realfast_controller(Controller):
                             logger.info("Indexed {0} noises for scanId {1}"
                                         .format(res, scanId))
                     else:
-                        logger.info("Not indexing noises.")
+                        logger.info("Not indexing noises for scanId {0}."
+                                    .format(scanId))
                 else:
                     logger.debug('No noisefile found, no noises indexed.')
 
@@ -492,8 +493,8 @@ class realfast_controller(Controller):
                     self.futures_removed[scanId].append(futures)
 
         if removed:
-            logger.info("Removing {0} bad jobs from scanId {1}".format(removed,
-                                                                       scanId))
+            logger.warn("{0} bad jobs removed from scanId {1}".format(removed,
+                                                                      scanId))
 
         return removed
 
