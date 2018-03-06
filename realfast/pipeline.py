@@ -104,22 +104,19 @@ def pipeline_seg(st, segment, cl, cfile=None,
                                            integrations=integrations,
                                            wisdom=wisdom,
                                            resources=searchresources))
+        candcollection = cl.submit(mergelists, saved, resources={'CORES': 1},
+                                   priority=2)
 
     elif st.fftmode == "cuda":
         for dmind in range(len(st.dmarr)):
-            saved.append(cl.submit(search.dedisperse_image_cuda, st, segment,
-                                   data_prep, dmind,
-                                   resources={'GPU': 1,
-                                              'CORES': st.prefs.nthread},
-                                   priority=2))
+            candcollection = cl.submit(search.dedisperse_image_cuda, st,
+                                       segment, data_prep, dmind,
+                                       resources={'GPU': 1,
+                                                  'CORES': st.prefs.nthread},
+                                       priority=2)
 
-    # TODO: put these on dedicated worker to ensure quick processing?
-    canddatalist = cl.submit(mergelists, saved,
-                             resources={'CORES': 1},
-                             priority=3)
-    candcollection = cl.submit(candidates.calc_features, canddatalist,
-                               resources={'CORES': 1}, priority=4)
     futures['candcollection'] = candcollection
+    # TODO: incorporate saving of candcollection (as in prep_and_search function)
 
     return futures
 
