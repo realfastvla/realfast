@@ -374,9 +374,11 @@ class realfast_controller(Controller):
                         nplots = moveplots(candcollection, scanId,
                                            destination=_candplot_dir)
                         if res or nplots:
-                            logger.info('Indexed {0} candidates and moved {1} '
-                                        'plots to {2} for scanId {3}'
-                                        .format(res, nplots, _candplot_dir,
+                            logger.info('Indexed {0} cands to {1} and '
+                                        'moved {2} plots to {3} for '
+                                        'scanId {4}'
+                                        .format(res, self.indexprefix+'cands',
+                                                nplots, _candplot_dir,
                                                 scanId))
                         else:
                             logger.info('No candidates or plots found.')
@@ -396,8 +398,10 @@ class realfast_controller(Controller):
                         res = elastic.indexnoises(noisefile, scanId,
                                                   indexprefix=self.indexprefix)
                         if res:
-                            logger.info("Indexed {0} noises for scanId {1}"
-                                        .format(res, scanId))
+                            logger.info("Indexed {0} noises to {1} for scanId "
+                                        "{2}".format(res,
+                                                     self.indexprefix+"noise",
+                                                     scanId))
                     else:
                         logger.info("Not indexing noises for scanId {0}."
                                     .format(scanId))
@@ -434,6 +438,8 @@ class realfast_controller(Controller):
         for scanId in removeids:
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
+            logger.info("No jobs scanId {0} left. "
+                        "Cleaning state and futures dicts")
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
@@ -455,7 +461,8 @@ class realfast_controller(Controller):
                                        indexprefix=self.indexprefix)
                     if self.indexresults else 0)
         if mindexed:
-            logger.info("Indexed {0} mock transient.".format(mindexed))
+            logger.info("Indexed {0} mock transient to {1}."
+                        .format(mindexed, self.indexprefix+"mocks"))
         else:
             logger.info("Not indexing mock transient.")
 

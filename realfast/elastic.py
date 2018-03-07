@@ -15,7 +15,8 @@ logger = logging.getLogger(__name__)
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
-def indexscan_config(config, preferences=None, datasource='vys', indexprefix=''):
+def indexscan_config(config, preferences=None, datasource='vys',
+                     indexprefix=''):
     """ Takes scan config and creates dict to push
     to elasticsearch scnas index.
     Optionally pushes rfpipe preferences object as separate doc
@@ -48,10 +49,12 @@ def indexscan_config(config, preferences=None, datasource='vys', indexprefix='')
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index=indexprefix+'scans', Id=config.scanId,
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=config.scanId,
                    command='index')
     if res == 1:
-        logger.info('Indexed scan config {0}'.format(config.scanId))
+        logger.info('Indexed scan config {0} to {1}'.format(config.scanId,
+                                                            index))
     else:
         logger.warn('Scan config not indexed for {0}'.format(config.scanId))
 
@@ -100,10 +103,11 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index=indexprefix+'scans', Id=scanId,
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=scanId,
                    command='index')
     if res == 1:
-        logger.info('Indexed scan config {0}'.format(scanId))
+        logger.info('Indexed scan config {0} to {1}'.format(scanId, index))
     else:
         logger.warn('Scan config not indexed for {0}'.format(scanId))
 
@@ -144,11 +148,12 @@ def indexscan_meta(metadata, preferences=None, indexprefix=''):
         indexprefs(preferences)
 
     # push scan info with unique id of scanId
-    res = pushdata(scandict, index=indexprefix+'scans', Id=metadata.scanId,
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=metadata.scanId,
                    command='index')
     if res == 1:
-        logger.info('Indexed scan config for {0}'
-                    .format(metadata.scanId))
+        logger.info('Indexed scan config {0} to {1}'
+                    .format(metadata.scanId, index))
     else:
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
@@ -159,11 +164,12 @@ def indexprefs(preferences, indexprefix=''):
     Use indexprefix='' for production.
     """
 
-    res = pushdata(preferences.ordered, index=indexprefix+'preferences',
+    index = indexprefix+'preferences'
+    res = pushdata(preferences.ordered, index=index,
                    Id=preferences.name, command='index')
     if res == 1:
-        logger.info('Successfully indexed preferences for {0}'
-                    .format(preferences.name))
+        logger.info('Indexed preference {0} to {1}'
+                    .format(preferences.name, index))
     else:
         logger.warn('Preferences not indexed for {0}'.format(preferences.name))
 
@@ -182,6 +188,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
 
     if tags is None:
         tags = 'new'
+
+    index = indexprefix+'cands'
 
     # create new tag string with standard format to fill in blanks
     allowed_tags = ["new", "rfi", "bad", "noise", "needs flagging",
@@ -231,11 +239,12 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
                              .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
 
-        res += pushdata(canddict, index=indexprefix+'cands',
+        res += pushdata(canddict, index=index,
                         Id=uniqueid, command='index')
 
     if res >= 1:
-        logger.debug('Indexed {0} cands for {1}'.format(res, scanId))
+        logger.debug('Indexed {0} cands for {1} to {2}'.format(res, scanId,
+                                                               index))
     else:
         logger.debug('No cands indexed for {0}'.format(scanId))
 
@@ -253,6 +262,7 @@ def indexmocks(inprefs, scanId, indexprefix=''):
     if 'simulated_transient' not in inprefs:
         return 0
 
+    index = indexprefix+'mocks'
     mocks = inprefs['simulated_transient']
 
     res = 0
@@ -268,11 +278,12 @@ def indexmocks(inprefs, scanId, indexprefix=''):
         mockdict['l'] = float(l)
         mockdict['m'] = float(m)
 
-        res += pushdata(mockdict, Id=scanId, index=indexprefix+'mocks',
+        res += pushdata(mockdict, Id=scanId, index=index,
                         command='index')
 
     if res >= 1:
-        logger.debug('Indexed {0} mocks for {1}'.format(res, scanId))
+        logger.debug('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
+                                                               index))
     else:
         logger.debug('No mocks indexed for {0}'.format(scanId))
 
@@ -285,6 +296,8 @@ def indexnoises(noisefile, scanId, indexprefix=''):
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
     """
+
+    index = indexprefix+'noises'
 
     noises = []
     with open(noisefile, 'rb') as pkl:
@@ -302,11 +315,12 @@ def indexnoises(noisefile, scanId, indexprefix=''):
         noisedict['zerofrac'] = float(zerofrac)
         noisedict['imstd'] = float(imstd)
 
-        count += pushdata(noisedict, Id=Id, index=indexprefix+'noises',
+        count += pushdata(noisedict, Id=Id, index=index,
                           command='index')
 
     if count:
-        logger.debug('Indexed {0} noises for {1}'.format(count, scanId))
+        logger.debug('Indexed {0} noises for {1} to {2}'
+                     .format(count, scanId, index))
     else:
         logger.debug('No noises indexed for {0}'.format(scanId))
 
@@ -421,22 +435,26 @@ def clean_indices(indexprefix):
 
     *BE SURE YOU KNOW WHAT YOU ARE DOING*
     """
+    logger.warn("Erasing all docs from indices with prefix {0}"
+                .format(indexprefix))
 
-    res = 0
     for index in [indexprefix+'noises', indexprefix+'mocks',
                   indexprefix+'cands', indexprefix+'scans']:
-        confirm = input("Type anything to confirm removal of {0} entries"
+        confirm = input("Confirm removal of {0} entries"
                         .format(index))
+        res = 0
         if confirm:
             Ids = getids(index)
             for Id in Ids:
                 res += pushdata({}, index, Id, command='delete')
+        logger.info("Removed {0} docs from index {1}".format(res, index))
 
     # clearing preferences should save just one to keep mapping working
-    confirm = input("Type anything to confirm removal of all but 1 preferences entries")
+    confirm = input("Confirm removal of {0}preferences entries (saving 1)"
+                    .format(indexprefix))
     if confirm:
         Ids = getids(indexprefix+'preferences')
+        res = 0
         for Id in Ids[1:]:
             res += pushdata({}, 'preferences', Id, command='delete')
-
-    logger.info("Cleared {0} entries in all indices".format(res))
+        logger.info("Removed {0} docs from index {1}".format(res, index))
