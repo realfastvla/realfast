@@ -440,8 +440,8 @@ class realfast_controller(Controller):
         for scanId in removeids:
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
-            logger.info("No jobs scanId {0} left. "
-                        "Cleaning state and futures dicts")
+            logger.info("No jobs of scanId {0} left. "
+                        "Cleaning state and futures dicts".format(scanId))
 
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'

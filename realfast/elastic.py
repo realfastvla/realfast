@@ -298,6 +298,7 @@ def indexnoises(noisefile, scanId, indexprefix=''):
     """
 
     index = indexprefix+'noises'
+    doc_type = index.rstrip('s')
 
     noises = []
     with open(noisefile, 'rb') as pkl:
@@ -307,16 +308,17 @@ def indexnoises(noisefile, scanId, indexprefix=''):
     for noise in noises:
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
-        noisedict = {}
-        noisedict['scanId'] = str(scanId)
-        noisedict['segment'] = int(segment)
-        noisedict['integration'] = int(integration)
-        noisedict['noiseperbl'] = float(noiseperbl)
-        noisedict['zerofrac'] = float(zerofrac)
-        noisedict['imstd'] = float(imstd)
+        if not es.exists(index=index, doc_type=doc_type, id=Id):
+            noisedict = {}
+            noisedict['scanId'] = str(scanId)
+            noisedict['segment'] = int(segment)
+            noisedict['integration'] = int(integration)
+            noisedict['noiseperbl'] = float(noiseperbl)
+            noisedict['zerofrac'] = float(zerofrac)
+            noisedict['imstd'] = float(imstd)
 
-        count += pushdata(noisedict, Id=Id, index=index,
-                          command='index')
+            count += pushdata(noisedict, Id=Id, index=index,
+                              command='index')
 
     if count:
         logger.debug('Indexed {0} noises for {1} to {2}'
