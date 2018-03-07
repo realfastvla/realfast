@@ -228,7 +228,8 @@ class realfast_controller(Controller):
         self.set_state(scanId, inmeta=inmeta)
 
         if self.indexresults:
-            elastic.indexscan_meta(inmeta, preferences=self.states[scanId].prefs,
+            elastic.indexscan_meta(self.states[scanId].metadata,
+                                   preferences=self.states[scanId].prefs,
                                    indexprefix=self.indexprefix)
         else:
             logger.info("Not indexing sdm scan or prefs.")
