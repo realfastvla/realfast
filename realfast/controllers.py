@@ -360,17 +360,16 @@ class realfast_controller(Controller):
                                (scanId0 == scanId)]
 
             # one candcollection per segment
-            for futures in finishedlist:
+            ncandsall = self.client.map(lambda x: len(x['candcollection']), finishedlist)
+            for (ncands, futures) in list(zip(ncandsall, finishedlist)):
 
                 # index cands
                 # option 1: pull results over
                 # candcollection = futures['candcollection'].result()
                 # ncands = len(candcollection)
                 # option 2: check in place (kinda requires multi-thread gpu workers)
-                ccfut = futures['candcollection']
-                ncands = self.client.submit(lambda x: len(x), ccfut).result()
-                if ncands:
-                    candcollection = ccfut.result()
+                if ncands.result():
+                    candcollection = futures['candcollection'].result()
                     if self.indexresults:
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
@@ -417,7 +416,7 @@ class realfast_controller(Controller):
                     logger.debug('No noisefile found, no noises indexed.')
 
                 # optionally save and archive sdm/bdfs for segment
-                if self.saveproducts and ncands:
+                if self.saveproducts and ncands.result():
                     newsdms = createproducts(candcollection, futures['data'])
                     sdms += len(newsdms)
                     if len(newsdms):
