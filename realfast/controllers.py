@@ -7,6 +7,7 @@ import pickle
 import os.path
 import glob
 import shutil
+import gc
 import random
 import distributed
 from astropy import time
@@ -362,9 +363,14 @@ class realfast_controller(Controller):
             for futures in finishedlist:
 
                 # index cands
-                candcollection = futures['candcollection'].result()
-                ncands = len(candcollection)
+                # option 1: pull results over
+                # candcollection = futures['candcollection'].result()
+                # ncands = len(candcollection)
+                # option 2: check in place (kinda requires multi-thread gpu workers)
+                ccfut = futures['candcollection']
+                ncands = self.client.submit(lambda x: len(x), ccfut).result()
                 if ncands:
+                    candcollection = ccfut.result()
                     if self.indexresults:
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,
@@ -405,8 +411,8 @@ class realfast_controller(Controller):
                                                      self.indexprefix+"noise",
                                                      scanId))
                     else:
-                        logger.info("Not indexing noises for scanId {0}."
-                                    .format(scanId))
+                        logger.debug("Not indexing noises for scanId {0}."
+                                     .format(scanId))
                 else:
                     logger.debug('No noisefile found, no noises indexed.')
 
@@ -443,6 +449,7 @@ class realfast_controller(Controller):
             logger.info("No jobs of scanId {0} left. "
                         "Cleaning state and futures dicts".format(scanId))
 
+        _ = self.client.run(gc.collect)
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
