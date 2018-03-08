@@ -385,7 +385,7 @@ def candid(data):
                     data['dmind'], data['dtind']))
 
 
-def getids(index, **kwargs):
+def get_ids(index, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
     Can optionally pass key-value pairs of field-string to search.
@@ -405,7 +405,7 @@ def getids(index, **kwargs):
     return [hit['_id'] for hit in res]
 
 
-def updatefield(index, field, value, **kwargs):
+def update_field(index, field, value, **kwargs):
     """ Replace an index's field with a value.
     Optionally query the index with kwargs.
     Use with caution.
@@ -430,7 +430,29 @@ def updatefield(index, field, value, **kwargs):
     return response_info
 
 
-def clean_indices(indexprefix):
+def remove_ids(index, **kwargs):
+    """ Gets Ids from an index
+    doc_type derived from index name (one per index)
+    Can optionally pass key-value pairs of field-string to search.
+    Must match exactly (e.g., "scanId"="test.1.1")
+    """
+
+    if not len(kwargs):
+        logger.warn("No query kwargs provided. Will clear all Ids in {0}"
+                    .format(index))
+        confirm = input("Press any key to confirm removal.")
+        if confirm:
+            logger.info("Removing...")
+
+    Ids = get_ids(index, **kwargs)
+    res = 0
+    for Id in Ids:
+        res += pushdata({}, index, Id, command='delete')
+
+    logger.info("Removed {0} docs from index {1}".format(res, index))
+
+
+def reset_indices(indexprefix):
     """ Remove entries from set of indices with a given indexprefix.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
@@ -446,7 +468,7 @@ def clean_indices(indexprefix):
                         .format(index))
         res = 0
         if confirm:
-            Ids = getids(index)
+            Ids = get_ids(index)
             for Id in Ids:
                 res += pushdata({}, index, Id, command='delete')
         logger.info("Removed {0} docs from index {1}".format(res, index))
@@ -455,7 +477,7 @@ def clean_indices(indexprefix):
     confirm = input("Confirm removal of {0}preferences entries (saving 1)"
                     .format(indexprefix))
     if confirm:
-        Ids = getids(indexprefix+'preferences')
+        Ids = get_ids(indexprefix+'preferences')
         res = 0
         for Id in Ids[1:]:
             res += pushdata({}, 'preferences', Id, command='delete')

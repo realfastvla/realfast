@@ -146,7 +146,7 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         # get data
         data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
-        resources[tuple(data.__dask_keys__())] = {'READER': 1}
+        resources[tuple(data.__dask_keys__()[0][0][0])] = {'READER': 1}
         if cl is not None:
             future['data'] = cl.compute(data, resources=resources)
 
