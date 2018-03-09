@@ -448,7 +448,7 @@ class realfast_controller(Controller):
             logger.info("No jobs of scanId {0} left. "
                         "Cleaning state and futures dicts".format(scanId))
 
-        _ = self.client.run(gc.collect)
+#        _ = self.client.run(gc.collect)
         if removed:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))

@@ -151,17 +151,39 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
             future['data'] = cl.compute(data, resources=resources)
 
         # search data
-        candcollection = delayed(search.prep_and_search)(st, segment, data)
-        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
-                                                            'CORES': st.prefs.nthread}
+#        candcollection = delayed(search.prep_and_search)(st, segment, data)
+#        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
+#                                                            'CORES': st.prefs.nthread}
+        candcollection = cl.submit(prep_and_search, st, segment, future['data'],
+                                   resources={'GPU': 1})
+        future['candcollection'] = candcollection
+
         if cl is not None:
-            future['candcollection'] = cl.compute(candcollection,
-                                                  resources=resources)
+#            future['candcollection'] = cl.compute(candcollection,
+#                                                  resources=resources)
             futures.append(future)
         else:
             futures.append(candcollection)
 
     return futures
+
+
+def prep_and_search(st, segment, data):
+    """ Wrapper for search.prep_and_search that secedes from worker
+    thread pool
+    """
+
+    logger.info("Submitting datasetId {0}, segment {1} locally."
+                .format(st.metadata.scanId, segment))
+
+    with distributed.worker_client() as cl_loc:
+        fut = cl_loc.submit(search.prep_and_search, st, segment, data)
+        cc = fut.result()
+
+    logger.info("Finished datasetId {0}, segment {1} locally."
+                .format(st.metadata.scanId, segment))
+
+    return cc
 
 
 def mergelists(futlists):
