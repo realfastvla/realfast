@@ -475,11 +475,12 @@ def reset_indices(indexprefix):
         logger.info("Removed {0} docs from index {1}".format(res, index))
 
     # clearing preferences should save just one to keep mapping working
+    index = indexprefix+'preferences'
     confirm = input("Confirm removal of {0}preferences entries (saving 1)"
-                    .format(indexprefix))
+                    .format(index))
     if confirm:
-        Ids = get_ids(indexprefix+'preferences')
+        Ids = get_ids(index)
         res = 0
         for Id in Ids[1:]:
-            res += pushdata({}, 'preferences', Id, command='delete')
+            res += pushdata({}, index, Id, command='delete')
         logger.info("Removed {0} docs from index {1}".format(res, index))

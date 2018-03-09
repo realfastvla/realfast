@@ -145,31 +145,34 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
                     .format(st.metadata.datasetId, st.metadata.scan, segment))
 
         # get data
-#        data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
-#        resources[tuple(data.__dask_keys__())] = {'READER': 1}
-#        if cl is not None:
-#            future['data'] = cl.compute(data, resources=resources)
+        data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
+        resources[tuple(data.__dask_keys__())] = {'READER': 1}
 
         # search data
-#        candcollection = delayed(search.prep_and_search)(st, segment, data)
-#        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
-#                                                            'CORES': st.prefs.nthread}
-        data = cl.submit(read_segment, st, segment, cfile, vys_timeout,
-                         resources={'READER': 1})
-        candcollection = cl.submit(prep_and_search, st, segment, data,
-                                   resources={'GPU': 1})
-        future['data'] = data
-        future['candcollection'] = candcollection
+        candcollection = delayed(search.prep_and_search)(st, segment, data)
+        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
+                                                            'CORES': st.prefs.nthread}
+
+        # using submit with worker_client
+#        data = cl.submit(read_segment, st, segment, cfile, vys_timeout,
+#                         resources={'READER': 1})
+#        candcollection = cl.submit(prep_and_search, st, segment, data,
+#                                   resources={'GPU': 1})
+#        future['data'] = data
+#        future['candcollection'] = candcollection
 
         if cl is not None:
-#            future['candcollection'] = cl.compute(candcollection,
-#                                                  resources=resources)
+            future['data'] = cl.compute(data, resources=resources)
+            future['candcollection'] = cl.compute(candcollection,
+                                                  resources=resources)
             futures.append(future)
         else:
             futures.append(candcollection)
 
     return futures
 
+
+### helper functions (not necessarily in use)
 
 def read_segment(st, segment, cfile, vys_timeout):
     """ Wrapper for source.read_segment that secedes from worker
@@ -186,6 +189,8 @@ def read_segment(st, segment, cfile, vys_timeout):
 
     logger.info("Finished reading datasetId {0}, segment {1} locally."
                 .format(st.metadata.scanId, segment))
+
+    return data
 
 
 def prep_and_search(st, segment, data):
