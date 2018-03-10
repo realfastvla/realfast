@@ -252,19 +252,19 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     return res
 
 
-def indexmocks(inprefs, scanId, indexprefix=''):
-    """ Reads simulated_transient from preferences dict and pushes to index
+def indexmocks(st, indexprefix=''):
+    """ Reads simulated_transient from state and pushes to index
     Mock index must include scanId to reference data that was received.
-    scanId is added to associate cand to a give scan.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
     """
 
-    if 'simulated_transient' not in inprefs:
+    if st.prefs.simulated_transient is None:
         return 0
 
+    mocks = st.prefs.simulated_transient
+    scanId = st.metadata.scanId
     index = indexprefix+'mocks'
-    mocks = inprefs['simulated_transient']
 
     res = 0
     for mock in mocks:

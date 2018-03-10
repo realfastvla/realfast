@@ -448,22 +448,24 @@ class realfast_controller(Controller):
         assert scanId in self.states, "State must be defined first"
 
         if random.uniform(0, 1) < self.mockprob:
-            st = self.states[scanId].prefs
-            segment = random.choice(st.nsegment)
-            dmind = random.choice(len(st.dmarr))
-            dtind = random.choice(len(st.dtarr))
+            st = self.states[scanId]
+            segment = random.choice(range(st.nsegment))
+            dmind = random.choice(range(len(st.dmarr)))
+            dtind = random.choice(range(len(st.dtarr)))
             i0 = random.choice(st.get_search_ints(segment, dmind, dtind))
             dm = st.dmarr[dmind]  # TODO: allow off center DM
             dt = st.dtarr[dtind]
             amp = 0.1  # TODO: make this work for sim and real data
-            if np.random.choice(2):  # flip a coin to set either l or m
-                l = np.random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+            if random.choice([0, 1]):  # flip a coin to set either l or m
+                l = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+                m = 0.
             else:
-                m = np.random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
-            self.states[scanId].prefs['simulated_transient'] = [(segment, i0,
-                                                                 dm, dt, amp,
-                                                                 l, m)]
-            mindexed = (elastic.indexmocks(self.inprefs, scanId,
+                l = 0.
+                m = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+            self.states[scanId].prefs.simulated_transient = [(segment, i0,
+                                                              dm, dt, amp,
+                                                              l, m)]
+            mindexed = (elastic.indexmocks(self.states[scanId],
                                            indexprefix=self.indexprefix)
                         if self.indexresults else 0)
             if mindexed:
