@@ -26,8 +26,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     if cl is None:
         if host is None:
             cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"READER": 1, "MEMORY": 24,
-                                               "CORES": 16},
+                                    resources={"READER": 1, "CORES": 16},
                                     local_dir="/lustre/evla/test/realfast/scratch")
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
@@ -75,8 +74,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     saved = []
     if st.fftmode == "fftw":
-        searchresources = {'MEMORY': 2*st.immem+2*st.vismem,
-                           'CORES': st.prefs.nthread}
+        searchresources = {'CORES': st.prefs.nthread}
         imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
                      max(st.get_search_ints(segment, dmind, dtind)))
                       for dtind in range(len(st.dtarr))]
@@ -92,8 +90,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
                 data_corr = cl.submit(search.dedisperseresample, data_prep,
                                       delay, st.dtarr[dtind],
                                       parallel=st.prefs.nthread > 1,
-                                      resources={'MEMORY': 2*st.vismem,
-                                                 'CORES': st.prefs.nthread})
+                                      resources={'CORES': st.prefs.nthread})
 
                 im0, im1 = imgranges[dmind][dtind]
                 integrationlist = [list(range(im0, im1)[i:i+st.chunksize])

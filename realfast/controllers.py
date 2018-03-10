@@ -33,14 +33,6 @@ _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 
-# standards should always have l=0 or m=0
-# list of (seg, i0, dm, dt, amp, l, m)
-_mock_standards = [(0, 1, 20, 0.01, 0.1, 1e-3, 0.),
-                   (0, 1, 20, 0.01, 0.1, -1e-3, 0.),
-                   (0, 1, 20, 0.01, 0.1, 0., 1e-3),
-                   (0, 1, 20, 0.01, 0.1, 0., -1e-3)]
-
-
 class realfast_controller(Controller):
 
     def __init__(self, preffile=None, inprefs={}, host=None, **kwargs):
@@ -55,7 +47,7 @@ class realfast_controller(Controller):
         - nameincludes, a string required to be in datasetId,
         - vys_timeout, factor over real-time for vys reading to wait,
         - vys_sec_per_spec, time in sec to allow for vys reading (overloaded by vys_timeout)
-        - mockprob, chance (range 0-1) that a mock is added,
+        - mockprob, chance (range 0-1) that a mock is added to scan,
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
         - archiveproducts, boolean defining archiving mini-sdm,
@@ -70,7 +62,6 @@ class realfast_controller(Controller):
         super(realfast_controller, self).__init__()
 
         self.inprefs = inprefs  # rfpipe preferences
-        self.mockset = _mock_standards
         if host is None:
             self.client = distributed.Client('{0}:{1}'
                                              .format(_distributed_host,
@@ -79,7 +70,6 @@ class realfast_controller(Controller):
             self.client = distributed.Client(n_workers=1,
                                              threads_per_worker=4,
                                              resources={"READER": 1,
-                                                        "MEMORY": 10,
                                                         "CORES": 4})
 
         self.lock = dask.utils.SerializableLock()
@@ -159,15 +149,13 @@ class realfast_controller(Controller):
 
         summarize(config)
 
-        if 'simulated_transient' not in self.inprefs:
-            self.inject_transient(config.scanId)  # randomly inject mock transient
-
         if search_config(config, nameincludes=self.nameincludes,
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
             self.set_state(config.scanId, config=config, inmeta={'datasource':
                                                                  'vys'})
+            self.inject_transient(config.scanId)  # randomly inject mock transient
 
             if self.indexresults:
                 elastic.indexscan_config(config,
@@ -194,11 +182,10 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
                                       str(sdmscan), str(sdmsubscan))
 
-        if 'simulated_transient' not in self.inprefs:
-            self.inject_transient(scanId)  # randomly inject mock transient
 
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                        inmeta={'datasource': 'sdm'})
+        self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
@@ -223,10 +210,8 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
 
-        if 'simulated_transient' not in self.inprefs:
-            self.inject_transient(scanId)  # randomly inject mock transient
-
         self.set_state(scanId, inmeta=inmeta)
+        self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
             elastic.indexscan_meta(self.states[scanId].metadata,
@@ -455,32 +440,37 @@ class realfast_controller(Controller):
 
     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
-        into each segment. At most one per scanId.
+        into one segment of a scan. Requires state to have been set.
+        Transient should be detectable, but randomly placed in the scan.
         Also pushes mock properties to index.
         """
 
+        assert scanId in self.states, "State must be defined first"
+
         if random.uniform(0, 1) < self.mockprob:
-            mockparams = random.choice(self.mockset)  # pick up to 1 per scanId
-            self.inprefs['simulated_transient'] = [mockparams]
-        elif 'simulated_transient' in self.inprefs:
-            _ = self.inprefs.pop('simulated_transient')
-
-        mindexed = (elastic.indexmocks(self.inprefs, scanId,
-                                       indexprefix=self.indexprefix)
-                    if self.indexresults else 0)
-        if mindexed:
-            logger.info("Indexed {0} mock transient to {1}."
-                        .format(mindexed, self.indexprefix+"mocks"))
-        else:
-            logger.info("Not indexing mock transient.")
-
-#            if self.tags is None:
-#                self.tags = ['mock']
-#            elif 'mock' not in self.tags:
-#                self.tags = self.tags.append('mock')
-#        elif self.tags is not None:
-#            if 'mock' in self.tags:
-#                self.tags = self.tags.remove('mock')
+            st = self.states[scanId].prefs
+            segment = random.choice(st.nsegment)
+            dmind = random.choice(len(st.dmarr))
+            dtind = random.choice(len(st.dtarr))
+            i0 = random.choice(st.get_search_ints(segment, dmind, dtind))
+            dm = st.dmarr[dmind]  # TODO: allow off center DM
+            dt = st.dtarr[dtind]
+            amp = 0.1  # TODO: make this work for sim and real data
+            if np.random.choice(2):  # flip a coin to set either l or m
+                l = np.random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+            else:
+                m = np.random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+            self.states[scanId].prefs['simulated_transient'] = [(segment, i0,
+                                                                 dm, dt, amp,
+                                                                 l, m)]
+            mindexed = (elastic.indexmocks(self.inprefs, scanId,
+                                           indexprefix=self.indexprefix)
+                        if self.indexresults else 0)
+            if mindexed:
+                logger.info("Indexed {0} mock transient to {1}."
+                            .format(mindexed, self.indexprefix+"mocks"))
+            else:
+                logger.info("Not indexing mock transient.")
 
     def removefutures(self, status, keep=False):
         """ Remove jobs with status of 'cancelled'
