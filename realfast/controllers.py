@@ -451,10 +451,9 @@ class realfast_controller(Controller):
             st = self.states[scanId]
             segment = random.choice(range(st.nsegment))
             dmind = random.choice(range(len(st.dmarr)))
-            dtind = random.choice(range(len(st.dtarr)))
-            i0 = random.choice(st.get_search_ints(segment, dmind, dtind))
+            i0 = random.choice(st.get_search_ints(segment, dmind, 0))
             dm = st.dmarr[dmind]  # TODO: allow off center DM
-            dt = st.dtarr[dtind]*st.metadata.inttime
+            dt = random.choice(st.dtarr)*st.metadata.inttime
             amp = 0.1  # TODO: make this work for sim and real data
             if random.choice([0, 1]):  # flip a coin to set either l or m
                 l = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
