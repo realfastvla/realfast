@@ -476,7 +476,7 @@ def reset_indices(indexprefix):
 
     # clearing preferences should save just one to keep mapping working
     index = indexprefix+'preferences'
-    confirm = input("Confirm removal of {0}preferences entries (saving 1)"
+    confirm = input("Confirm removal of {0} entries (saving 1)"
                     .format(index))
     if confirm:
         Ids = get_ids(index)

@@ -454,7 +454,7 @@ class realfast_controller(Controller):
             dtind = random.choice(range(len(st.dtarr)))
             i0 = random.choice(st.get_search_ints(segment, dmind, dtind))
             dm = st.dmarr[dmind]  # TODO: allow off center DM
-            dt = st.dtarr[dtind]
+            dt = st.dtarr[dtind]*st.metadata.inttime
             amp = 0.1  # TODO: make this work for sim and real data
             if random.choice([0, 1]):  # flip a coin to set either l or m
                 l = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
