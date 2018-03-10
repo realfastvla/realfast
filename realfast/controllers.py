@@ -7,7 +7,7 @@ import pickle
 import os.path
 import glob
 import shutil
-import gc
+import math
 import random
 import distributed
 from astropy import time
@@ -456,11 +456,11 @@ class realfast_controller(Controller):
             dt = random.choice(st.dtarr)*st.metadata.inttime
             amp = 0.1  # TODO: make this work for sim and real data
             if random.choice([0, 1]):  # flip a coin to set either l or m
-                l = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+                l = math.radians(random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2))
                 m = 0.
             else:
                 l = 0.
-                m = random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2)
+                m = math.radians(random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2))
             self.states[scanId].prefs.simulated_transient = [(segment, i0,
                                                               dm, dt, amp,
                                                               l, m)]
