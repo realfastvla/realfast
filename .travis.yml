@@ -19,7 +19,7 @@ install:
   - conda config --append channels pkgw-forge 
 
   # install with conda and pip
-  - conda create -n conda pip
+  - conda create -n conda pip "pycosat>=0.6.3"
   - source activate conda
   - conda install -q python=$TRAVIS_PYTHON_VERSION numpy scipy jupyter bokeh cython matplotlib numba astropy pytest setuptools coverage pyfftw
   - conda install -q python=$TRAVIS_PYTHON_VERSION pwkit casa-tools casa-python casa-data
