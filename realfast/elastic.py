@@ -47,7 +47,7 @@ def indexscan_config(config, preferences=None, datasource='vys',
     # if preferences provided, it will connect them by a unique name
     if preferences:
         scandict['prefsname'] = preferences.name
-        indexprefs(preferences)
+        indexprefs(preferences, indexprefix=indexprefix)
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'
@@ -101,7 +101,7 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
     # if preferences provided, it will connect them by a unique name
     if preferences:
         scandict['prefsname'] = preferences.name
-        indexprefs(preferences)
+        indexprefs(preferences, indexprefix=indexprefix)
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'
@@ -146,7 +146,7 @@ def indexscan_meta(metadata, preferences=None, indexprefix=''):
     # if preferences provided, it will connect them by a unique name
     if preferences:
         scandict['prefsname'] = preferences.name
-        indexprefs(preferences)
+        indexprefs(preferences, indexprefix=indexprefix)
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'
