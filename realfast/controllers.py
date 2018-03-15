@@ -33,6 +33,7 @@ _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 
+
 class realfast_controller(Controller):
 
     def __init__(self, preffile=None, inprefs={}, host=None, **kwargs):
