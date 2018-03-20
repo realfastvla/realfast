@@ -103,7 +103,7 @@ def valid_telcalfile(st):
         return False
 
 
-def state_compiles(config=None, inmeta=None, sdmfile=None, sdmscan=None,
+def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                    bdfdir=None, preffile=None, inprefs={}):
     """ Try to compile state
     """
@@ -111,9 +111,9 @@ def state_compiles(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     try:
         st = state.State(inmeta=inmeta, config=config, preffile=preffile,
                          inprefs=inprefs, sdmfile=sdmfile, sdmscan=sdmscan,
-                         bdfdir=bdfdir, showsummary=False)
+                         bdfdir=bdfdir, showsummary=False, validate=True)
         return True
-    except:
+    except AssertionError:
         return False
 
 

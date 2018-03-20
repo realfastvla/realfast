@@ -564,10 +564,10 @@ def search_config(config, preffile=None, inprefs={}, nameincludes=None,
         logger.warn("Only {0} antennas in array".format(len(antnames)))
         return False
 
-    # 6) only if state compiles
-    if not heuristics.state_compiles(config=config, preffile=preffile,
-                                     inprefs=inprefs):
-        logger.warn("State does not compile for scanId {0}"
+    # 6) only if state validates
+    if not heuristics.state_validates(config=config, preffile=preffile,
+                                      inprefs=inprefs):
+        logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
 
