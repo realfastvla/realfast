@@ -439,6 +439,27 @@ class realfast_controller(Controller):
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
 
+    def cleanup_loop(self, timeout=None):
+        """ Clean up until all jobs gone or timeout elapses.
+        """
+
+        if timeout is None:
+            timeout_string = "no "
+        else:
+            timeout_string = "{0} s ".format(timeout)
+
+        logger.info("Cleaning up all futures with {0} timeout"
+                    .format(timeout_string))
+
+        t0 = time.Time.now().unix
+        elapsedtime = time.Time.now().unix - t0
+        badstatuslist = ['cancelled', 'error', 'lost']
+        while len(self.futures):
+            if elapsedtime > timeout:
+                badstatuslist += ['pending']
+            self.cleanup(badstatuslist=badstatuslist)
+            sleep(10)
+
     def inject_transient(self, scanId):
         """ Randomly sets preferences for scan to injects a transient
         into one segment of a scan. Requires state to have been set.
