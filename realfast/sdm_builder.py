@@ -69,7 +69,7 @@ class SDMBuilder(object):
 
     def send(self):
         response_xml = urlopen(self._url).read()
-        if 'error' in response_xml:
+        if b'error' in response_xml:
             self.response = None
         else:
             self.response = objectify.fromstring(response_xml,
