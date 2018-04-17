@@ -628,7 +628,7 @@ def summarize(config):
         dt = 24*3600*(config.stopTime-config.startTime)
         logger.info('\t(StartMJD, duration) = ({0}, {1}s).'
                     .format(config.startTime, round(dt, 1)))
-        logger.info('\t({0}/{1}) ints at (HW/Final) integration time of ({2}/{3}) s'
+        logger.info('\t({0}/{1}) ints at (HW/Final) integration time of ({2:.3f}/{3:.3f}) s'
                     .format(int(round(dt/sb0.hw_time_res)),
                             int(round(dt/sb0.final_time_res)),
                             sb0.hw_time_res, sb0.final_time_res))
