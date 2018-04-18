@@ -104,8 +104,8 @@ class realfast_controller(Controller):
                 setattr(self, attr, kwargs[attr])
 
         if self.indexprefix is None:
-            self.indexprefix = ''
-        assert self.indexprefix in ['', 'test', 'aws'], "indexprefix must be None, '', 'test' or 'aws'."
+            self.indexprefix = 'new'
+        assert self.indexprefix in ['new', 'test', 'aws'], "indexprefix must be None, 'new', 'test' or 'aws'."
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'

@@ -17,7 +17,7 @@ es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
 def indexscan_config(config, preferences=None, datasource='vys',
-                     indexprefix=''):
+                     indexprefix='new'):
     """ Takes scan config and creates dict to push
     to elasticsearch scnas index.
     Optionally pushes rfpipe preferences object as separate doc
@@ -25,7 +25,7 @@ def indexscan_config(config, preferences=None, datasource='vys',
     Note index names must end in s and types are derived as singular form.
     datasource is assumed to be 'vys', but 'sim' is an option.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
     scandict = {}
@@ -61,10 +61,10 @@ def indexscan_config(config, preferences=None, datasource='vys',
 
 
 def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
-                  datasource='sdm', indexprefix=''):
+                  datasource='sdm', indexprefix='new'):
     """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
 # must include:
@@ -113,10 +113,10 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
         logger.warn('Scan config not indexed for {0}'.format(scanId))
 
 
-def indexscan_meta(metadata, preferences=None, indexprefix=''):
+def indexscan_meta(metadata, preferences=None, indexprefix='new'):
     """ Takes metadata object and pushes to elasticsearch scans index.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
 # must include:
@@ -159,10 +159,10 @@ def indexscan_meta(metadata, preferences=None, indexprefix=''):
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
-def indexprefs(preferences, indexprefix=''):
+def indexprefs(preferences, indexprefix='new'):
     """ Index preferences with id equal to hash of contents.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
     index = indexprefix+'preferences'
@@ -176,7 +176,7 @@ def indexprefs(preferences, indexprefix=''):
 
 
 def indexcands(candcollection, scanId, tags=None, url_prefix=None,
-               indexprefix=''):
+               indexprefix='new'):
     """ Takes candidate collection and pushes to index
     Connects to preferences via hashed name
     scanId is added to associate cand to a give scan.
@@ -184,7 +184,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     datasetId dot scanNo dot subscanNo.
     tags is a comma-delimited string used to fill tag field in index.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
     if tags is None:
@@ -252,11 +252,11 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     return res
 
 
-def indexmocks(st, indexprefix=''):
+def indexmocks(st, indexprefix='new'):
     """ Reads simulated_transient from state and pushes to index
     Mock index must include scanId to reference data that was received.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
     """
 
     if st.prefs.simulated_transient is None:
@@ -291,7 +291,7 @@ def indexmocks(st, indexprefix=''):
     return res
 
 
-def indexnoises(noisefile, scanId, indexprefix=''):
+def indexnoises(noisefile, scanId, indexprefix='new'):
     """ Reads noises from noisefile and pushes to index
     scanId is added to associate cand to a give scan.
     indexprefix allows specification of set of indices ('test', 'aws').
@@ -456,7 +456,7 @@ def remove_ids(index, **kwargs):
 def reset_indices(indexprefix):
     """ Remove entries from set of indices with a given indexprefix.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
+    Use indexprefix='new' for production.
 
     *BE SURE YOU KNOW WHAT YOU ARE DOING*
     """
@@ -484,3 +484,10 @@ def reset_indices(indexprefix):
         for Id in Ids[1:]:
             res += pushdata({}, index, Id, command='delete')
         logger.info("Removed {0} docs from index {1}".format(res, index))
+
+
+def find_consensus(indexprefix='new', nop=2):
+    """ Pull candidates with at least nop user tag fields to find consensus.
+    """
+
+    pass
