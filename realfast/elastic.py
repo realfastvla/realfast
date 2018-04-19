@@ -188,16 +188,14 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     """
 
     if tags is None:
-        tags = 'new'
+        tags = ''
 
     index = indexprefix+'cands'
 
     # create new tag string with standard format to fill in blanks
-    allowed_tags = ["new", "rfi", "bad", "noise", "needs flagging",
-                    "needs review", "interesting", "pulsar", "frb", "mock",
-                    "public"]
-    tagstr = ','.join([tag if tag in tags.split(',') else '_'
-                       for tag in allowed_tags])
+    allowed_tags = ["rfi", "bad", "noise", "interesting", "astrophysical",
+                    "mock"]
+    tagstr = ','.join([tag for tag in tags.split(',') if tag in allowed_tags])
 
     candarr = candcollection.array
     prefs = candcollection.prefs
@@ -217,6 +215,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['scan'] = int(scan)
         canddict['subscan'] = int(subscan)
         canddict['tags'] = tagstr
+        canddict['tagcount'] = 0
         canddict['candmjd'] = float(candmjd[i])
         canddict['canddm'] = float(canddm[i])
         canddict['canddt'] = float(canddt[i])
@@ -489,5 +488,8 @@ def reset_indices(indexprefix):
 def find_consensus(indexprefix='new', nop=2):
     """ Pull candidates with at least nop user tag fields to find consensus.
     """
+
+    # should copy existing tags and user tags fields
+    # also should update tags field with action on underlying data
 
     pass

@@ -44,7 +44,7 @@ class realfast_controller(Controller):
         host allows specification of 'localhost' for distributed client.
 
         kwargs can include:
-        - tags, a comma-delimited string for cands to index (None -> "new"),
+        - tags, a comma-delimited string for cands to index
         - nameincludes, a string required to be in datasetId,
         - vys_timeout, factor over real-time for vys reading to wait,
         - vys_sec_per_spec, time in sec to allow for vys reading (overloaded by vys_timeout)
