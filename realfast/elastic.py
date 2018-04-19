@@ -223,18 +223,10 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         if prefs.name:
             canddict['prefsname'] = prefs.name
 
-        if 'snr2' in candarr.dtype.names:
-            snr = candarr[i]['snr2']
-        elif 'snr1' in candarr.dtype.names:
-            snr = candarr[i]['snr1']
-        else:
-            logger.warn("Neither snr1 nor snr2 in field names. Not pushing.")
-            snr = -999
-
         # create id
         uniqueid = candid(canddict)
         candidate_png = 'cands_{0}.png'.format(uniqueid)
-        if snr >= prefs.sigma_plot and os.path.exists(candidate_png):
+        if os.path.exists(candidate_png):
                 logger.debug("Found png {0} and setting cands index field"
                              .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
