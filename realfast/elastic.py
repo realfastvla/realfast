@@ -4,8 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import os.path
-from elasticsearch import Elasticsearch, RequestError
-from elasticsearch import helpers
+from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 import pickle
 import logging
 logging.getLogger('elasticsearch').setLevel(30)
@@ -452,10 +451,46 @@ def remove_ids(index, **kwargs):
     logger.info("Removed {0} docs from index {1}".format(res, index))
 
 
-def reset_indices(indexprefix):
+def create_indices(indexprefix):
+    """ Create standard set of indices,
+    cands, scans, preferences, mocks, noises
+    """
+
+    body = {"settings": {
+                "analysis": {
+                    "analyzer": {
+                        "default": {"tokenizer": "whitespace"}
+                        }
+                    }
+                },
+            }
+
+    body_preferences = body.copy()
+    body_preferences['mappings'] = {indexprefix+"preference": {
+                                     "properties": {
+                                       "flaglist": {"type":  "text"}
+                                       }
+                                     }
+                                    }
+
+    indices = ['scans', 'cands', 'preferences', 'mocks', 'noises']
+    for index in indices:
+        fullindex = indexprefix+index
+        if es.indices.exists(index=fullindex):
+            confirm = input("Index {0} exists. Delete?".format(fullindex))
+            if confirm:
+                es.indices.delete(index=fullindex)
+        if index != 'preferences':
+            es.indices.create(index=fullindex, body=body)
+        else:
+            es.indices.create(index=fullindex, body=body_preferences)
+
+
+def reset_indices(indexprefix, deleteindices=False):
     """ Remove entries from set of indices with a given indexprefix.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='new' for production.
+    deleteindices will delete indices, too.
 
     *BE SURE YOU KNOW WHAT YOU ARE DOING*
     """
@@ -464,29 +499,25 @@ def reset_indices(indexprefix):
                 .format(indexprefix))
 
     for index in [indexprefix+'noises', indexprefix+'mocks',
-                  indexprefix+'cands', indexprefix+'scans']:
+                  indexprefix+'cands', indexprefix+'scans',
+                  indexprefix+'preferences']:
         confirm = input("Confirm removal of {0} entries"
                         .format(index))
         res = 0
         if confirm:
-            Ids = get_ids(index)
-            for Id in Ids:
-                res += pushdata({}, index, Id, command='delete')
-        logger.info("Removed {0} docs from index {1}".format(res, index))
-
-    # clearing preferences should save just one to keep mapping working
-    index = indexprefix+'preferences'
-    confirm = input("Confirm removal of {0} entries (saving 1)"
-                    .format(index))
-    if confirm:
-        Ids = get_ids(index)
-        res = 0
-        for Id in Ids[1:]:
-            res += pushdata({}, index, Id, command='delete')
-        logger.info("Removed {0} docs from index {1}".format(res, index))
+            try:
+                Ids = get_ids(index)
+                for Id in Ids:
+                    res += pushdata({}, index, Id, command='delete')
+                logger.info("Removed {0} docs from index {1}".format(res, index))
+                if deleteindices:
+                    es.indices.delete(index)
+                    logger.info("Removed {0} index".format(index))
+            except TransportError:
+                logger.info("Index {0} does not exist".format(index))
 
 
-def move_doc(index1, index2, Id):
+def move_doc(index1, index2, Id, deleteorig=True):
     """ Take doc in index1 with Id and move to index2
     """
 
@@ -500,47 +531,14 @@ def move_doc(index1, index2, Id):
                    body=doc['_source'])
 
     if res['_shards']['successful']:
-        es.delete(index=index1, doc_type=doc_type1, id=Id)
+        if deleteorig:
+            es.delete(index=index1, doc_type=doc_type1, id=Id)
     else:
-        logger.warn("Could not move {0} from index {1} to {2}".format(Id,
+        logger.warn("Move of {0} from index {1} to {2} failed".format(Id,
                                                                       index1,
                                                                       index2))
 
     return res['_shards']['successful']
-
-
-def create_indices(indexprefix):
-    """ Create standard set of indices,
-    cands, scans, preferences, mocks, noises
-    """
-
-    body = {"settings": {
-        "analysis": {
-            "analyzer": {
-                "my_analyzer": {
-                    "tokenizer": "my_tokenizer"
-                    }
-                },
-                "tokenizer": {
-                    "my_tokenizer": {
-                    "type": "whitespace",
-                    "max_token_length": 256
-                    }
-                }
-            }
-        }
-    }
-
-    indices = ['scans', 'cands', 'preferences', 'mocks', 'noises']
-    for index in indices:
-        if elasticsearch.client.exists(index=indexprefix+index):
-            confirm = input("Index {0} exists. Delete?")
-            if confirm:
-                elasticsearch.client.delete(index=indexprefix+index)
-        elasticsearch.client.create(index=indexprefix+index, doc_type=doc_type, body=body)
-
-    # TODO: add initial fill of preferences with flaglist working
-    # or just set mappings such that it works off the bat?
 
 
 def find_docids(indexprefix, candId=None, scanId=None):
@@ -553,13 +551,15 @@ def find_docids(indexprefix, candId=None, scanId=None):
         - mocks indexed by scanId (has scanId field)
         - noises indexed by noiseId (has scanId field)
     """
+
+    docids = {}
+
     if candId is not None and scanId is None:
         index = indexprefix + 'cands'
         doc_type = index.rstrip('s')
 
         doc = es.get(index=index, doc_type=doc_type, id=candId)
 
-    docids = {}
     if scanId is not None and candId is None:
         # use scanId to get ids with one-to-many mapping
         for ind in ['cands', 'mocks', 'noises']:
@@ -575,6 +575,20 @@ def find_docids(indexprefix, candId=None, scanId=None):
         docids[index] = [prefsname]
 
     return docids
+
+
+def move_docs(indexprefix1, indexprefix2, candids):
+    """ Given candids, move *all* docs from indexprefix1 to indexprefix2.
+    This will find all 
+    """
+
+    for Id in candids:
+        docids = find_docids(indexprefix=indexprefix1, candId=Id)
+        for index, Id0 in docids:
+            index2 = indexprefix2 + index.lstrip(indexprefix1)
+            move_doc(index, index2, Id0)
+
+    # TODO: don't move preferences, since they may have other scanids associated with them. Just copy.
 
 
 def find_consensus(indexprefix='new', nop=3):
@@ -595,17 +609,3 @@ def find_consensus(indexprefix='new', nop=3):
         tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
         logger.info("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
 #       build dict of ids with agreeing tags and disagreeing tags
-
-
-def move_docs(indexprefix1, indexprefix2, candids):
-    """ Given candids, move *all* docs from indexprefix1 to indexprefix2.
-    This will find all 
-    """
-
-    for Id in candids:
-        docids = find_docids(indexprefix=indexprefix1, candId=Id)
-        for index, Id0 in docids:
-            index2 = indexprefix2 + index.lstrip(indexprefix1)
-            move_doc(index, index2, Id0)
-
-    # TODO: don't move preferences, since they may have other scanids associated with them. Just copy.
