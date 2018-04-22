@@ -376,33 +376,6 @@ def candid(data):
                     data['dmind'], data['dtind']))
 
 
-def get_ids(index, **kwargs):
-    """ Gets Ids from an index
-    doc_type derived from index name (one per index)
-    Can optionally pass key-value pairs of field-string to search.
-    Must match exactly (e.g., "scanId"="test.1.1")
-    """
-
-    # only one doc_type per index and its name is derived from index
-    doc_type = index.rstrip('s')
-    if 'field' in kwargs:
-        field = kwargs.pop('field')
-    else:
-        field = 'false'
-
-    if len(kwargs):
-        query = {"query": {"match": kwargs}, "_source": field}
-    else:
-        query = {"query": {"match_all": {}}, "_source": field}
-
-    res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
-
-    if field == 'false':
-        return [hit['_id'] for hit in res]
-    else:
-        return [(hit['_id'], hit['_source'][field]) for hit in res]
-
-
 def update_field(index, field, value, **kwargs):
     """ Replace an index's field with a value.
     Optionally query the index with kwargs.
@@ -449,6 +422,128 @@ def remove_ids(index, **kwargs):
         res += pushdata({}, index, Id, command='delete')
 
     logger.info("Removed {0} docs from index {1}".format(res, index))
+
+
+def get_ids(index, **kwargs):
+    """ Gets Ids from an index
+    doc_type derived from index name (one per index)
+    Can optionally pass key-value pairs of field-string to search.
+    Must match exactly (e.g., "scanId"="test.1.1")
+    """
+
+    # only one doc_type per index and its name is derived from index
+    doc_type = index.rstrip('s')
+    if 'field' in kwargs:
+        field = kwargs.pop('field')
+    else:
+        field = 'false'
+
+    if len(kwargs):
+        query = {"query": {"match": kwargs}, "_source": field}
+    else:
+        query = {"query": {"match_all": {}}, "_source": field}
+
+    res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
+
+    if field == 'false':
+        return [hit['_id'] for hit in res]
+    else:
+        return [(hit['_id'], hit['_source'][field]) for hit in res]
+
+
+def move_doc(index1, index2, Id, deleteorig=True):
+    """ Take doc in index1 with Id and move to index2
+    """
+
+    assert 'final' not in index1
+
+    doc_type1 = index1.rstrip('s')
+    doc_type2 = index2.rstrip('s')
+
+    doc = es.get(index=index1, doc_type=doc_type1, id=Id)
+    res = es.index(index=index2, doc_type=doc_type2, id=Id,
+                   body=doc['_source'])
+
+    if res['_shards']['successful']:
+        if deleteorig:
+            es.delete(index=index1, doc_type=doc_type1, id=Id)
+    else:
+        logger.warn("Move of {0} from index {1} to {2} failed".format(Id,
+                                                                      index1,
+                                                                      index2))
+
+    return res['_shards']['successful']
+
+
+def move_docs(indexprefix1, indexprefix2, candids):
+    """ Given candids, move *all* docs from indexprefix1 to indexprefix2.
+    This will find all 
+    """
+
+    for Id in candids:
+        docids = find_docids(indexprefix=indexprefix1, candId=Id)
+        for index, Id0 in docids:
+            index2 = indexprefix2 + index.lstrip(indexprefix1)
+            move_doc(index, index2, Id0)
+
+    # TODO: don't move preferences, since they may have other scanids associated with them. Just copy.
+
+
+def find_docids(indexprefix, candId=None, scanId=None):
+    """ Use id from one index to find ids of others (like a relational db).
+    Returns a dict with keys of the index name and values of the related ids.
+    A full index set has:
+        - cands indexed by candId (has scanId field)
+        - scans indexed by scanId
+        - preferences indexed by preferences name (in scans index)
+        - mocks indexed by scanId (has scanId field)
+        - noises indexed by noiseId (has scanId field)
+    """
+
+    docids = {}
+
+    if candId is not None and scanId is None:
+        index = indexprefix + 'cands'
+        doc_type = index.rstrip('s')
+
+        doc = es.get(index=index, doc_type=doc_type, id=candId)
+        raise NotImplementedError
+
+    if scanId is not None and candId is None:
+        # use scanId to get ids with one-to-many mapping
+        for ind in ['cands', 'mocks', 'noises']:
+            index = indexprefix + ind
+            ids = get_ids(index, scanId=scanId)
+            docids[index] = ids
+
+        # get prefsname from scans index
+        index = indexprefix + 'scans'
+        docids[index] = [scanId]
+        prefsname = es.get(index=index, doc_type=index.rstrip('s'), id=scanId)['_source']['prefsname']
+        index = indexprefix + 'preferences'
+        docids[index] = [prefsname]
+
+    return docids
+
+
+def find_consensus(indexprefix='new', nop=3):
+    """ Pull candidates with at least nop user tag fields to find consensus.
+    """
+
+    # should copy existing tags and user tags fields
+    # also should update tags field with action on underlying data
+
+    assert indexprefix != 'final'
+    index = indexprefix+'cands'
+    doc_type = index.rstrip('s')
+
+    ids = get_ids(index, tagcount=nop)
+
+    for Id in ids:
+        doc = es.get(index=index, doc_type=doc_type, id=Id)
+        tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+        logger.info("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
+#       build dict of ids with agreeing tags and disagreeing tags
 
 
 def create_indices(indexprefix):
@@ -517,95 +612,3 @@ def reset_indices(indexprefix, deleteindices=False):
                 logger.info("Index {0} does not exist".format(index))
 
 
-def move_doc(index1, index2, Id, deleteorig=True):
-    """ Take doc in index1 with Id and move to index2
-    """
-
-    assert 'final' not in index1
-
-    doc_type1 = index1.rstrip('s')
-    doc_type2 = index2.rstrip('s')
-
-    doc = es.get(index=index1, doc_type=doc_type1, id=Id)
-    res = es.index(index=index2, doc_type=doc_type2, id=Id,
-                   body=doc['_source'])
-
-    if res['_shards']['successful']:
-        if deleteorig:
-            es.delete(index=index1, doc_type=doc_type1, id=Id)
-    else:
-        logger.warn("Move of {0} from index {1} to {2} failed".format(Id,
-                                                                      index1,
-                                                                      index2))
-
-    return res['_shards']['successful']
-
-
-def find_docids(indexprefix, candId=None, scanId=None):
-    """ Use id from one index to find ids of others (like a relational db).
-    Returns a dict with keys of the index name and values of the related ids.
-    A full index set has:
-        - cands indexed by candId (has scanId field)
-        - scans indexed by scanId
-        - preferences indexed by preferences name (in scans index)
-        - mocks indexed by scanId (has scanId field)
-        - noises indexed by noiseId (has scanId field)
-    """
-
-    docids = {}
-
-    if candId is not None and scanId is None:
-        index = indexprefix + 'cands'
-        doc_type = index.rstrip('s')
-
-        doc = es.get(index=index, doc_type=doc_type, id=candId)
-
-    if scanId is not None and candId is None:
-        # use scanId to get ids with one-to-many mapping
-        for ind in ['cands', 'mocks', 'noises']:
-            index = indexprefix + ind
-            ids = get_ids(index, _id=scanId)
-            docids[index] = ids
-
-        # get prefsname from scans index
-        index = indexprefix + 'scans'
-        docids[index] = [scanId]
-        _, prefsname = get_ids(index, _id=scanId, field='prefsname')[0]
-        index = indexprefix + 'preferences'
-        docids[index] = [prefsname]
-
-    return docids
-
-
-def move_docs(indexprefix1, indexprefix2, candids):
-    """ Given candids, move *all* docs from indexprefix1 to indexprefix2.
-    This will find all 
-    """
-
-    for Id in candids:
-        docids = find_docids(indexprefix=indexprefix1, candId=Id)
-        for index, Id0 in docids:
-            index2 = indexprefix2 + index.lstrip(indexprefix1)
-            move_doc(index, index2, Id0)
-
-    # TODO: don't move preferences, since they may have other scanids associated with them. Just copy.
-
-
-def find_consensus(indexprefix='new', nop=3):
-    """ Pull candidates with at least nop user tag fields to find consensus.
-    """
-
-    # should copy existing tags and user tags fields
-    # also should update tags field with action on underlying data
-
-    assert indexprefix != 'final'
-    index = indexprefix+'cands'
-    doc_type = index.rstrip('s')
-
-    ids = get_ids(index, tagcount=nop)
-
-    for Id in ids:
-        doc = es.get(index=index, doc_type=doc_type, id=Id)
-        tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
-        logger.info("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
-#       build dict of ids with agreeing tags and disagreeing tags
