@@ -15,6 +15,10 @@ logger.setLevel(10)
 es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 
 
+###
+# Indexing stuff
+###
+
 def indexscan_config(config, preferences=None, datasource='vys',
                      indexprefix='new'):
     """ Takes scan config and creates dict to push
@@ -320,6 +324,10 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     return count
 
 
+###
+# Managing elasticsearch documents
+###
+
 def pushdata(datadict, index, Id=None, command='index', force=False):
     """ Pushes dict to index, which can be:
     candidates, scans, preferences, or noises
@@ -451,8 +459,138 @@ def get_ids(index, **kwargs):
         return [(hit['_id'], hit['_source'][field]) for hit in res]
 
 
-def move_doc(index1, index2, Id, deleteorig=True):
+###
+# Migrating docs from 'new' to 'final' after tagging
+###
+
+def move_docs(indexprefix1='new', indexprefix2='final',
+              consensustype='majority', nop=3):
+    """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
+    """
+
+    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
+                              consensustype=consensustype)
+
+    for candId, tags in consensus.iteritems():
+        # first move candId
+        result = copy_doc(indexprefix1+'cands', indexprefix2+'cands', candId,
+                          deleteorig=True)
+        if result:
+            logger.info("Moved candId {0} from {1} to {2}"
+                        .format(candId, indexprefix1, indexprefix2))
+
+            # pushdata
+            # TODO: update candId with new "tags" reflecting consensus and final tag set ('archived', 'deleted')
+
+            # then check remaining docs
+            docids = find_docids(indexprefix=indexprefix1, candId=candId)
+
+            # if no candIds remain, then move remaining docs
+            if len(docids[indexprefix1+'cands']) == 0:
+                logger.info("{0} is last candidate in its scan. Moving associated docs."
+                            .format(candId))
+                for index1, Id0 in docids:
+                    index2 = indexprefix2 + index1.lstrip(indexprefix1)
+
+                    copy_doc(index1, index2, Id0)
+                    # TODO: define criteria for removing docs from indexprefix1
+        else:
+            logger.info("Failed move of CandId {0} from {1} to {2}"
+                        .format(candId, indexprefix1, indexprefix2))
+
+
+def find_docids(indexprefix, candId=None, scanId=None):
+    """ Given a candId or scanId, find all associated docs.
+    Finds relations based on scanId, which ties all docs together.
+    Returns a dict with keys of the index name and values of the related ids.
+    A full index set has:
+        - cands indexed by candId (has scanId field)
+        - scans indexed by scanId
+        - preferences indexed by preferences name (in scans index)
+        - mocks indexed by scanId (has scanId field)
+        - noises indexed by noiseId (has scanId field)
+    """
+
+    docids = {}
+
+    # option 1: give a candId to get scanId and then other docs
+    if candId is not None and scanId is None:
+        index = indexprefix + 'cands'
+        doc_type = index.rstrip('s')
+
+        doc = es.get(index=index, doc_type=doc_type, id=candId)
+        scanId = doc['_source']['scanId']
+
+    # option 2: use scanId given as argument or from above
+    if scanId is not None:
+        # use scanId to get ids with one-to-many mapping
+        for ind in ['cands', 'mocks', 'noises']:
+            index = indexprefix + ind
+            ids = get_ids(index, scanId=scanId)
+            docids[index] = ids
+
+        # get prefsname from scans index
+        index = indexprefix + 'scans'
+        docids[index] = [scanId]
+        prefsname = es.get(index=index, doc_type=index.rstrip('s'), id=scanId)['_source']['prefsname']
+        index = indexprefix + 'preferences'
+        docids[index] = [prefsname]
+
+    return docids
+
+
+def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
+                  res='consensus'):
+    """ Get candidtes with consensus over at least nop user tag fields.
+    Argument consensustype: "absolute" (all agree), "majority" (most agree).
+    Returns dicts with either consensus and noconsensus candidates.
+    This includes original user tags plus new "tags" field with data state.
+    """
+
+    assert consensustype in ["absolute", "majority"]
+    assert res in ["consensus", "noconsensus"]
+    assert indexprefix != 'final'
+
+    index = indexprefix+'cands'
+    doc_type = index.rstrip('s')
+
+    ids = []
+    for n in range(nop, 10):  # do not expect more than 10 voters
+        ids += get_ids(index=index, tagcount=nop)
+
+    consensus = {}
+    noconsensus = {}
+    for Id in ids:
+        doc = es.get(index=index, doc_type=doc_type, id=Id)
+        tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+        logger.debug("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
+        vals = list(tags.values())
+
+        # add Id and tags to dict according to consensus opinion
+        if consensustype == 'absolute':
+            if all([vals[0] == val for val in vals]):
+                consensus[Id]= tags
+            else:
+                noconsensus[Id] = tags
+        elif consensustype == 'majority':
+            majlist = [list(filter(lambda x: x == val0, vals)) for val0 in vals]
+            # TODO: redo for each tag independently?
+            if any([len(maj) >= len(vals)//2+1 for maj in majlist]):
+                consensus[Id] = tags
+                # TODO: add majority tag to new "tags" field in final index
+                # TODO: add datastate to final tag set ('archived', 'deleted')
+            else:
+                noconsensus[Id] = tags
+
+    if res == 'consensus':
+        return consensus
+    elif res == 'noconsensus':
+        return noconsensus
+
+
+def copy_doc(index1, index2, Id, deleteorig=False):
     """ Take doc in index1 with Id and move to index2
+    Default is to copy, but option exists to "move" by deleting original.
     """
 
     assert 'final' not in index1
@@ -475,76 +613,9 @@ def move_doc(index1, index2, Id, deleteorig=True):
     return res['_shards']['successful']
 
 
-def move_docs(indexprefix1, indexprefix2, candids):
-    """ Given candids, move *all* docs from indexprefix1 to indexprefix2.
-    This will find all 
-    """
-
-    for Id in candids:
-        docids = find_docids(indexprefix=indexprefix1, candId=Id)
-        for index, Id0 in docids:
-            index2 = indexprefix2 + index.lstrip(indexprefix1)
-            move_doc(index, index2, Id0)
-
-    # TODO: don't move preferences, since they may have other scanids associated with them. Just copy.
-
-
-def find_docids(indexprefix, candId=None, scanId=None):
-    """ Use id from one index to find ids of others (like a relational db).
-    Returns a dict with keys of the index name and values of the related ids.
-    A full index set has:
-        - cands indexed by candId (has scanId field)
-        - scans indexed by scanId
-        - preferences indexed by preferences name (in scans index)
-        - mocks indexed by scanId (has scanId field)
-        - noises indexed by noiseId (has scanId field)
-    """
-
-    docids = {}
-
-    if candId is not None and scanId is None:
-        index = indexprefix + 'cands'
-        doc_type = index.rstrip('s')
-
-        doc = es.get(index=index, doc_type=doc_type, id=candId)
-        raise NotImplementedError
-
-    if scanId is not None and candId is None:
-        # use scanId to get ids with one-to-many mapping
-        for ind in ['cands', 'mocks', 'noises']:
-            index = indexprefix + ind
-            ids = get_ids(index, scanId=scanId)
-            docids[index] = ids
-
-        # get prefsname from scans index
-        index = indexprefix + 'scans'
-        docids[index] = [scanId]
-        prefsname = es.get(index=index, doc_type=index.rstrip('s'), id=scanId)['_source']['prefsname']
-        index = indexprefix + 'preferences'
-        docids[index] = [prefsname]
-
-    return docids
-
-
-def find_consensus(indexprefix='new', nop=3):
-    """ Pull candidates with at least nop user tag fields to find consensus.
-    """
-
-    # should copy existing tags and user tags fields
-    # also should update tags field with action on underlying data
-
-    assert indexprefix != 'final'
-    index = indexprefix+'cands'
-    doc_type = index.rstrip('s')
-
-    ids = get_ids(index, tagcount=nop)
-
-    for Id in ids:
-        doc = es.get(index=index, doc_type=doc_type, id=Id)
-        tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
-        logger.info("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
-#       build dict of ids with agreeing tags and disagreeing tags
-
+###
+# Set up indices
+###
 
 def create_indices(indexprefix):
     """ Create standard set of indices,
@@ -610,5 +681,3 @@ def reset_indices(indexprefix, deleteindices=False):
                     logger.info("Removed {0} index".format(index))
             except TransportError:
                 logger.info("Index {0} does not exist".format(index))
-
-
