@@ -265,6 +265,7 @@ def indexmocks(st, indexprefix='new'):
         mockdict = {}
         mockdict['scanId'] = scanId
         (seg, i0, dm, dt, amp, l, m) = mock
+        # TODO: support possible ampslope
         mockdict['segment'] = int(seg)
         mockdict['integration'] = int(i0)
         mockdict['dm'] = float(dm)

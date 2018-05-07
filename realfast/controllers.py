@@ -7,14 +7,13 @@ import pickle
 import os.path
 import glob
 import shutil
-import math
 import random
 import distributed
 from astropy import time
 from time import sleep
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates
+from rfpipe import state, preferences, candidates, util
 from realfast import pipeline, elastic, sdm_builder, heuristics
 
 import logging
@@ -471,7 +470,8 @@ class realfast_controller(Controller):
 
         if random.uniform(0, 1) < self.mockprob:
             st = self.states[scanId]
-            self.states[scanId].prefs.simulated_transient = make_transient(st)
+            # TODO: consider how to generalize for ampslope
+            self.states[scanId].prefs.simulated_transient = util.make_transient(st)
             mindexed = (elastic.indexmocks(self.states[scanId],
                                            indexprefix=self.indexprefix)
                         if self.indexresults else 0)
@@ -517,26 +517,6 @@ class realfast_controller(Controller):
         """
 
         logger.info('End of scheduling block message received.')
-
-
-def make_transient(st):
-    """ Given a state, create a randomized transient that is detectable.
-    """
-
-    segment = random.choice(range(st.nsegment))
-    dmind = random.choice(range(len(st.dmarr)))
-    i0 = random.choice(st.get_search_ints(segment, dmind, 0))
-    dm = st.dmarr[dmind]  # TODO: allow off center DM
-    dt = random.choice(st.dtarr)*st.metadata.inttime
-    amp = 0.1  # TODO: make this work for sim and real data
-    if random.choice([0, 1]):  # flip a coin to set either l or m
-        l = math.radians(random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2))
-        m = 0.
-    else:
-        l = 0.
-        m = math.radians(random.uniform(-st.fieldsize_deg/2, st.fieldsize_deg/2))
-
-    return [(segment, i0, dm, dt, amp, l, m)]
 
 
 def search_config(config, preffile=None, inprefs={}, nameincludes=None,
