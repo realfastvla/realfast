@@ -344,17 +344,21 @@ class realfast_controller(Controller):
                             if (futures['candcollection'].status == 'finished') and
                                (scanId0 == scanId)]
 
-            # one candcollection per segment
+            # trying to improve len(cc) scheulding. not working yet.
+#            ncands_finished = self.client.map(lambda x: (finishedlist.index(x),
+#                                                         len(x['candcollection'])),
+#                                              finishedlist)
             for futures in finishedlist:
-
-                # index cands
-                # option 1: pull results over
+#            for _, results in distributed.as_completed(ncands_finished,
+#                                                       with_results=True):
+                # indexing cands option 1: pull results over
                 candcollection = futures['candcollection'].result()
                 ncands = len(candcollection)
-                # option 2: check in place (kinda requires multi-thread gpu workers)
-                # if ncands.result():
+                # option 2: check in place (requires nogil gpu workers)
+#                ncands, futures = results
+#                logger.info("{0} {1}".format(ncands, futures))
                 if ncands:
-#                    candcollection = futures['candcollection'].result()
+                    candcollection = futures['candcollection'].result()
                     if self.indexresults:
                         res = elastic.indexcands(candcollection, scanId,
                                                  tags=self.tags,

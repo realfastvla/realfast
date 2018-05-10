@@ -26,7 +26,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     if cl is None:
         if host is None:
             cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"READER": 1, "CORES": 16},
+                                    resources={"READER": 1}, # "CORES": 16},
                                     local_dir="/lustre/evla/test/realfast/scratch")
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
@@ -68,29 +68,27 @@ def pipeline_seg(st, segment, cl, cfile=None,
     futures['data'] = data  # save future
 
     # TODO: put this on READER worker?
-    data_prep = cl.submit(source.data_prep, st, segment, data,
-                          resources={'CORES': st.prefs.nthread},
-                          priority=1)
+    data_prep = cl.submit(source.data_prep, st, segment, data, priority=1)
 
     saved = []
     if st.fftmode == "fftw":
-        searchresources = {'CORES': st.prefs.nthread}
+#        searchresources = {'CORES': st.prefs.nthread}
         imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
                      max(st.get_search_ints(segment, dmind, dtind)))
                       for dtind in range(len(st.dtarr))]
                      for dmind in range(len(st.dmarr))]
-        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy,
-                           resources={'CORES': 1})
+        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy)
+#                           resources={'CORES': 1})
 
         for dmind in range(len(st.dmarr)):
             delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                              st.dmarr[dmind], st.inttime,
-                              resources={'CORES': 1})
+                              st.dmarr[dmind], st.inttime)
+#                              resources={'CORES': 1})
             for dtind in range(len(st.dtarr)):
                 data_corr = cl.submit(search.dedisperseresample, data_prep,
                                       delay, st.dtarr[dtind],
-                                      parallel=st.prefs.nthread > 1,
-                                      resources={'CORES': st.prefs.nthread})
+                                      parallel=st.prefs.nthread > 1)
+#                                      resources={'CORES': st.prefs.nthread})
 
                 im0, im1 = imgranges[dmind][dtind]
                 integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
@@ -99,18 +97,18 @@ def pipeline_seg(st, segment, cl, cfile=None,
                     saved.append(cl.submit(search.search_thresh_fftw, st,
                                            segment, data_corr, dmind, dtind,
                                            integrations=integrations,
-                                           wisdom=wisdom,
-                                           resources=searchresources))
-        candcollection = cl.submit(mergelists, saved, resources={'CORES': 1},
-                                   priority=2)
+                                           wisdom=wisdom))
+#                                           resources=searchresources))
+        candcollection = cl.submit(mergelists, saved, priority=2)
+        # resources={'CORES': 1},
 
     elif st.fftmode == "cuda":
         for dmind in range(len(st.dmarr)):
             candcollection = cl.submit(search.dedisperse_image_cuda, st,
                                        segment, data_prep, dmind,
-                                       resources={'GPU': 1,
-                                                  'CORES': st.prefs.nthread},
+                                       resources={'GPU': 1},
                                        priority=2)
+#                                                  'CORES': st.prefs.nthread},
 
     futures['candcollection'] = candcollection
     # TODO: incorporate saving of candcollection (as in prep_and_search function)
@@ -147,8 +145,8 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
         # search data
         candcollection = delayed(search.prep_and_search)(st, segment, data)
-        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
-                                                            'CORES': st.prefs.nthread}
+        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1}
+#                                                            'CORES': st.prefs.nthread}
 
         # using submit with worker_client
 #        data = cl.submit(read_segment, st, segment, cfile, vys_timeout,
