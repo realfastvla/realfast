@@ -114,13 +114,13 @@ class realfast_controller(Controller):
     def statuses(self):
         return ['{0}, {1}: {2}'.format(scanId, future.status)
                 for (scanId, futurelist) in iteritems(self.futures)
-                for future, ncands in futurelist]
+                for future in futurelist]
 
     @property
     def errors(self):
         return ['{0}, {1}: {2}'.format(scanId, futures.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
-                for future, ncands in futurelist
+                for future in futurelist
                 if future.status == 'error']
 
     @property
@@ -316,9 +316,7 @@ class realfast_controller(Controller):
                                              memreq=w_memlim)
 
         if len(futures):
-            ncands_fut = self.client.map(lambda x: len(x[2]), futures)
-            # given scanId has a tuple of (search future, ncands_future) per segment
-            self.futures[st.metadata.scanId] = list(zip(futures, ncands_fut))
+            self.futures[st.metadata.scanId] = futures
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
@@ -337,15 +335,17 @@ class realfast_controller(Controller):
 
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are done
-            finishedlist = [(future, ncands) for (scanId0, futurelist) in iteritems(self.futures)
-                            for future, ncands in futurelist
+            finishedlist = [future for (scanId0, futurelist) in iteritems(self.futures)
+                            for future in futurelist
                             if (future.status == 'finished') and
-                               (ncands.status == 'finished') and
                                (scanId0 == scanId)]
 
-            for future, ncands_fut in finishedlist:
-#            for ncands in distributed.as_completed(ncands_finished):
-#                future = finishedlist[ncands_finished.index(ncands)]
+            # get length of finished candcollections
+            ncands_finished = self.client.map(lambda x: len(x[2]),
+                                              finishedlist, priority=3)
+
+            for ncands_fut in distributed.as_completed(ncands_finished):
+                future = finishedlist[ncands_finished.index(ncands_fut)]
                 ncands = ncands_fut.result()
 
                 if ncands:
@@ -358,16 +358,16 @@ class realfast_controller(Controller):
                                                                         tags=tags,
                                                                         url_prefix=_candplot_url_prefix,
                                                                         indexprefix=indexprefix),
-                                                     future, priority=1)
+                                                     future, priority=5)
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
                         msp_fut = self.client.submit(lambda x: makesummaryplot(x[2].prefs.workdir,
                                                                                scanId),
-                                                     future, priority=1)
+                                                     future, priority=5)
                         nplots_fut = self.client.submit(lambda x: moveplots(x[2],
                                                                             scanId,
                                                                             destination=_candplot_dir),
-                                                        future, priority=1)
+                                                        future, priority=5)
                         if res_fut.result() or nplots_fut.result():
                             logger.info('Indexed {0} cands to {1} and '
                                         'moved {2} plots to {3} for '
@@ -409,7 +409,7 @@ class realfast_controller(Controller):
                 if self.saveproducts and ncands:
                     newsdms_fut = self.client.submit(lambda x: createproducts(x[2],
                                                                               x[1]),
-                                                     future, priority=1)
+                                                     future, priority=5)
                     sdms += len(newsdms_fut.result())
                     if len(newsdms_fut.result()):
                         logger.info("Created new SDMs at: {0}"
@@ -424,7 +424,7 @@ class realfast_controller(Controller):
                     logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
-                self.futures[scanId].remove((future, ncands_fut))
+                self.futures[scanId].remove(future)
                 removed += 1
 
         # clean up bad futures
@@ -499,9 +499,8 @@ class realfast_controller(Controller):
 
             # create list of futures (a dict per segment) that are cancelled
             removelist = [future for (scanId0, futurelist) in iteritems(self.futures)
-                          for future, ncands_fut in futurelist
+                          for future in futurelist
                           if (future.status == status) and
-                             (ncands_fut.status == status) and
                              (scanId0 == scanId)]
 
             # clean them up
@@ -512,7 +511,7 @@ class realfast_controller(Controller):
                 if keep:
                     if scanId not in self.futures_removed:
                         self.futures_removed[scanId] = []
-                    self.futures_removed[scanId].append((futures, ncands_fut))
+                    self.futures_removed[scanId].append(futures)
 
         if removed:
             logger.warn("{0} bad jobs removed from scanId {1}".format(removed,

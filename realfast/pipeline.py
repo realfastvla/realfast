@@ -53,7 +53,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     future = cl.submit(read_prep_and_search, st, segment, cfile, vys_timeout,
                        resources={'READER': 1, 'GPU': 1, 'MEMORY': memreq},
-                       priority=3)
+                       priority=1)
 #    result is tuple of (segment, data, candcollection)
 
     return future
