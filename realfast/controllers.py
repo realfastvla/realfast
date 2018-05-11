@@ -334,6 +334,13 @@ class realfast_controller(Controller):
                         .format(len(scanIds), ','.join(scanIds)))
 
         for scanId in self.futures:
+            # clean up so as_completed does not hang
+            removed = 0
+            for status in badstatuslist:
+                removed += self.removefutures(status)
+            if removed:
+                logger.info('Removed {0} bad jobs'.format(removed))
+
             # create list of futures (a dict per segment) that are done
             finishedlist = [future for (scanId0, futurelist) in iteritems(self.futures)
                             for future in futurelist
@@ -344,6 +351,7 @@ class realfast_controller(Controller):
             ncands_finished = self.client.map(lambda x: len(x[2]),
                                               finishedlist, priority=3)
 
+            # TODO: make robust to lost jobs
             for ncands_fut in distributed.as_completed(ncands_finished):
                 future = finishedlist[ncands_finished.index(ncands_fut)]
                 ncands = ncands_fut.result()
@@ -428,6 +436,7 @@ class realfast_controller(Controller):
                 removed += 1
 
         # clean up bad futures
+        removed = 0
         for status in badstatuslist:
             removed += self.removefutures(status)
 
