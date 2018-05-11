@@ -112,20 +112,16 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return ['{0}, {1}: {2}'.format(scanId, ftype,
-                                       futures[ftype].status)
+        return ['{0}, {1}: {2}'.format(scanId, future.status)
                 for (scanId, futurelist) in iteritems(self.futures)
-                for futures in futurelist
-                for ftype in futures]
+                for future, ncands in futurelist]
 
     @property
     def errors(self):
-        return ['{0}, {1}: {2}'.format(scanId, ftype,
-                                       futures[ftype].exception())
+        return ['{0}, {1}: {2}'.format(scanId, futures.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
-                for futures in futurelist
-                for ftype in futures
-                if futures[ftype].status == 'error']
+                for future, ncands in futurelist
+                if future.status == 'error']
 
     @property
     def reader_memory_available(self):
@@ -298,11 +294,11 @@ class realfast_controller(Controller):
                    heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                 daskdir=self.daskdir)):
-                    futures = pipeline.pipeline_scan_delayed(st,
-                                                             segments=segments,
-                                                             cl=self.client,
-                                                             cfile=cfile,
-                                                             vys_timeout=vys_timeout)
+                    futures = pipeline.pipeline_scan(st, segments=segments,
+                                                     cl=self.client,
+                                                     cfile=cfile,
+                                                     vys_timeout=vys_timeout,
+                                                     memreq=w_memlim)
                 else:
                     sleep(min(1, timeout/10))
                     self.cleanup()
@@ -314,13 +310,15 @@ class realfast_controller(Controller):
 
         else:
             logger.info('Starting pipeline...')
-            futures = pipeline.pipeline_scan_delayed(st, segments=segments,
-                                                     cl=self.client,
-                                                     cfile=cfile,
-                                                     vys_timeout=vys_timeout)
+            futures = pipeline.pipeline_scan(st, segments=segments,
+                                             cl=self.client, cfile=cfile,
+                                             vys_timeout=vys_timeout,
+                                             memreq=w_memlim)
 
         if len(futures):
-            self.futures[st.metadata.scanId] = futures
+            ncands_fut = self.client.map(lambda x: len(x[2]), futures)
+            # given scanId has a tuple of (search future, ncands_future) per segment
+            self.futures[st.metadata.scanId] = list(zip(futures, ncands_fut))
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
@@ -339,47 +337,50 @@ class realfast_controller(Controller):
 
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are done
-            finishedlist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                            for futures in futurelist
-                            if (futures['candcollection'].status == 'finished') and
+            finishedlist = [(future, ncands) for (scanId0, futurelist) in iteritems(self.futures)
+                            for future, ncands in futurelist
+                            if (future.status == 'finished') and
+                               (ncands.status == 'finished') and
                                (scanId0 == scanId)]
 
-            # trying to improve len(cc) scheulding. not working yet.
-#            ncands_finished = self.client.map(lambda x: (finishedlist.index(x),
-#                                                         len(x['candcollection'])),
-#                                              finishedlist)
-            for futures in finishedlist:
-#            for _, results in distributed.as_completed(ncands_finished,
-#                                                       with_results=True):
-                # indexing cands option 1: pull results over
-                candcollection = futures['candcollection'].result()
-                ncands = len(candcollection)
-                # option 2: check in place (requires nogil gpu workers)
-#                ncands, futures = results
-#                logger.info("{0} {1}".format(ncands, futures))
+            for future, ncands_fut in finishedlist:
+#            for ncands in distributed.as_completed(ncands_finished):
+#                future = finishedlist[ncands_finished.index(ncands)]
+                ncands = ncands_fut.result()
+
                 if ncands:
-                    candcollection = futures['candcollection'].result()
                     if self.indexresults:
-                        res = elastic.indexcands(candcollection, scanId,
-                                                 tags=self.tags,
-                                                 url_prefix=_candplot_url_prefix,
-                                                 indexprefix=self.indexprefix)
+                        tags = self.tags
+                        indexprefix = self.indexprefix
+                        res_fut = self.client.submit(lambda x:
+                                                     elastic.indexcands(x[2],
+                                                                        scanId,
+                                                                        tags=tags,
+                                                                        url_prefix=_candplot_url_prefix,
+                                                                        indexprefix=indexprefix),
+                                                     future, priority=1)
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
-                        makesummaryplot(candcollection.prefs.workdir, scanId)
-                        nplots = moveplots(candcollection, scanId,
-                                           destination=_candplot_dir)
-                        if res or nplots:
+                        msp_fut = self.client.submit(lambda x: makesummaryplot(x[2].prefs.workdir,
+                                                                               scanId),
+                                                     future, priority=1)
+                        nplots_fut = self.client.submit(lambda x: moveplots(x[2],
+                                                                            scanId,
+                                                                            destination=_candplot_dir),
+                                                        future, priority=1)
+                        if res_fut.result() or nplots_fut.result():
                             logger.info('Indexed {0} cands to {1} and '
                                         'moved {2} plots to {3} for '
                                         'scanId {4}'
-                                        .format(res, self.indexprefix+'cands',
-                                                nplots, _candplot_dir,
+                                        .format(res_fut.result(),
+                                                self.indexprefix+'cands',
+                                                nplots_fut.result(),
+                                                _candplot_dir,
                                                 scanId))
                         else:
                             logger.info('No candidates or plots found.')
 
-                        cindexed += res
+                        cindexed += res_fut.result()
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
@@ -406,22 +407,24 @@ class realfast_controller(Controller):
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    newsdms = createproducts(candcollection, futures['data'])
-                    sdms += len(newsdms)
-                    if len(newsdms):
+                    newsdms_fut = self.client.submit(lambda x: createproducts(x[2],
+                                                                              x[1]),
+                                                     future, priority=1)
+                    sdms += len(newsdms_fut.result())
+                    if len(newsdms_fut.result()):
                         logger.info("Created new SDMs at: {0}"
-                                    .format(newsdms))
+                                    .format(newsdms_fut.result()))
                     else:
                         logger.info("No new SDMs created")
 
                     if self.archiveproducts:
-                        runingest(newsdms)  # TODO: implement this
+                        runingest(newsdms_fut.result())  # TODO: implement this
 
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
-                self.futures[scanId].remove(futures)
+                self.futures[scanId].remove((future, ncands_fut))
                 removed += 1
 
         # clean up bad futures
@@ -448,6 +451,7 @@ class realfast_controller(Controller):
 
         if timeout is None:
             timeout_string = "no "
+            timeout = -1
         else:
             timeout_string = "{0} s ".format(timeout)
 
@@ -458,7 +462,7 @@ class realfast_controller(Controller):
         elapsedtime = time.Time.now().unix - t0
         badstatuslist = ['cancelled', 'error', 'lost']
         while len(self.futures):
-            if elapsedtime > timeout:
+            if (elapsedtime > timeout) and (timeout >= 0):
                 badstatuslist += ['pending']
             self.cleanup(badstatuslist=badstatuslist)
             sleep(10)
@@ -494,10 +498,10 @@ class realfast_controller(Controller):
         for scanId in self.futures:
 
             # create list of futures (a dict per segment) that are cancelled
-            removelist = [futures for (scanId0, futurelist) in iteritems(self.futures)
-                          for futures in futurelist
-                          if (futures['candcollection'].status == status or
-                              futures['data'].status == status) and
+            removelist = [future for (scanId0, futurelist) in iteritems(self.futures)
+                          for future, ncands_fut in futurelist
+                          if (future.status == status) and
+                             (ncands_fut.status == status) and
                              (scanId0 == scanId)]
 
             # clean them up
@@ -508,7 +512,7 @@ class realfast_controller(Controller):
                 if keep:
                     if scanId not in self.futures_removed:
                         self.futures_removed[scanId] = []
-                    self.futures_removed[scanId].append(futures)
+                    self.futures_removed[scanId].append((futures, ncands_fut))
 
         if removed:
             logger.warn("{0} bad jobs removed from scanId {1}".format(removed,

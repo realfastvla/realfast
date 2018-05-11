@@ -15,18 +15,15 @@ vys_timeout_default = 10
 
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
-                  vys_timeout=vys_timeout_default):
+                  vys_timeout=vys_timeout_default, memreq=0.):
     """ Given rfpipe state and dask distributed client, run search pipline.
-    throttle option will submit only if worker state allows for it.
-    parameters of throttling:
-      read_overhead scales vismem to peak usage during read.
-      read_totfrac is total memory usage allowed in bytes at submission time.
+
     """
 
     if cl is None:
         if host is None:
             cl = distributed.Client(n_workers=1, threads_per_worker=16,
-                                    resources={"READER": 1}, # "CORES": 16},
+                                    resources={"READER": 1, "MEMORY": 16e9},
                                     local_dir="/lustre/evla/test/realfast/scratch")
         else:
             cl = distributed.Client('{0}:{1}'.format(host, '8786'))
@@ -37,83 +34,29 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     futures = []
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
-                                    vys_timeout=vys_timeout))
+                                    vys_timeout=vys_timeout, memreq=memreq))
 
     return futures  # list of dicts
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
-                 vys_timeout=vys_timeout_default):
+                 vys_timeout=vys_timeout_default, memreq=0.):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
     Uses distributed resources parameter to control scheduling of GPUs.
-    Pipeline produces jobs per DM/dt.
-    Returns a dict with values as futures of certain jobs (data, collection).
+    memreq is required memory in bytes.
     """
 
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
 
-    futures = {}
+    future = cl.submit(read_prep_and_search, st, segment, cfile, vys_timeout,
+                       resources={'READER': 1, 'GPU': 1, 'MEMORY': memreq},
+                       priority=3)
+#    result is tuple of (segment, data, candcollection)
 
-# new style read *TODO: note hack on resources*
-    data = lazy_read_segment(st, segment, cfile, vys_timeout)
-    data = cl.compute(data, resources={tuple(data.__dask_keys__()[0][0][0]):
-                                       {'READER': 1}})  # get future
-# old style read
-#    data = cl.submit(source.read_segment, st, segment, cfile, vys_timeout,
-#                     resources={'READER': 1})
-
-    futures['data'] = data  # save future
-
-    # TODO: put this on READER worker?
-    data_prep = cl.submit(source.data_prep, st, segment, data, priority=1)
-
-    saved = []
-    if st.fftmode == "fftw":
-#        searchresources = {'CORES': st.prefs.nthread}
-        imgranges = [[(min(st.get_search_ints(segment, dmind, dtind)),
-                     max(st.get_search_ints(segment, dmind, dtind)))
-                      for dtind in range(len(st.dtarr))]
-                     for dmind in range(len(st.dmarr))]
-        wisdom = cl.submit(search.set_wisdom, st.npixx, st.npixy)
-#                           resources={'CORES': 1})
-
-        for dmind in range(len(st.dmarr)):
-            delay = cl.submit(util.calc_delay, st.freq, st.freq.max(),
-                              st.dmarr[dmind], st.inttime)
-#                              resources={'CORES': 1})
-            for dtind in range(len(st.dtarr)):
-                data_corr = cl.submit(search.dedisperseresample, data_prep,
-                                      delay, st.dtarr[dtind],
-                                      parallel=st.prefs.nthread > 1)
-#                                      resources={'CORES': st.prefs.nthread})
-
-                im0, im1 = imgranges[dmind][dtind]
-                integrationlist = [list(range(im0, im1)[i:i+st.chunksize])
-                                   for i in range(0, im1-im0, st.chunksize)]
-                for integrations in integrationlist:
-                    saved.append(cl.submit(search.search_thresh_fftw, st,
-                                           segment, data_corr, dmind, dtind,
-                                           integrations=integrations,
-                                           wisdom=wisdom))
-#                                           resources=searchresources))
-        candcollection = cl.submit(mergelists, saved, priority=2)
-        # resources={'CORES': 1},
-
-    elif st.fftmode == "cuda":
-        for dmind in range(len(st.dmarr)):
-            candcollection = cl.submit(search.dedisperse_image_cuda, st,
-                                       segment, data_prep, dmind,
-                                       resources={'GPU': 1},
-                                       priority=2)
-#                                                  'CORES': st.prefs.nthread},
-
-    futures['candcollection'] = candcollection
-    # TODO: incorporate saving of candcollection (as in prep_and_search function)
-
-    return futures
+    return future
 
 
 def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
@@ -143,18 +86,9 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
         data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
         resources[tuple(data.__dask_keys__())] = {'READER': 1}
 
-        # search data
+#        # search data
         candcollection = delayed(search.prep_and_search)(st, segment, data)
         resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1}
-#                                                            'CORES': st.prefs.nthread}
-
-        # using submit with worker_client
-#        data = cl.submit(read_segment, st, segment, cfile, vys_timeout,
-#                         resources={'READER': 1})
-#        candcollection = cl.submit(prep_and_search, st, segment, data,
-#                                   resources={'GPU': 1})
-#        future['data'] = data
-#        future['candcollection'] = candcollection
 
         if cl is not None:
             future['data'] = cl.compute(data, resources=resources)
@@ -168,6 +102,16 @@ def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
 
 
 ### helper functions (not necessarily in use)
+
+def read_prep_and_search(st, segment, cfile, vys_timeout):
+    """ Wrap rfpipe read and prep-and-search functions
+    """
+
+    data = source.read_segment(st, segment, cfile, vys_timeout)
+    candcollection = search.prep_and_search(st, segment, data)
+
+    return segment, data, candcollection
+
 
 def read_segment(st, segment, cfile, vys_timeout):
     """ Wrapper for source.read_segment that secedes from worker
