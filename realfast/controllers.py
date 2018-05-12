@@ -68,9 +68,10 @@ class realfast_controller(Controller):
                                                      '8786'))
         elif host == 'localhost':
             self.client = distributed.Client(n_workers=1,
-                                             threads_per_worker=4,
+                                             threads_per_worker=2,
                                              resources={"READER": 1,
-                                                        "CORES": 4})
+                                                        "GPU": 1,
+                                                        "MEMORY": 10e9})
 
         self.lock = dask.utils.SerializableLock()
         self.states = {}
@@ -333,15 +334,10 @@ class realfast_controller(Controller):
             logger.info("Checking on {0} jobs with scanId: {1}"
                         .format(len(scanIds), ','.join(scanIds)))
 
+        removed = 0
         for scanId in self.futures:
-            # clean up so as_completed does not hang
-            removed = 0
-            for status in badstatuslist:
-                removed += self.removefutures(status)
-            if removed:
-                logger.info('Removed {0} bad jobs'.format(removed))
-
-            # create list of futures (a dict per segment) that are done
+            # clean futures and get finished jobs
+            removed = self.removefutures(badstatuslist)
             finishedlist = [future for (scanId0, futurelist) in iteritems(self.futures)
                             for future in futurelist
                             if (future.status == 'finished') and
@@ -349,13 +345,21 @@ class realfast_controller(Controller):
 
             # get length of finished candcollections
             ncands_finished = self.client.map(lambda x: len(x[2]),
-                                              finishedlist, priority=3)
+                                              finishedlist, priority=3,
+                                              retries=1)
 
             # TODO: make robust to lost jobs
-            for ncands_fut in distributed.as_completed(ncands_finished):
+#            for ncands_fut in distributed.as_completed(ncands_finished):
+            for ncands_fut in ncands_finished:
                 future = finishedlist[ncands_finished.index(ncands_fut)]
-                ncands = ncands_fut.result()
+                if (ncands_fut.status in badstatuslist) and (future.status in badstatuslist):
+                    logger.warn("Bad status for {0}. Removing future."
+                                .format(future))
+                    ncands_finished.remove(ncands_fut)
+                    self.futures[scanId].remove(future)
+                    continue
 
+                ncands = ncands_fut.result()
                 if ncands:
                     if self.indexresults:
                         tags = self.tags
@@ -436,9 +440,7 @@ class realfast_controller(Controller):
                 removed += 1
 
         # clean up bad futures
-        removed = 0
-        for status in badstatuslist:
-            removed += self.removefutures(status)
+        removed += self.removefutures(badstatuslist)
 
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
@@ -450,7 +452,7 @@ class realfast_controller(Controller):
                         "Cleaning state and futures dicts".format(scanId))
 
 #        _ = self.client.run(gc.collect)
-        if removed:
+        if removed or cindexed or sdms:
             logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
                         .format(removed, cindexed, sdms))
 
@@ -498,18 +500,22 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing mock transient.")
 
-    def removefutures(self, status, keep=False):
-        """ Remove jobs with status of 'cancelled'
+    def removefutures(self, badstatuslist=['cancelled', 'error', 'lost'],
+                      keep=False):
+        """ Remove jobs with status in badstatuslist.
+        badstatuslist can be a single status as a string.
         keep argument defines whether to remove or move to futures_removed
         """
 
+        if isinstance(badstatuslist, str):
+            badstatuslist = [badstatuslist]
+
         removed = 0
         for scanId in self.futures:
-
             # create list of futures (a dict per segment) that are cancelled
             removelist = [future for (scanId0, futurelist) in iteritems(self.futures)
                           for future in futurelist
-                          if (future.status == status) and
+                          if (future.status in badstatuslist) and
                              (scanId0 == scanId)]
 
             # clean them up
