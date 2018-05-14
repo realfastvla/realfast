@@ -15,9 +15,8 @@ vys_timeout_default = 10
 
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
-                  vys_timeout=vys_timeout_default, memreq=0.):
+                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.):
     """ Given rfpipe state and dask distributed client, run search pipline.
-
     """
 
     if cl is None:
@@ -34,13 +33,14 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     futures = []
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
-                                    vys_timeout=vys_timeout, memreq=memreq))
+                                    vys_timeout=vys_timeout, mem_read=mem_read,
+                                    mem_search=mem_search))
 
-    return futures  # list of dicts
+    return futures  # list of tuples of futures (seg, data, cc, ncands)
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
-                 vys_timeout=vys_timeout_default, memreq=0.):
+                 vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
@@ -51,67 +51,24 @@ def pipeline_seg(st, segment, cl, cfile=None,
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
 
-    future = cl.submit(read_prep_and_search, st, segment, cfile, vys_timeout,
-                       resources={'READER': 1, 'GPU': 1, 'MEMORY': memreq},
-                       priority=1)
-#    result is tuple of (segment, data, candcollection)
+    resources = {}
 
-    return future
+    data = delayed(source.read_segment)(st, segment, timeout=vys_timeout,
+                                        cfile=cfile)
+    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
 
+    candcollection = delayed(search.prep_and_search)(st, segment, data)
+    resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1,
+                                                        'MEMORY': mem_search}
+    ncands = delayed(lambda x: len(x))(candcollection)
 
-def pipeline_scan_delayed(st, segments=None, cl=None, host=None, cfile=None,
-                          vys_timeout=vys_timeout_default):
-    """ Submit pipeline processing of a single segment to scheduler.
-    Uses delayed function and client.compute to schedule.
+    futures_seg = cl.compute((segment, data, candcollection, ncands),
+                             resources=resources)
 
-    Returns a list of dicts with futures of data, collection jobs.
-    """
-
-    if cl is None:
-        if host is not None:
-            cl = distributed.Client('{0}:{1}'.format(host, '8786'))
-
-    if not isinstance(segments, list):
-        segments = list(range(st.nsegment))
-
-    futures = []
-    for segment in segments:
-        future = {}
-        resources = {}
-
-        logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
-                    .format(st.metadata.datasetId, st.metadata.scan, segment))
-
-        # get data
-        data = delayed(source.read_segment)(st, segment, cfile, vys_timeout)
-        resources[tuple(data.__dask_keys__())] = {'READER': 1}
-
-#        # search data
-        candcollection = delayed(search.prep_and_search)(st, segment, data)
-        resources[tuple(candcollection.__dask_keys__())] = {'GPU': 1}
-
-        if cl is not None:
-            future['data'] = cl.compute(data, resources=resources)
-            future['candcollection'] = cl.compute(candcollection,
-                                                  resources=resources)
-            futures.append(future)
-        else:
-            futures.append(candcollection)
-
-    return futures
+    return futures_seg
 
 
 ### helper functions (not necessarily in use)
-
-def read_prep_and_search(st, segment, cfile, vys_timeout):
-    """ Wrap rfpipe read and prep-and-search functions
-    """
-
-    data = source.read_segment(st, segment, cfile, vys_timeout)
-    candcollection = search.prep_and_search(st, segment, data)
-
-    return segment, data, candcollection
-
 
 def read_segment(st, segment, cfile, vys_timeout):
     """ Wrapper for source.read_segment that secedes from worker

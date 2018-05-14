@@ -113,16 +113,17 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return ['{0}, {1}: {2}'.format(scanId, future.status)
+        return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.status, cc.status)
                 for (scanId, futurelist) in iteritems(self.futures)
-                for future in futurelist]
+                for seg, data, cc, ncands in futurelist]
 
     @property
     def errors(self):
-        return ['{0}, {1}: {2}'.format(scanId, futures.exception())
+        return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
+                                            cc.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
-                for future in futurelist
-                if future.status == 'error']
+                for seg, data, cc, ncands in futurelist
+                if data.status == 'error' or cc.status == 'error']
 
     @property
     def reader_memory_available(self):
@@ -299,7 +300,8 @@ class realfast_controller(Controller):
                                                      cl=self.client,
                                                      cfile=cfile,
                                                      vys_timeout=vys_timeout,
-                                                     memreq=w_memlim)
+                                                     mem_read=w_memlim,
+                                                     mem_search=2*st.vismem*1e9)
                 else:
                     sleep(min(1, timeout/10))
                     self.cleanup()
@@ -336,50 +338,38 @@ class realfast_controller(Controller):
 
         removed = 0
         for scanId in self.futures:
+
             # clean futures and get finished jobs
             removed = self.removefutures(badstatuslist)
-            finishedlist = [future for (scanId0, futurelist) in iteritems(self.futures)
-                            for future in futurelist
-                            if (future.status == 'finished') and
+            finishedlist = [[seg, data, cc, ncands]
+                            for (scanId0, futurelist) in iteritems(self.futures)
+                            for seg, data, cc, ncands in futurelist
+                            if (ncands.status == 'finished') and
                                (scanId0 == scanId)]
 
-            # get length of finished candcollections
-            ncands_finished = self.client.map(lambda x: len(x[2]),
-                                              finishedlist, priority=3,
-                                              retries=1)
-
             # TODO: make robust to lost jobs
-#            for ncands_fut in distributed.as_completed(ncands_finished):
-            for ncands_fut in ncands_finished:
-                future = finishedlist[ncands_finished.index(ncands_fut)]
-                if (ncands_fut.status in badstatuslist) and (future.status in badstatuslist):
-                    logger.warn("Bad status for {0}. Removing future."
-                                .format(future))
-                    ncands_finished.remove(ncands_fut)
-                    self.futures[scanId].remove(future)
-                    continue
-
+            for futures in finishedlist:
+                seg, data, cc, ncands_fut = futures
                 ncands = ncands_fut.result()
                 if ncands:
                     if self.indexresults:
                         tags = self.tags
                         indexprefix = self.indexprefix
-                        res_fut = self.client.submit(lambda x:
-                                                     elastic.indexcands(x[2],
-                                                                        scanId,
-                                                                        tags=tags,
-                                                                        url_prefix=_candplot_url_prefix,
-                                                                        indexprefix=indexprefix),
-                                                     future, priority=5)
+                        res_fut = self.client.submit(elastic.indexcands,
+                                                     cc, scanId, tags=tags,
+                                                     url_prefix=_candplot_url_prefix,
+                                                     indexprefix=indexprefix,
+                                                     priority=5)
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
-                        msp_fut = self.client.submit(lambda x: makesummaryplot(x[2].prefs.workdir,
-                                                                               scanId),
-                                                     future, priority=5)
-                        nplots_fut = self.client.submit(lambda x: moveplots(x[2],
-                                                                            scanId,
-                                                                            destination=_candplot_dir),
-                                                        future, priority=5)
+                        workdir = self.states[scanId].prefs.workdir
+                        msp_fut = self.client.submit(makesummaryplot,
+                                                     workdir,
+                                                     scanId,
+                                                     priority=5)
+                        nplots_fut = self.client.submit(moveplots, cc, scanId,
+                                                        destination=_candplot_dir,
+                                                        priority=5)
                         if res_fut.result() or nplots_fut.result():
                             logger.info('Indexed {0} cands to {1} and '
                                         'moved {2} plots to {3} for '
@@ -419,9 +409,8 @@ class realfast_controller(Controller):
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    newsdms_fut = self.client.submit(lambda x: createproducts(x[2],
-                                                                              x[1]),
-                                                     future, priority=5)
+                    newsdms_fut = self.client.submit(createproducts, cc, data,
+                                                     priority=5)
                     sdms += len(newsdms_fut.result())
                     if len(newsdms_fut.result()):
                         logger.info("Created new SDMs at: {0}"
@@ -436,7 +425,7 @@ class realfast_controller(Controller):
                     logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
-                self.futures[scanId].remove(future)
+                self.futures[scanId].remove(futures)
                 removed += 1
 
         # clean up bad futures
@@ -461,10 +450,10 @@ class realfast_controller(Controller):
         """
 
         if timeout is None:
-            timeout_string = "no "
+            timeout_string = "no"
             timeout = -1
         else:
-            timeout_string = "{0} s ".format(timeout)
+            timeout_string = "{0} s".format(timeout)
 
         logger.info("Cleaning up all futures with {0} timeout"
                     .format(timeout_string))
@@ -513,9 +502,13 @@ class realfast_controller(Controller):
         removed = 0
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are cancelled
-            removelist = [future for (scanId0, futurelist) in iteritems(self.futures)
-                          for future in futurelist
-                          if (future.status in badstatuslist) and
+
+            removelist = [[seg, data, cc, ncands]
+                          for (scanId0, futurelist) in iteritems(self.futures)
+                          for seg, data, cc, ncands in futurelist
+                          if ((data.status in badstatuslist) or
+                              (cc.status in badstatuslist) or
+                              (ncands.status in badstatuslist)) and
                              (scanId0 == scanId)]
 
             # clean them up
