@@ -4,7 +4,6 @@ from realfast import controllers
 
 _install_dir = os.path.abspath(os.path.dirname(__file__))
 
-
 # TODO:
 # def test_controller_args
 #
