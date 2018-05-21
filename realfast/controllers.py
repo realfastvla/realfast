@@ -251,6 +251,7 @@ class realfast_controller(Controller):
         """
 
         st = self.states[scanId]
+        w_memlim = self.read_overhead*st.vismem*1e9
 
         vys_timeout = self.vys_timeout
         if st.metadata.datasource == 'vys':
@@ -276,8 +277,6 @@ class realfast_controller(Controller):
                         'read_totfrac {1}, and spill_limit {2}'
                         .format(self.read_overhead, self.read_totfrac,
                                 self.spill_limit))
-
-            w_memlim = self.read_overhead*st.vismem*1e9
 
             tot_memlim = self.read_totfrac*sum([v['memory_limit']
                                                 for v in itervalues(self.client.scheduler_info()['workers'])
