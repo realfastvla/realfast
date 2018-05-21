@@ -1,20 +1,26 @@
-<xs:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xs="http://www.w3.org/2001/XMLSchema">
-  <xs:element name="flags">
-      <xs:complexType>
+<?xml version="1.0"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" >
+    <xs:annotation>
+        <xs:documentation>
+        This schema describes a 'flag' element.
+        </xs:documentation>
+    </xs:annotation>
+    <xs:element name="flags">
+        <xs:complexType>
             <xs:sequence>
-	            <xs:element name="flag" maxOccurs="unbounded" minOccurs="0">
-		              <xs:complexType>
-			                  <xs:simpleContent>
-					                <xs:extension base="xs:string">
-							                <xs:attribute type="xs:float" name="startTime" use="optional"/>
-									                <xs:attribute type="xs:float" name="endTime" use="optional"/>
-											                <xs:attribute type="xs:string" name="reason" use="optional"/>
-													                <xs:attribute type="xs:string" name="antennas" use="optional"/>
-															              </xs:extension>
-																                  </xs:simpleContent>
-																		            </xs:complexType>
-																			            </xs:element>
-																				          </xs:sequence>
-																					      </xs:complexType>
-																					        </xs:element>
-																						</xs:schema>
+                <xs:element ref="flag" minOccurs="0" maxOccurs="unbounded"/>
+            </xs:sequence>
+            <xs:attribute name="timestamp" type="xs:dateTime" use="required"/>
+            <xs:attribute name="datasetId" type="xs:string" use="required"/>
+        </xs:complexType>
+    </xs:element>
+    <xs:element name="flag">
+        <xs:complexType>
+            <xs:attribute name="startTime" type="xs:double" use="required" />
+            <xs:attribute name="endTime" type="xs:double" use="required" />
+            <xs:attribute name="reason" type="xs:string" use="required" />
+            <xs:attribute name="sender" type="xs:string" use="optional"/>
+            <xs:attribute name="antennas" type="xs:string" use="optional" />
+        </xs:complexType>
+    </xs:element>
+</xs:schema>
