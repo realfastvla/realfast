@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 _install_dir = os.path.abspath(os.path.dirname(__file__))
 _xsd_dir = os.path.join(_install_dir, 'xsd')
 # TODO: get schema
-_antflagger_xsd = os.path.join(_xsd_dir, 'schema.xsd')
+_antflagger_xsd = os.path.join(_xsd_dir, 'AntFlaggerMessage.xsd')
 _antflagger_parser = objectify.makeparser(
         schema=etree.XMLSchema(file=_antflagger_xsd))
 
@@ -33,25 +33,16 @@ class ANTFlagger(object):
         self.host = host
 
     @property
-    def _root(self):
-        return self._E.ANTFlaggerMessage(
-                self._E.datasetId(self.datasetId),
-                self._E.startTime(repr(self.startTime)),
-                self._E.endTime(repr(self.endTime)))
-                # TODO: find if message attributes needed
-#                {'timestamp': '%.12f' % time.Time.now().mjd,
-#                    'sender': 'realfast'}
-#                )
-
-    @property
-    def xml(self):
-        return etree.tostring(self._root, xml_declaration=True,
-                              pretty_print=False, standalone=True)
-
-    @property
     def _url(self):
-        query = urlencode({'xml': self.xml})
-        url = urlunparse(('https', self.host, 'dataset', '', query, '', 'flags'))
+        query = '?'
+        if self.startTime is not None:
+            query += 'startTime='+self.startTime
+        if self.endTime is not None:
+            query += 'endTime='+self.endTime
+        url = 'https://{0}/{1}/{2}/{3}'.format(self.host, 'evla-mcaf-test/dataset',
+                                               self.datasetId, 'flags')
+        if query:
+            url += query
         return url
 
     def send(self):
@@ -65,7 +56,7 @@ class ANTFlagger(object):
     @property
     def flags(self):
         try:
-            return str(self.response.result.flags)
+            return [flag.attrib for flag in self.response.findall('flag')]
         except AttributeError:
             logger.warn("No ant flags found.")
             return None
