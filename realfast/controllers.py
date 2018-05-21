@@ -315,7 +315,8 @@ class realfast_controller(Controller):
             futures = pipeline.pipeline_scan(st, segments=segments,
                                              cl=self.client, cfile=cfile,
                                              vys_timeout=vys_timeout,
-                                             memreq=w_memlim)
+                                             mem_read=w_memlim,
+                                             mem_search=2*st.vismem*1e9)
 
         if len(futures):
             self.futures[st.metadata.scanId] = futures
