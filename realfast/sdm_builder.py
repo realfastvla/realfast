@@ -8,6 +8,7 @@ from future.moves.urllib.request import urlopen
 import os.path
 from lxml import etree, objectify
 from astropy import time
+import numpy as np
 from rfpipe.metadata import Metadata
 import logging
 logger = logging.getLogger(__name__)
@@ -17,9 +18,13 @@ _xsd_dir = os.path.join(_install_dir, 'xsd')
 _sdmbuilder_xsd = os.path.join(_xsd_dir, 'SdmBuilderMessage.xsd')
 _sdmbuilder_parser = objectify.makeparser(
         schema=etree.XMLSchema(file=_sdmbuilder_xsd))
+_antflagger_xsd = os.path.join(_xsd_dir, 'AntFlaggerMessage.xsd')
+_antflagger_parser = objectify.makeparser(
+        schema=etree.XMLSchema(file=_antflagger_xsd))
 
 _host = 'mctest.evla.nrao.edu'
-_path = 'sdm-builder/offline'
+_sdmpath = 'sdm-builder/offline'
+_antpath = 'evla-mcaf-test/dataset'
 
 
 class SDMBuilder(object):
@@ -30,7 +35,7 @@ class SDMBuilder(object):
 
     def __init__(self, datasetId=None, uid=None, dataSize=None,
                  numIntegrations=None, startTime=None, endTime=None,
-                 host=_host, path=_path):
+                 host=_host, path=_sdmpath):
         self.datasetId = datasetId
         self.uid = uid
         self.dataSize = dataSize
@@ -157,3 +162,33 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
         ts = startTime+metadata.inttime/2/86400.
         w.write_integration(mjd=ts, interval=metadata.inttime, data=dat)
     w.close()
+
+
+def getantflags(datasetId, blarr, startTime=None, endTime=None):
+    """ Call antenna flag server for given datasetId and optional
+    startTime and endTime.
+    blarr is array of baselines to be flagged (see rfpipe state.blarr),
+    This defines structure of returned flag array.
+    """
+
+    # set up query to flag server
+    query = '?'
+    if startTime is not None:
+        query += 'startTime={0}&'.format(startTime)
+    if endTime is not None:
+        query += 'endTime={0}'.format(endTime)
+    url = 'https://{0}/{1}/{2}/flags{3}'.format(_host, _antpath, datasetId,
+                                                query)
+    # call server and parse response
+    response_xml = urlopen(url).read()
+    response = objectify.fromstring(response_xml, parser=_antflagger_parser)
+
+    # find bad ants and baselines
+    badants = set(sorted([int(flag.attrib['antennas'].lstrip('ea'))
+                          for flag in response.findall('flag')]))
+
+    flags = np.ones(len(blarr), dtype=int)
+    for badant in badants:
+        flags *= (badant != blarr).prod(axis=1)
+
+    return flags
