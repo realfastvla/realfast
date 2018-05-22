@@ -10,8 +10,6 @@
             <xs:sequence>
                 <xs:element ref="flag" minOccurs="0" maxOccurs="unbounded"/>
             </xs:sequence>
-            <xs:attribute name="timestamp" type="xs:dateTime" use="required"/>
-            <xs:attribute name="datasetId" type="xs:string" use="required"/>
         </xs:complexType>
     </xs:element>
     <xs:element name="flag">
@@ -19,7 +17,6 @@
             <xs:attribute name="startTime" type="xs:double" use="required" />
             <xs:attribute name="endTime" type="xs:double" use="required" />
             <xs:attribute name="reason" type="xs:string" use="required" />
-            <xs:attribute name="sender" type="xs:string" use="optional"/>
             <xs:attribute name="antennas" type="xs:string" use="optional" />
         </xs:complexType>
     </xs:element>
