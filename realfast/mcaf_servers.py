@@ -164,11 +164,11 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
     w.close()
 
 
-def getantflags(datasetId, blarr, startTime=None, endTime=None):
-    """ Call antenna flag server for given datasetId and optional
-    startTime and endTime.
-    blarr is array of baselines to be flagged (see rfpipe state.blarr),
-    This defines structure of returned flag array.
+def getblflags(datasetId, blarr, startTime=None, endTime=None):
+    """ Call antenna flag server for given datasetId and return
+    flags per baseline. Optional input are startTime and endTime.
+    blarr is array of baselines to be flagged (see rfpipe state.blarr)
+    that defines structure of returned flag array.
     """
 
     # set up query to flag server
