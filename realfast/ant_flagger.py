@@ -7,6 +7,7 @@ from future.moves.urllib.request import urlopen
 
 import os.path
 from lxml import etree, objectify
+import numpy as np
 import logging
 logger = logging.getLogger(__name__)
 
@@ -62,7 +63,7 @@ class ANTFlagger(object):
             return None
 
 
-def getflags(datasetId, startTime, endTime):
+def getflags0(datasetId, startTime, endTime):
     """ 
     """
 
@@ -72,3 +73,35 @@ def getflags(datasetId, startTime, endTime):
     antf.send()
 
     return antf.flags
+
+
+def getflags(datasetId, blarr, startTime=None, endTime=None):
+    """ Call antenna flag server for given datasetId and optional
+    startTime and endTime.
+    blarr is baselines to be flagged (see rfpipe state.blarr),
+    which sets structure of flags.
+    """
+
+    # set up query to flag server
+    host = 'mctest.evla.nrao.edu'
+    query = '?'
+    if startTime is not None:
+        query += 'startTime={0}&'.format(startTime)
+    if endTime is not None:
+        query += 'endTime={0}'.format(endTime)
+    url = 'https://{0}/evla-mcaf-test/dataset/{1}/flags{2}'.format(host,
+                                                                   datasetId,
+                                                                   query)
+    # call server and parse response
+    response_xml = urlopen(url).read()
+    response = objectify.fromstring(response_xml, parser=_antflagger_parser)
+
+    # find bad ants and baselines
+    badants = set(sorted([int(flag.attrib['antennas'].lstrip('ea'))
+                          for flag in response.findall('flag')]))
+
+    flags = np.ones(len(blarr), dtype=int)
+    for badant in badants:
+        flags *= (badant != blarr).prod(axis=1)
+
+    return flags
