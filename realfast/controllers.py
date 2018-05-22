@@ -14,7 +14,7 @@ from time import sleep
 import dask.utils
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences, candidates, util
-from realfast import pipeline, elastic, sdm_builder, heuristics
+from realfast import pipeline, elastic, mcaf_servers, heuristics
 
 import logging
 import matplotlib
@@ -642,7 +642,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
                    savebdfdir='/lustre/evla/wcbe/data/no_archive/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
-    This uses the sdm_builder module, which calls the sdm builder server.
+    This uses the mcaf_servers module, which calls the sdm builder server.
     sdmdir will move and rename output file to "realfast_<obsid>_<uid>".
     Currently BDFs are moved to no_archive lustre area by default.
     """
@@ -673,7 +673,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
                     .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        sdmloc = sdm_builder.makesdm(startTime, endTime, metadata, data_cut)
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata, data_cut)
         if sdmloc is not None:
             if sdmdir is not None:
                 uid = ('uid:///evla/realfastbdf/{0}'
@@ -693,8 +693,8 @@ def createproducts(candcollection, datafuture, sdmdir='.',
                 sdmlocs.append(sdmloc)
 
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
-            sdm_builder.makebdf(startTime, endTime, metadata, data_cut,
-                                bdfdir=savebdfdir)
+            mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
+                                 bdfdir=savebdfdir)
         else:
             logger.warn("No sdm/bdf made for start/end time {0}-{1}"
                         .format(startTime, endTime))
