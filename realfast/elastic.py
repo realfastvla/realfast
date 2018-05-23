@@ -465,7 +465,7 @@ def get_ids(index, **kwargs):
 ###
 
 def move_docs(indexprefix1='new', indexprefix2='final',
-              consensustype='majority', nop=3):
+              consensustype='majority', nop=3, tags=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     """
 
@@ -480,8 +480,10 @@ def move_docs(indexprefix1='new', indexprefix2='final',
             logger.info("Moved candId {0} from {1} to {2}"
                         .format(candId, indexprefix1, indexprefix2))
 
-            # pushdata
-            # TODO: update candId with new "tags" reflecting consensus and final tag set ('archived', 'deleted')
+            # set tags for all
+            if tags is not None:
+                assert isinstance(tags, str)
+                update_field(indexprefix2+'cands', 'tags', tags, _id=candId)
 
             # then check remaining docs
             docids = find_docids(indexprefix=indexprefix1, candId=candId)
@@ -570,7 +572,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
         # add Id and tags to dict according to consensus opinion
         if consensustype == 'absolute':
             if all([vals[0] == val for val in vals]):
-                consensus[Id]= tags
+                consensus[Id] = tags
             else:
                 noconsensus[Id] = tags
         elif consensustype == 'majority':
