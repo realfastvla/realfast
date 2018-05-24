@@ -581,33 +581,41 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
     noconsensus = {}
     for Id in ids:
         doc = es.get(index=index, doc_type=doc_type, id=Id)
-        tags = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
-        logger.debug("Id {0} has {1} tags: {2}".format(Id, len(tags), tags))
-        vals = list(tags.values())
+        tagsdict = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+        logger.debug("Id {0} has {1} tags: {2}".format(Id, len(tagsdict), tagsdict))
+        tagslist = list(tagsdict.values())
 
         # add Id and tags to dict according to consensus opinion
         if consensustype == 'absolute':
-            if all([vals[0] == val for val in vals]):
-                tags['tags'] = vals[0]
+            if all([tagslist[0] == val for val in tagslist]):
+                tagsdict['tags'] = tagslist[0]
                 if newtags is not None:
-                    tags['tags'] += ','+newtags
-                consensus[Id] = tags
+                    tagsdict['tags'] += ','+newtags
+                consensus[Id] = tagsdict
             else:
-                noconsensus[Id] = tags
+                noconsensus[Id] = tagsdict
         elif consensustype == 'majority':
-            raise NotImplementedError
+            # break out all tags (could be multiple per user)
+            alltags = [tag for tags in tagslist for tag in tags.split(',')]
 
-            # TODO: support merging/consensus if multiple tags per user provided
-            # for now assuming one tag per user
+            # sort by whether tag is agreed upon by majority
+            consensus_tags = []
+            noconsensus_tags = []
+            print('alltags {0}'.format(alltags))
+            for tag in alltags:
+                print(tag)
+                if alltags.count(tag) >= len(tagslist)//2+1:
+                    consensus_tags.append(tag)
+                else:
+                    noconsensus_tags.append(tag)
 
-            majlist = [list(filter(lambda x: x == val0, vals)) for val0 in vals]
-            if any([len(maj) >= len(vals)//2+1 for maj in majlist]):
-                tags['tags'] = majlist[0]  # add consensus tag
-                if newtags is not None:
-                    tags['tags'] += ','+newtags
-                consensus[Id] = tags
-            else:
-                noconsensus[Id] = tags
+            if newtags is not None:
+                consensus_tags.append(tag)
+
+            tagsdict['tags'] = ','.join(consensus_tags)
+            consensus[Id] = tagsdict
+            tagsdict['tags'] = ','.join(noconsensus_tags)
+            noconsensus[Id] = tagsdict
         else:
             logger.exception("consensustype {0} not recognized"
                              .format(consensustype))

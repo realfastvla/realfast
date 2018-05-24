@@ -146,12 +146,13 @@ class realfast_controller(Controller):
         """
 
         summarize(config)
+        prefsname = self.get_prefsname(config)
 
-        if search_config(config, nameincludes=self.nameincludes,
+        if search_config(config, preffile=self.preffile, prefsname=prefsname,
+                         inprefs=self.inprefs, nameincludes=self.nameincludes,
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            prefsname = self.get_prefsname(config)
             self.set_state(config.scanId, config=config, prefsname=prefsname,
                            inmeta={'datasource': 'vys'})
             self.inject_transient(config.scanId)  # randomly inject mock transient
@@ -230,11 +231,11 @@ class realfast_controller(Controller):
         """
 
         # TODO: define prefsname according to config and/or heuristics
-        prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
-                                                                    name=prefsname,
-                                                                    inprefs=self.inprefs))
+        inprefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
+                                                                      name=prefsname,
+                                                                      inprefs=self.inprefs))
 
-        st = state.State(inmeta=inmeta, config=config, inprefs=prefs,
+        st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir)
 
@@ -546,7 +547,7 @@ class realfast_controller(Controller):
         logger.info('End of scheduling block message received.')
 
 
-def search_config(config, preffile=None, inprefs={}, nameincludes=None,
+def search_config(config, preffile=None, prefsname=None, inprefs={}, nameincludes=None,
                   searchintents=None):
     """ Test whether configuration specifies a scan config that realfast should
     search
@@ -600,7 +601,7 @@ def search_config(config, preffile=None, inprefs={}, nameincludes=None,
 
     # 6) only if state validates
     if not heuristics.state_validates(config=config, preffile=preffile,
-                                      inprefs=inprefs):
+                                      prefname=prefsname, inprefs=inprefs):
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
