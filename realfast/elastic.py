@@ -460,6 +460,15 @@ def get_ids(index, **kwargs):
         return [(hit['_id'], hit['_source'][field]) for hit in res]
 
 
+def get_doc(index, Id):
+    """ Get Id from index
+    """
+
+    doc_type = index.rstrip('s')
+    doc = es.get(index=index, doc_type=doc_type, id=Id)
+    return doc
+
+
 ###
 # Migrating docs from 'new' to 'final' after tagging
 ###
@@ -475,9 +484,13 @@ def move_docs(indexprefix1='new', indexprefix2='final',
                               consensustype=consensustype, newtags=newtags)
 
     for candId, tags in iteritems(consensus):
-        # first move candId
+        # check remaining docs
+        docids = find_docids(indexprefix=indexprefix1, candId=candId)
+
+        # move candId
         result = copy_doc(indexprefix1+'cands', indexprefix2+'cands', candId,
                           deleteorig=True)
+
         if result:
             logger.info("Moved candId {0} from {1} to {2}"
                         .format(candId, indexprefix1, indexprefix2))
@@ -485,9 +498,6 @@ def move_docs(indexprefix1='new', indexprefix2='final',
             # set tags field
             update_field(indexprefix2+'cands', 'tags',
                          consensus[candId]['tags'], _id=candId)
-
-            # then check remaining docs
-            docids = find_docids(indexprefix=indexprefix1, candId=candId)
 
             # if no candIds remain, then move remaining docs
             if len(docids[indexprefix1+'cands']) == 0:
@@ -557,7 +567,8 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
 
     assert consensustype in ["absolute", "majority"]
     assert res in ["consensus", "noconsensus"]
-    assert indexprefix != 'final'
+    if indexprefix == 'final':
+        logger.warn("Looking at final indices, which should not be modified.")
 
     index = indexprefix+'cands'
     doc_type = index.rstrip('s')
@@ -584,8 +595,12 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
             else:
                 noconsensus[Id] = tags
         elif consensustype == 'majority':
+            raise NotImplementedError
+
+            # TODO: support merging/consensus if multiple tags per user provided
+            # for now assuming one tag per user
+
             majlist = [list(filter(lambda x: x == val0, vals)) for val0 in vals]
-            # TODO: redo for each tag independently?
             if any([len(maj) >= len(vals)//2+1 for maj in majlist]):
                 tags['tags'] = majlist[0]  # add consensus tag
                 if newtags is not None:
@@ -603,12 +618,14 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
         return noconsensus
 
 
-def copy_doc(index1, index2, Id, deleteorig=False):
+def copy_doc(index1, index2, Id, deleteorig=False, force=False):
     """ Take doc in index1 with Id and move to index2
     Default is to copy, but option exists to "move" by deleting original.
+    using force=True will override ban on operating from final indices.
     """
 
-    assert 'final' not in index1
+    if not force:
+        assert 'final' not in index1
 
     doc_type1 = index1.rstrip('s')
     doc_type2 = index2.rstrip('s')
