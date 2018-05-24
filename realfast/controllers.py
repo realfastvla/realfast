@@ -96,7 +96,7 @@ class realfast_controller(Controller):
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix']:
+                     'indexprefix', 'prefsname']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -151,8 +151,9 @@ class realfast_controller(Controller):
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config, inmeta={'datasource':
-                                                                 'vys'})
+            prefsname = self.get_prefsname(config)
+            self.set_state(config.scanId, config=config, prefsname=prefsname,
+                           inmeta={'datasource': 'vys'})
             self.inject_transient(config.scanId)  # randomly inject mock transient
 
             if self.indexresults:
@@ -180,9 +181,9 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
                                       str(sdmscan), str(sdmsubscan))
 
-
+        prefsname = self.get_prefsname()
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
-                       inmeta={'datasource': 'sdm'})
+                       prefsname=prefsname, inmeta={'datasource': 'sdm'})
         self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
@@ -208,7 +209,8 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
 
-        self.set_state(scanId, inmeta=inmeta)
+        prefsname = self.get_prefsname()
+        self.set_state(scanId, inmeta=inmeta, prefsname=prefsname)
         self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
@@ -243,6 +245,16 @@ class realfast_controller(Controller):
                             heuristics.total_compute_time(st)))
 
         self.states[scanId] = st
+
+    def get_prefsname(self, config=None):
+        """ Given a scan configuration, set the name of the realfast preferences to use
+        Allows configuration of pipeline based on scan properties.
+        (e.g., galactic/extragal, FRB/pulsar).
+        For now, just takes it from realfast preferences.
+        """
+
+        prefsname = self.prefsname if self.prefsname is not None else 'default'
+        return prefsname
 
     def start_pipeline(self, scanId, cfile=None, segments=None):
         """ Start pipeline conditional on cluster state.
