@@ -465,14 +465,16 @@ def get_ids(index, **kwargs):
 ###
 
 def move_docs(indexprefix1='new', indexprefix2='final',
-              consensustype='majority', nop=3, tags=None):
+              consensustype='majority', nop=3, newtags=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
+    newtags will append to the new "tags" field for all moved candidates.
+    Default tags field will contain the user consensus tag.
     """
 
     consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
-                              consensustype=consensustype)
+                              consensustype=consensustype, newtags=newtags)
 
-    for candId, tags in consensus.iteritems():
+    for candId, tags in iteritems(consensus):
         # first move candId
         result = copy_doc(indexprefix1+'cands', indexprefix2+'cands', candId,
                           deleteorig=True)
@@ -480,23 +482,26 @@ def move_docs(indexprefix1='new', indexprefix2='final',
             logger.info("Moved candId {0} from {1} to {2}"
                         .format(candId, indexprefix1, indexprefix2))
 
-            # set tags for all
-            if tags is not None:
-                assert isinstance(tags, str)
-                update_field(indexprefix2+'cands', 'tags', tags, _id=candId)
+            # set tags field
+            update_field(indexprefix2+'cands', 'tags',
+                         consensus[candId]['tags'], _id=candId)
 
             # then check remaining docs
             docids = find_docids(indexprefix=indexprefix1, candId=candId)
 
             # if no candIds remain, then move remaining docs
             if len(docids[indexprefix1+'cands']) == 0:
-                logger.info("{0} is last candidate in its scan. Moving associated docs."
-                            .format(candId))
-                for index1, Id0 in docids:
-                    index2 = indexprefix2 + index1.lstrip(indexprefix1)
+                scanId = docids[indexprefix1+'scans']
+                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
+                            .format(candId, scanId))
+                for index1, idlist in docids:
+                    index2 = index1.replace(indexprefix1, indexprefix2)
+                    for Id0 in idlist:
+                        result += copy_doc(index1, index2, Id0, deleteorig=True)
 
-                    copy_doc(index1, index2, Id0)
-                    # TODO: define criteria for removing docs from indexprefix1
+                logger.info("Moved {0} documents from {1} to {2}"
+                            .format(result, indexprefix1, indexprefix2))
+
         else:
             logger.info("Failed move of CandId {0} from {1} to {2}"
                         .format(candId, indexprefix1, indexprefix2))
@@ -543,7 +548,7 @@ def find_docids(indexprefix, candId=None, scanId=None):
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
-                  res='consensus'):
+                  res='consensus', newtags=None):
     """ Get candidtes with consensus over at least nop user tag fields.
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
     Returns dicts with either consensus and noconsensus candidates.
@@ -572,6 +577,9 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
         # add Id and tags to dict according to consensus opinion
         if consensustype == 'absolute':
             if all([vals[0] == val for val in vals]):
+                tags['tags'] = vals[0]
+                if newtags is not None:
+                    tags['tags'] += ','+newtags
                 consensus[Id] = tags
             else:
                 noconsensus[Id] = tags
@@ -579,11 +587,15 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
             majlist = [list(filter(lambda x: x == val0, vals)) for val0 in vals]
             # TODO: redo for each tag independently?
             if any([len(maj) >= len(vals)//2+1 for maj in majlist]):
+                tags['tags'] = majlist[0]  # add consensus tag
+                if newtags is not None:
+                    tags['tags'] += ','+newtags
                 consensus[Id] = tags
-                # TODO: add majority tag to new "tags" field in final index
-                # TODO: add datastate to final tag set ('archived', 'deleted')
             else:
                 noconsensus[Id] = tags
+        else:
+            logger.exception("consensustype {0} not recognized"
+                             .format(consensustype))
 
     if res == 'consensus':
         return consensus
@@ -607,7 +619,7 @@ def copy_doc(index1, index2, Id, deleteorig=False):
 
     if res['_shards']['successful']:
         if deleteorig:
-            es.delete(index=index1, doc_type=doc_type1, id=Id)
+            res = es.delete(index=index1, doc_type=doc_type1, id=Id)
     else:
         logger.warn("Move of {0} from index {1} to {2} failed".format(Id,
                                                                       index1,
