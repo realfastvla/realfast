@@ -563,6 +563,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
     Returns dicts with either consensus and noconsensus candidates.
     This includes original user tags plus new "tags" field with data state.
+    newtags is a comma-delimited string that sets tags to apply to all.
     """
 
     assert consensustype in ["absolute", "majority"]
@@ -601,21 +602,22 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
             # sort by whether tag is agreed upon by majority
             consensus_tags = []
             noconsensus_tags = []
-            print('alltags {0}'.format(alltags))
             for tag in alltags:
-                print(tag)
                 if alltags.count(tag) >= len(tagslist)//2+1:
                     consensus_tags.append(tag)
                 else:
                     noconsensus_tags.append(tag)
 
             if newtags is not None:
-                consensus_tags.append(tag)
+                for newtag in newtags.split(','):
+                    consensus_tags.append(newtag)
 
-            tagsdict['tags'] = ','.join(consensus_tags)
-            consensus[Id] = tagsdict
-            tagsdict['tags'] = ','.join(noconsensus_tags)
-            noconsensus[Id] = tagsdict
+            if res == 'consensus':
+                tagsdict['tags'] = ','.join(consensus_tags)
+                consensus[Id] = tagsdict
+            elif res == 'noconsensus':
+                tagsdict['tags'] = ','.join(noconsensus_tags)
+                noconsensus[Id] = tagsdict
         else:
             logger.exception("consensustype {0} not recognized"
                              .format(consensustype))
