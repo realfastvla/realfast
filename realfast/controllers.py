@@ -601,7 +601,7 @@ def search_config(config, preffile=None, prefsname=None, inprefs={}, nameinclude
 
     # 6) only if state validates
     if not heuristics.state_validates(config=config, preffile=preffile,
-                                      prefname=prefsname, inprefs=inprefs):
+                                      prefsname=prefsname, inprefs=inprefs):
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
