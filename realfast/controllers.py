@@ -492,7 +492,7 @@ class realfast_controller(Controller):
         if random.uniform(0, 1) < self.mockprob:
             st = self.states[scanId]
             # TODO: consider how to generalize for ampslope
-            self.states[scanId].prefs.simulated_transient = util.make_transient(st)
+            self.states[scanId].prefs.simulated_transient = util.make_transient_params(st)
             mindexed = (elastic.indexmocks(self.states[scanId],
                                            indexprefix=self.indexprefix)
                         if self.indexresults else 0)
