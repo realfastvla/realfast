@@ -22,11 +22,10 @@ The realfast application is build upon the following libraries:
 
 * Python 2.7 and the scientific python stack (numpy, etc.)
 * [rfpipe](http://github.com/realfastvla/rfpipe)
-* [rtpipe](http://github.com/caseyjlaw/rtpipe) (temporarily required for its flagger)
 * [evla_mcast](https://github.com/demorest/evla_mcast)
 * [vys](https://github.com/mpokorny/vysmaw) and [vysmaw_apps](https://github.com/realfastvla/vysmaw_apps)
 * [distributed](https://github.com/dask/distributed)
-* [pyfft](https://pythonhosted.org/pyfft) and [pycuda](https://mathema.tician.de/software/pycuda) for GPU support
+* [rfgpu](https://github.com/realfastvla/rfgpu) for GPU support
 * [elasticsearch](https://github.com/elastic/elasticsearch-py),
 * [supervisor](http://supervisord.org) (to manage/daemonize processes)
 * [click](http://click.pocoo.org)
