@@ -229,9 +229,10 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         # create id
         uniqueid = candid(canddict)
         candidate_png = 'cands_{0}.png'.format(uniqueid)
-        if os.path.exists(candidate_png):
-                logger.debug("Found png {0} and setting cands index field"
-                             .format(candidate_png))
+        logger.info("{0}".format(os.path.join(prefs.workdir, candidate_png)))
+        if os.path.exists(os.path.join(prefs.workdir, candidate_png)):
+                logger.info("Found png {0} and setting cands index field"
+                            .format(candidate_png))
                 canddict['png_url'] = os.path.join(url_prefix, candidate_png)
 
         res += pushdata(canddict, index=index,
