@@ -472,9 +472,9 @@ class realfast_controller(Controller):
                     .format(timeout_string))
 
         t0 = time.Time.now().unix
-        elapsedtime = time.Time.now().unix - t0
         badstatuslist = ['cancelled', 'error', 'lost']
         while len(self.futures):
+            elapsedtime = time.Time.now().unix - t0
             if (elapsedtime > timeout) and (timeout >= 0):
                 badstatuslist += ['pending']
             self.cleanup(badstatuslist=badstatuslist)
