@@ -97,10 +97,13 @@ def valid_telcalfile(st):
     Note: telcalfile may appear later.
     """
 
-    if os.path.exists(st.gainfile) and os.path.isfile(st.gainfile):
-        return True
+    if st.gainfile is not None:
+        if os.path.exists(st.gainfile) and os.path.isfile(st.gainfile):
+            return True
+        else:
+            return False
     else:
-        return False
+        return True  # None is valid, since file may appear during scheduling
 
 
 def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
