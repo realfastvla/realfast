@@ -63,7 +63,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
     ncands = delayed(lambda x: len(x))(candcollection)
 
     futures_seg = cl.compute((segment, data, candcollection, ncands),
-                             resources=resources)
+                             resources=resources, priority=st.nsegment-segment)
 
     return futures_seg
 
