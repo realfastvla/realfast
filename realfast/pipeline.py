@@ -8,6 +8,7 @@ from dask import array, delayed
 from rfpipe import source, search, util, candidates
 from dask.base import tokenize
 import numpy as np
+from time import sleep
 
 import logging
 logger = logging.getLogger(__name__)
@@ -15,7 +16,8 @@ vys_timeout_default = 10
 
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
-                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.):
+                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
+                  throttle=False):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -31,10 +33,13 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
         segments = list(range(st.nsegment))
 
     futures = []
+    sleeptime = st.nints*st.inttime/st.nsegment
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
                                     mem_search=mem_search))
+        if throttle:
+            sleep(sleeptime)
 
     return futures  # list of tuples of futures (seg, data, cc, ncands)
 
@@ -64,7 +69,8 @@ def pipeline_seg(st, segment, cl, cfile=None,
     ncands = delayed(lambda x: len(x))(candcollection)
 
     futures_seg = cl.compute((segment, data, candcollection, ncands),
-                             resources=resources, priority=st.nsegment-segment)
+                             resources=resources, fifo_timeout='0s') 
+                             #, priority=st.nsegment-segment)
 
     return futures_seg
 

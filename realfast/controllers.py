@@ -315,7 +315,8 @@ class realfast_controller(Controller):
                                                      cfile=cfile,
                                                      vys_timeout=vys_timeout,
                                                      mem_read=w_memlim,
-                                                     mem_search=2*st.vismem*1e9)
+                                                     mem_search=2*st.vismem*1e9,
+                                                     throttle=self.throttle)
                 else:
                     sleep(min(1, timeout/10))
                     self.cleanup()
@@ -331,7 +332,8 @@ class realfast_controller(Controller):
                                              cl=self.client, cfile=cfile,
                                              vys_timeout=vys_timeout,
                                              mem_read=w_memlim,
-                                             mem_search=2*st.vismem*1e9)
+                                             mem_search=2*st.vismem*1e9,
+                                             throttle=self.throttle)
 
         if len(futures):
             self.futures[st.metadata.scanId] = futures
