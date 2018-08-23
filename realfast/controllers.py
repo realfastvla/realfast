@@ -72,6 +72,9 @@ class realfast_controller(Controller):
                                              resources={"READER": 1,
                                                         "GPU": 1,
                                                         "MEMORY": 10e9})
+        else:
+            self.client = distributed.Client('{0}:{1}'
+                                             .format(host, '8786'))
 
         self.lock = dask.utils.SerializableLock()
         self.states = {}
