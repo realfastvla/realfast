@@ -277,7 +277,7 @@ class realfast_controller(Controller):
             else:
                 assert self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout"
                 nspec = st.readints*st.nbl*st.nspw*st.npol
-                vys_timeout = 1 + self.vys_sec_per_spec*nspec
+                vys_timeout = (st.t_segment + self.vys_sec_per_spec*nspec)/st.t_segment
                 logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
                             .format(vys_timeout))
 
