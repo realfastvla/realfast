@@ -140,6 +140,9 @@ class realfast_controller(Controller):
     def spilled_memory(self):
         return heuristics.spilled_memory(self.daskdir)
 
+    def restart(self):
+        self.client.restart()
+
     def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
         """ Triggered when obs comes in.
         Downstream logic starts here.
