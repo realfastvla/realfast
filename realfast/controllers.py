@@ -94,12 +94,11 @@ class realfast_controller(Controller):
                         .format(self.preffile))
 
         # get arguments from preffile, optional overload from kwargs
-        self.daskdir = '/lustre/evla/test/realfast/dask-worker-space'
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix', 'prefsname']:
+                     'indexprefix', 'prefsname', 'daskdir']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
