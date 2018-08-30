@@ -31,6 +31,7 @@ _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
+_default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
 
 
 class realfast_controller(Controller):
@@ -108,6 +109,8 @@ class realfast_controller(Controller):
         if self.indexprefix is None:
             self.indexprefix = 'new'
         assert self.indexprefix in ['new', 'test', 'aws'], "indexprefix must be None, 'new', 'test' or 'aws'."
+        if self.daskdir is None:
+            self.daskdir = _default_daskdir
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'

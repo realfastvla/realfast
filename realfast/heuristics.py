@@ -28,7 +28,7 @@ def reader_memory_used(cl):
             if 'READER' in vals['resources']]
 
 
-def spilled_memory(daskdir='/lustre/evla/test/realfast/dask-worker-space'):
+def spilled_memory(daskdir='.'):
     """ How much memory has been spilled by dask/distributed?
     """
 
@@ -78,7 +78,7 @@ def readertotal_memory_ok(cl, memory_limit):
         return True
 
 
-def spilled_memory_ok(limit=1.0, daskdir='/lustre/evla/test/realfast/dask-worker-space'):
+def spilled_memory_ok(limit=1.0, daskdir='.'):
     """ Calculate total memory spilled (in GB) by dask distributed.
     """
 
