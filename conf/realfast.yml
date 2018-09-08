@@ -1,34 +1,50 @@
 rfpipe:
   default:
-    nthread: 1
+    nthread: 2  # not taking all in case multiple workers going
     dtarr: [1]   # integer to integrate in time for independent searches
     maxdm: 100
-    flagantsol: False
+    flagantsol: True
     timesub: 'mean'
-    searchtype: 'image1'    # search algorithm: 'image1' is single image snr threshold
+    searchtype: 'image'
     sigma_image1: 6.4
-    sigma_plot: 7.2
+    sigma_kalman: 0.
     npix_max: 1024
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: True
     savecands: True
     selectpol: 'auto'
-    fftmode: 'fftw'
-    memory_limit: 12 # in GB
-    maximmem: 0.5
+    fftmode: 'cuda'
+    memory_limit: 1 # in GB
+  baseline:   # S-band 2-4 GHz, 1024 channels, 8 ms, 2 pols
+    nthread: 1
+    dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
+    maxdm: 2500
+    flagantsol: True
+    timesub: 'mean'
+    searchtype: 'imagek'
+    sigma_image1: 7.5
+    sigma_kalman: 1.0
+    npix_max: 2048
+    badspwpol: 2.
+    uvoversample: 1.5
+    savenoise: True
+    savecands: True
+    selectpol: 'auto'
+    fftmode: 'cuda'
+    memory_limit: 2.8 # in GB
 
-queue_monitor:
-  production: True 
-  triggered: True
-  a: True
-  threshold: 7.2
-  bdfdir: /lustre/evla/wcbe/data/no_archive
-  v: True
-
-mcaf_monitor:
-  production: True
-  project: 17A-396
-  intent: TARGET
-  rtparams: /lustre/evla/test/realfast/rtpipe_cbe.conf
-  v: True
+realfast:
+  vys_timeout:  # fixed timeout factor relative to realtime reading
+  vys_sec_per_spec: !!float 1.0e-5  # timeout factor from time per spectrum
+  mockprob: 0.3  # chance of injecting mock transient per scan
+  indexresults: True  # push info to elasticsearch indices
+  indexprefix: 'new'  # save to production indices
+  saveproducts: False  # save minisdm
+  archiveproducts: False  # push minisdm to archive
+  searchintents: ['OBSERVE_TARGET', 'CALIBRATE_PHASE', 'CALIBRATE_AMPLI', 'CALIBRATE_DELAY']
+  throttle: True  # submission of scan conditional on cluster status
+  read_overhead: 8  # scale reader memory higher than nominal vismem requirement
+  read_totfrac: 0.5  # require total of readers memories usage
+  spill_limit: 100  # limit spilled memory in GB
+  prefsname: baseline  # rfpipe preferences name

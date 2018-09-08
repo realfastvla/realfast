@@ -96,6 +96,15 @@ def read_segment(st, segment, cfile, vys_timeout):
     return data
 
 
+def pipeline_sdm(sdm, intent='TARGET', inprefs=None, preffile=None):
+    """ Wrapper for rfpipe pipeline for all scans in SDM.
+    """
+
+    rfpipe.pipeline.pipeline_sdm(sdm, intent=intent, inprefs=inprefs,
+                                 preffile=preffile)
+
+
+
 def prep_and_search(st, segment, data):
     """ Wrapper for search.prep_and_search that secedes from worker
     thread pool
