@@ -5,6 +5,7 @@ from io import open
 
 import os.path
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
+from rfpipe.candidates import calc_cluster_rank
 import pickle
 import logging
 logging.getLogger('elasticsearch').setLevel(30)
@@ -206,6 +207,10 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     canddm = candcollection.canddm
     canddt = candcollection.canddt
 
+    # calc rank and count of each cluster
+    cl_rank, cl_count = calc_cluster_rank(candcollection)
+    # TODO: index these values
+
     res = 0
     for i in range(len(candarr)):
         # get features. use .item() to cast to default types
@@ -222,6 +227,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['candmjd'] = float(candmjd[i])
         canddict['canddm'] = float(canddm[i])
         canddict['canddt'] = float(canddt[i])
+        canddict['cl_rank'] = cl_rank[i]
+        canddict['cl_count'] = cl_count[i]
         canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
