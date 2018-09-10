@@ -206,43 +206,39 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     candmjd = candcollection.candmjd
     canddm = candcollection.canddm
     canddt = candcollection.canddt
-
-    # calc rank and count of each cluster
-    cl_rank, cl_count = calc_cluster_rank(candcollection)
-    # TODO: incorporate cluster into plot
+    cluster = candcollection.cluster
+    clustersize = candcollection.clustersize
 
     res = 0
     for i in range(len(candarr)):
-        # only plot and upload cluster max SNR with plots
-        if cl_rank[i] == 1:
-            # get features. use .item() to cast to default types
-            canddict = dict(list(zip(candarr.dtype.names, candarr[i].item())))
+        # get features. use .item() to cast to default types
+        canddict = dict(list(zip(candarr.dtype.names, candarr[i].item())))
 
-            # fill optional fields
-            canddict['scanId'] = scanId
-            datasetId, scan, subscan = scanId.rsplit('.', 2)
-            canddict['datasetId'] = datasetId
-            canddict['scan'] = int(scan)
-            canddict['subscan'] = int(subscan)
-            canddict['tags'] = tagstr
-            canddict['tagcount'] = 0
-            canddict['candmjd'] = float(candmjd[i])
-            canddict['canddm'] = float(canddm[i])
-            canddict['canddt'] = float(canddt[i])
-            canddict['cl_rank'] = int(cl_rank[i])
-            canddict['cl_count'] = int(cl_count[i])
-            canddict['png_url'] = ''
-            if prefs.name:
-                canddict['prefsname'] = prefs.name
+        # fill optional fields
+        canddict['scanId'] = scanId
+        datasetId, scan, subscan = scanId.rsplit('.', 2)
+        canddict['datasetId'] = datasetId
+        canddict['scan'] = int(scan)
+        canddict['subscan'] = int(subscan)
+        canddict['tags'] = tagstr
+        canddict['tagcount'] = 0
+        canddict['candmjd'] = float(candmjd[i])
+        canddict['canddm'] = float(canddm[i])
+        canddict['canddt'] = float(canddt[i])
+        canddict['cluster'] = int(cluster[i])
+        canddict['clustersize'] = int(clustersize[i])
+        canddict['png_url'] = ''
+        if prefs.name:
+            canddict['prefsname'] = prefs.name
 
-            # create id
-            uniqueid = candid(canddict)
-            candidate_png = 'cands_{0}.png'.format(uniqueid)
-            canddict['png_url'] = os.path.join(url_prefix, candidate_png)
+        # create id
+        uniqueid = candid(canddict)
+        candidate_png = 'cands_{0}.png'.format(uniqueid)
+        canddict['png_url'] = os.path.join(url_prefix, candidate_png)
 
-            assert os.path.exists(os.path.join(prefs.workdir, candidate_png)), "Expected png {0} for candidate.".format(candidate_png)
-            res += pushdata(canddict, index=index,
-                            Id=uniqueid, command='index')
+#        assert os.path.exists(os.path.join(prefs.workdir, candidate_png)), "Expected png {0} for candidate.".format(candidate_png)
+        res += pushdata(canddict, index=index,
+                        Id=uniqueid, command='index')
 
     if res >= 1:
         logger.debug('Indexed {0} cands for {1} to {2}'.format(res, scanId,
