@@ -5,7 +5,7 @@ from io import open
 
 import distributed
 from dask import array, delayed
-from rfpipe import source, search, util, candidates
+from rfpipe import source, search
 from dask.base import tokenize
 import numpy as np
 from time import sleep
@@ -94,15 +94,6 @@ def read_segment(st, segment, cfile, vys_timeout):
                 .format(st.metadata.scanId, segment))
 
     return data
-
-
-def pipeline_sdm(sdm, intent='TARGET', inprefs=None, preffile=None):
-    """ Wrapper for rfpipe pipeline for all scans in SDM.
-    """
-
-    rfpipe.pipeline.pipeline_sdm(sdm, intent=intent, inprefs=inprefs,
-                                 preffile=preffile)
-
 
 
 def prep_and_search(st, segment, data):
