@@ -19,6 +19,13 @@ from realfast import pipeline, elastic, mcaf_servers, heuristics
 import logging
 import matplotlib
 import yaml
+# to parse tuples in yaml
+class PrettySafeLoader(yaml.SafeLoader):
+    def construct_python_tuple(self, node):
+        return tuple(self.construct_sequence(node))
+PrettySafeLoader.add_constructor(u'tag:yaml.org,2002:python/tuple',
+                                 PrettySafeLoader.construct_python_tuple)
+
 matplotlib.use('Agg')
 ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
@@ -87,7 +94,7 @@ class realfast_controller(Controller):
         prefs = {}
         if os.path.exists(self.preffile):
             with open(self.preffile, 'r') as fp:
-                prefs = yaml.load(fp)['realfast']
+                prefs = yaml.load(fp, Loader=PrettySafeLoader)['realfast']
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
         else:
