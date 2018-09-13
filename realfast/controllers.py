@@ -396,7 +396,7 @@ class realfast_controller(Controller):
                         msp_fut = self.client.submit(makesummaryplot,
                                                      workdir,
                                                      scanId,
-                                                     priority=5)
+                                                     priority=5).result()
                         nplots_fut = self.client.submit(moveplots, cc, scanId,
                                                         destination=_candplot_dir,
                                                         priority=5)
