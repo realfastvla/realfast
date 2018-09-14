@@ -19,12 +19,6 @@ from realfast import pipeline, elastic, mcaf_servers, heuristics
 import logging
 import matplotlib
 import yaml
-# to parse tuples in yaml
-class PrettySafeLoader(yaml.SafeLoader):
-    def construct_python_tuple(self, node):
-        return tuple(self.construct_sequence(node))
-PrettySafeLoader.add_constructor(u'tag:yaml.org,2002:python/tuple',
-                                 PrettySafeLoader.construct_python_tuple)
 
 matplotlib.use('Agg')
 ch = logging.StreamHandler()
@@ -39,6 +33,16 @@ _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _candplot_dir = '/users/claw/public_html/realfast/plots'
 _candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
+
+
+# to parse tuples in yaml
+class PrettySafeLoader(yaml.SafeLoader):
+    def construct_python_tuple(self, node):
+        return tuple(self.construct_sequence(node))
+
+
+PrettySafeLoader.add_constructor(u'tag:yaml.org,2002:python/tuple',
+                                 PrettySafeLoader.construct_python_tuple)
 
 
 class realfast_controller(Controller):
@@ -136,6 +140,16 @@ class realfast_controller(Controller):
                 for (scanId, futurelist) in iteritems(self.futures)
                 for seg, data, cc, ncands in futurelist
                 if data.status == 'error' or cc.status == 'error']
+
+    @property
+    def processing(self):
+        return dict((self.workernames[k], v)
+                    for k, v in iteritems(self.client.processing()) if v)
+
+    @property
+    def workernames(self):
+        return dict((k, v['id'])
+                    for k, v in iteritems(self.client.scheduler_info()['workers']))
 
     @property
     def reader_memory_available(self):
