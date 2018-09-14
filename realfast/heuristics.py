@@ -14,7 +14,7 @@ def reader_memory_available(cl):
     """ Calc memory in use by READERs
     """
 
-    return [vals['memory_limit']-vals['memory']
+    return [vals['memory_limit']-vals['metrics']['memory']
             for vals in itervalues(cl.scheduler_info()['workers'])
             if 'READER' in vals['resources']]
 
@@ -23,7 +23,7 @@ def reader_memory_used(cl):
     """ Calc memory in use by READERs
     """
 
-    return [vals['memory']
+    return [vals['metrics']['memory']
             for vals in itervalues(cl.scheduler_info()['workers'])
             if 'READER' in vals['resources']]
 
