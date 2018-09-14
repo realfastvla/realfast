@@ -218,7 +218,7 @@ class realfast_controller(Controller):
         """ Parallel to handle_config, but allows metadata dict to be passed in.
         Gets called explicitly.
         Default vys config file uses test parameters.
-        inmeta datasource key can be 'vys' or 'sim' and is passed to rfpipe.
+        inmeta datasource key ('vys', 'sim', or 'vyssim') is passed to rfpipe.
         segments arg can be used to submit a subset of all segments.
         """
 
@@ -282,7 +282,7 @@ class realfast_controller(Controller):
         w_memlim = self.read_overhead*st.vismem*1e9
 
         vys_timeout = self.vys_timeout
-        if st.metadata.datasource == 'vys':
+        if st.metadata.datasource in ['vys', 'vyssim']:
             if self.vys_timeout is not None:
                 logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
                             .format(vys_timeout))
