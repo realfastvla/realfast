@@ -5,7 +5,7 @@ from io import open
 
 import distributed
 from dask import array, delayed
-from rfpipe import source, search
+from rfpipe import source, pipeline
 from dask.base import tokenize
 import numpy as np
 from time import sleep
@@ -63,7 +63,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
                                         cfile=cfile)
     resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
 
-    candcollection = delayed(search.prep_and_search)(st, segment, data)
+    candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
     resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
     if st.fftmode == 'cuda':
         resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
@@ -105,7 +105,7 @@ def prep_and_search(st, segment, data):
                 .format(st.metadata.scanId, segment))
 
     with distributed.worker_client() as cl_loc:
-        fut = cl_loc.submit(search.prep_and_search, st, segment, data)
+        fut = cl_loc.submit(pipeline.prep_and_search, st, segment, data)
         cc = fut.result()
 
     logger.info("Finished searching datasetId {0}, segment {1} locally."
