@@ -557,6 +557,12 @@ class realfast_controller(Controller):
 
             # clean them up
             for futures in removelist:
+                workers = [self.client.who_has(fut) for futs in removelist
+                           for fut in futs]
+                workerids = [self.workernames[ww[0]]
+                             for worker in workers
+                             for ww in listvalues(worker) if ww]
+                logger.warn("Removing bad job from {0}".format(set(workerids)))
                 self.futures[scanId].remove(futures)
                 removed += 1
 
