@@ -208,6 +208,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     canddt = candcollection.canddt
     cluster = candcollection.cluster
     clustersize = candcollection.clustersize
+    snrtot = candcollection.snrtot
 
     res = 0
     for i in range(len(candarr)):
@@ -227,6 +228,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['canddt'] = float(canddt[i])
         canddict['cluster'] = int(cluster[i])
         canddict['clustersize'] = int(clustersize[i])
+        canddict['snrtot'] = float(snrtot[i])
         canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
