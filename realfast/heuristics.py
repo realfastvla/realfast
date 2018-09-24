@@ -121,6 +121,59 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         return False
 
 
+def is_nrao_default(inmeta):
+    """ Parses metadata to determine if it is consistent with NRAO default
+    correlator mode.
+    """
+
+    nspw = len(inmeta['spw_orig'])
+    if nspw != 16:
+        return False
+    else:
+        logger.info("NRAO default pass: 16 spw")
+
+    for band, low, high in [('L', 1e9, 2e9), ('S', 2e9, 4e9), ('C', 4e9, 8e9),
+                            ('X', 8e9, 12e9)]:
+        reffreq_inband = [reffreq for reffreq in inmeta['spw_reffreq']
+                          if ((reffreq >= low) and (reffreq < high))]
+        if len(reffreq_inband) == nspw:
+            break
+        else:
+            reffreq_inband = None
+
+    if reffreq_inband is None:
+        return False
+    else:
+        logger.info("NRAO default pass: All {0} spw are in {1} band"
+                    .format(nspw, band))
+
+    if not all([nchan == 64 for nchan in inmeta['spw_nchan']]):
+        False
+    else:
+        logger.info("NRAO default pass: all spw have 64 channels")
+        nchan = 64
+
+    if len(inmeta['pols_orig']) != 4:
+        return False
+    else:
+        logger.info("NRAO default pass: Full pol")
+
+    bandwidth = sum([nchan * chansize for chansize in inmeta['spw_chansize']])
+    if band == 'L' and bandwidth != 1024000000.0:
+        return False
+    elif band == 'S' and bandwidth != 2048000000.0:
+        return False
+    elif band == 'C' and bandwidth != 2048000000.0:
+        return False
+    elif band == 'X' and bandwidth != 2048000000.0:
+        return False
+    else:
+        logger.info("NRAO default pass: bandwidth {0} for band {1}"
+                    .format(bandwidth, band))
+
+    return True
+
+
 def total_images_searched(st):
     """ Number of images formed (trials) in all segments, dms, dts.
     """
