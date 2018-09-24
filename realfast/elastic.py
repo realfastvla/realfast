@@ -52,6 +52,8 @@ def indexscan_config(config, preferences=None, datasource='vys',
     if preferences:
         scandict['prefsname'] = preferences.name
         indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'

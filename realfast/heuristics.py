@@ -128,12 +128,13 @@ def is_nrao_default(inmeta):
 
     nspw = len(inmeta['spw_orig'])
     if nspw != 16:
+        logger.info("NRAO default fail: {0} spw".format(nspw))
         return False
     else:
         logger.info("NRAO default pass: 16 spw")
 
-    for band, low, high in [('L', 1e9, 2e9), ('S', 2e9, 4e9), ('C', 4e9, 8e9),
-                            ('X', 8e9, 12e9)]:
+    for band, low, high in [('L', 0.9e9, 2.1e9), ('S', 1.9e9, 4.1e9), ('C', 3.9e9, 8.1e9),
+                            ('X', 7.9e9, 12.1e9)]:
         reffreq_inband = [reffreq for reffreq in inmeta['spw_reffreq']
                           if ((reffreq >= low) and (reffreq < high))]
         if len(reffreq_inband) == nspw:
@@ -142,30 +143,43 @@ def is_nrao_default(inmeta):
             reffreq_inband = None
 
     if reffreq_inband is None:
+        logger.info("NRAO default fail: reffreqs not in just one of our bands {0} "
+                    .format(inmeta['spw_reffreq']))
         return False
     else:
         logger.info("NRAO default pass: All {0} spw are in {1} band"
                     .format(nspw, band))
 
     if not all([nchan == 64 for nchan in inmeta['spw_nchan']]):
+        logger.info("NRAO default fail: not all spw have 64 chans {0} "
+                    .format(inmeta['spw_nchan']))
         False
     else:
         logger.info("NRAO default pass: all spw have 64 channels")
         nchan = 64
 
     if len(inmeta['pols_orig']) != 4:
+        logger.info("NRAO default fail: {0} pols".format(inmeta['pols_orig']))
         return False
     else:
         logger.info("NRAO default pass: Full pol")
 
     bandwidth = sum([nchan * chansize for chansize in inmeta['spw_chansize']])
     if band == 'L' and bandwidth != 1024000000.0:
+        logger.info("NRAO default fail: band {0} has bandwidth {1}"
+                    .format(band, bandwidth))
         return False
     elif band == 'S' and bandwidth != 2048000000.0:
+        logger.info("NRAO default fail: band {0} has bandwidth {1}"
+                    .format(band, bandwidth))
         return False
     elif band == 'C' and bandwidth != 2048000000.0:
+        logger.info("NRAO default fail: band {0} has bandwidth {1}"
+                    .format(band, bandwidth))
         return False
     elif band == 'X' and bandwidth != 2048000000.0:
+        logger.info("NRAO default fail: band {0} has bandwidth {1}"
+                    .format(band, bandwidth))
         return False
     else:
         logger.info("NRAO default pass: bandwidth {0} for band {1}"
