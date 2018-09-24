@@ -92,6 +92,9 @@ class realfast_controller(Controller):
         self.states = {}
         self.futures = {}
         self.futures_removed = {}
+        self.nsegment = {}
+        self.finished = {}
+        self.errors = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -134,7 +137,7 @@ class realfast_controller(Controller):
                 for seg, data, cc, ncands in futurelist]
 
     @property
-    def errors(self):
+    def errorstr(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
                                             cc.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
@@ -162,6 +165,21 @@ class realfast_controller(Controller):
     @property
     def spilled_memory(self):
         return heuristics.spilled_memory(self.daskdir)
+
+    def pending(self, key):
+        return len([futurelist[3] for futurelist in self.futures[key]
+                    if futurelist[3].status == 'pending'])
+
+    def scanstatus(self, key):
+        if ((key in self.finished) and (key in self.nsegment) and (key in self.errors)):
+            return ('{0} segments, {1} pending, {2} finished, {3} errors'
+                    .format(self.nsegment[key], self.pending(key),
+                            self.finished[key], self.errors[key]))
+        else:
+            logger.warn("No scan status. {0} {1} {2}"
+                        .format(key in self.nsegment, key in self.finished,
+                                key in self.errors))
+            return None
 
     def restart(self):
         self.client.restart()
@@ -294,6 +312,8 @@ class realfast_controller(Controller):
 
         st = self.states[scanId]
         w_memlim = self.read_overhead*st.vismem*1e9
+        if segments is None:
+            segments = list(range(st.nsegment))
 
         vys_timeout = self.vys_timeout
         if st.metadata.datasource in ['vys', 'vyssim']:
@@ -328,9 +348,6 @@ class realfast_controller(Controller):
             timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
             elapsedtime = time.Time.now().unix - t0
 
-            if segments is None:
-                segments = list(range(st.nsegment))
-
             while (elapsedtime < timeout) and (len(futures) < len(segments)):
                 # Submit if workers are not overloaded
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -351,7 +368,7 @@ class realfast_controller(Controller):
 
             if elapsedtime > timeout:
                 logger.info("Throttle timed out. ScanId {0} not submitted."
-                            .format(st.metadata.scanId))
+                            .format(scanId))
 
         else:
             logger.info('Starting pipeline...')
@@ -363,7 +380,13 @@ class realfast_controller(Controller):
                                              throttle=self.throttle)
 
         if len(futures):
-            self.futures[st.metadata.scanId] = futures
+            self.futures[scanId] = futures
+            self.nsegment[scanId] = len(segments)
+            self.errors[scanId] = 0
+            self.finished[scanId] = 0
+            res = elastic.indexscan_status(scanId=scanId,
+                                           status=self.scanstatus(scanId),
+                                           indexprefix=self.indexprefix)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
@@ -385,11 +408,13 @@ class realfast_controller(Controller):
 
             # clean futures and get finished jobs
             removed = self.removefutures(badstatuslist)
+
             finishedlist = [[seg, data, cc, ncands]
                             for (scanId0, futurelist) in iteritems(self.futures)
                             for seg, data, cc, ncands in futurelist
                             if (ncands.status == 'finished') and
                                (scanId0 == scanId)]
+            self.finished[scanId] += len(finishedlist)
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
@@ -398,11 +423,10 @@ class realfast_controller(Controller):
                 if ncands:
                     if self.indexresults:
                         tags = self.tags
-                        indexprefix = self.indexprefix
                         res_fut = self.client.submit(elastic.indexcands,
                                                      cc, scanId, tags=tags,
                                                      url_prefix=_candplot_url_prefix,
-                                                     indexprefix=indexprefix,
+                                                     indexprefix=self.indexprefix,
                                                      priority=5)
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
@@ -479,8 +503,16 @@ class realfast_controller(Controller):
         removeids = [scanId for scanId in self.futures
                      if len(self.futures[scanId]) == 0]
         for scanId in removeids:
+            res = elastic.indexscan_status(scanId=scanId,
+                                           status=self.scanstatus(scanId),
+                                           indexprefix=self.indexprefix)
+
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
+            _ = self.nsegment.pop(scanId)
+            _ = self.finished.pop(scanId)
+            _ = self.errors.pop(scanId)
+
             logger.info("No jobs of scanId {0} left. "
                         "Cleaning state and futures dicts".format(scanId))
 
@@ -554,6 +586,11 @@ class realfast_controller(Controller):
                               (cc.status in badstatuslist) or
                               (ncands.status in badstatuslist)) and
                              (scanId0 == scanId)]
+
+            self.errors[scanId] += len(removelist)
+            res = elastic.indexscan_status(scanId=scanId,
+                                           status=self.scanstatus(scanId),
+                                           indexprefix=self.indexprefix)
 
             # clean them up
             for futures in removelist:

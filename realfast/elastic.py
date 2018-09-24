@@ -163,6 +163,16 @@ def indexscan_meta(metadata, preferences=None, indexprefix='new'):
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
+def indexscan_status(scanId, status, indexprefix='new'):
+    """ Update status field string for scanId
+    """
+
+    res = update_field(index=indexprefix+'scans', _id=scanId, field='status',
+                       value=status)
+
+    return res
+
+
 def indexprefs(preferences, indexprefix='new'):
     """ Index preferences with id equal to hash of contents.
     indexprefix allows specification of set of indices ('test', 'aws').
@@ -406,7 +416,8 @@ def update_field(index, field, value, **kwargs):
              "script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                         "lang": "painless"}}
 
-    resp = es.update_by_query(body=query, doc_type=doc_type, index=index)
+    resp = es.update_by_query(body=query, doc_type=doc_type, index=index,
+                              conflicts="proceed")
 
     response_info = {"total": resp["total"], "updated": resp["updated"],
                      "type": "success"}
