@@ -108,6 +108,8 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
     if preferences:
         scandict['prefsname'] = preferences.name
         indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'
@@ -153,6 +155,8 @@ def indexscan_meta(metadata, preferences=None, indexprefix='new'):
     if preferences:
         scandict['prefsname'] = preferences.name
         indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
 
     # push scan info with unique id of scanId
     index = indexprefix+'scans'
@@ -171,21 +175,26 @@ def indexscan_status(scanId, nsegment=None, pending=None, finished=None,
     """
 
     res = 0
+    tried = 0
     if nsegment is not None:
+        tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='nsegment', value=int(nsegment))
     if pending is not None:
+        tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='pending', value=int(pending))
     if finished is not None:
+        tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='finished', value=int(finished))
     if errors is not None:
+        tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='errors', value=int(errors))
 
-    logger.info("Set {0}/4 fields with processing status for {1}"
-                .format(res, scanId))
+    logger.info("Updated {0}/{1} fields with processing status for {2}"
+                .format(res, tried, scanId))
 
 
 def indexprefs(preferences, indexprefix='new'):
@@ -276,36 +285,32 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     return res
 
 
-def indexmocks(st, indexprefix='new'):
-    """ Reads simulated_transient from state and pushes to index
-    Mock index must include scanId to reference data that was received.
+def indexmock(scanId, mocks, indexprefix='new'):
+    """ Takes simulated_transient as used in state and pushes to index.
+    Assumes 1 mock in list for now.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='new' for production.
     """
 
-    if st.prefs.simulated_transient is None:
+    if len(mocks[0]) != 7:
         return 0
 
-    mocks = st.prefs.simulated_transient
-    scanId = st.metadata.scanId
     index = indexprefix+'mocks'
 
-    res = 0
-    for mock in mocks:
-        mockdict = {}
-        mockdict['scanId'] = scanId
-        (seg, i0, dm, dt, amp, l, m) = mock
-        # TODO: support possible ampslope
-        mockdict['segment'] = int(seg)
-        mockdict['integration'] = int(i0)
-        mockdict['dm'] = float(dm)
-        mockdict['dt'] = float(dt)
-        mockdict['amp'] = float(amp)
-        mockdict['l'] = float(l)
-        mockdict['m'] = float(m)
+    mockdict = {}
+    mockdict['scanId'] = scanId
+    (seg, i0, dm, dt, amp, l, m) = mocks[0]  # assume 1 mock
+    # TODO: support possible ampslope
+    mockdict['segment'] = int(seg)
+    mockdict['integration'] = int(i0)
+    mockdict['dm'] = float(dm)
+    mockdict['dt'] = float(dt)
+    mockdict['amp'] = float(amp)
+    mockdict['l'] = float(l)
+    mockdict['m'] = float(m)
 
-        res += pushdata(mockdict, Id=scanId, index=index,
-                        command='index')
+    res = pushdata(mockdict, Id=scanId, index=index,
+                   command='index')
 
     if res >= 1:
         logger.debug('Indexed {0} mocks for {1} to {2}'.format(res, scanId,

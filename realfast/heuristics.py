@@ -121,6 +121,24 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         return False
 
 
+def reffreq_to_band(reffreqs, edge=5e8):
+    """ Given list of reffreqs, return name of band that contains all of them.
+    edge defines frequency edge around each nominal band to include.
+    """
+
+    nspw = len(reffreqs)
+    for band, low, high in [('L', 1e9, 2e9), ('S', 2e9, 4e9),
+                            ('C', 4e9, 8e9), ('X', 8e9, 12e9),
+                            ('Ku', 12e9, 18e9), ('K', 18e9, 26.5e9),
+                            ('Ka', 26.5e9, 30e9), ('Q', 40e9, 50e9)]:
+        reffreq_inband = [reffreq for reffreq in reffreqs
+                          if ((reffreq >= low-edge) and (reffreq < high+edge))]
+        if len(reffreq_inband) == nspw:
+            return band
+
+    return None
+
+
 def is_nrao_default(inmeta):
     """ Parses metadata to determine if it is consistent with NRAO default
     correlator mode.
@@ -133,17 +151,9 @@ def is_nrao_default(inmeta):
     else:
         logger.info("NRAO default pass: 16 spw")
 
-    for band, low, high in [('L', 0.9e9, 2.1e9), ('S', 1.9e9, 4.1e9), ('C', 3.9e9, 8.1e9),
-                            ('X', 7.9e9, 12.1e9)]:
-        reffreq_inband = [reffreq for reffreq in inmeta['spw_reffreq']
-                          if ((reffreq >= low) and (reffreq < high))]
-        if len(reffreq_inband) == nspw:
-            break
-        else:
-            reffreq_inband = None
-
-    if reffreq_inband is None:
-        logger.info("NRAO default fail: reffreqs not in just one of our bands {0} "
+    band = reffreq_to_band(inmeta['spw_reffreq'])
+    if band is None:
+        logger.info("NRAO default fail: reffreqs not in just band {0} "
                     .format(inmeta['spw_reffreq']))
         return False
     else:
@@ -186,6 +196,22 @@ def is_nrao_default(inmeta):
                     .format(bandwidth, band))
 
     return True
+
+
+def band_prefs(inmeta):
+    """ Define preferences to overload default based on frequency band.
+    Most important, select spw to avoid RFI and excessive computing.
+    """
+
+    newprefs = {}
+
+    band = reffreq_to_band(inmeta['spw_reffreq'])
+    if band == 'L':
+        newprefs['spw'] = list(range(7, 16))
+    elif band == 'S':
+        newprefs['spw'] = [0] + list(range(3, 16))
+
+    return newprefs
 
 
 def total_images_searched(st):

@@ -193,7 +193,6 @@ class realfast_controller(Controller):
 
             self.set_state(config.scanId, config=config, prefsname=prefsname,
                            inmeta={'datasource': 'vys'})
-            self.inject_transient(config.scanId)  # randomly inject mock transient
 
             if self.indexresults:
                 elastic.indexscan_config(config,
@@ -223,7 +222,6 @@ class realfast_controller(Controller):
         prefsname = self.get_prefsname()
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                        prefsname=prefsname, inmeta={'datasource': 'sdm'})
-        self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
@@ -250,7 +248,6 @@ class realfast_controller(Controller):
 
         prefsname = self.get_prefsname()
         self.set_state(scanId, inmeta=inmeta, prefsname=prefsname)
-        self.inject_transient(scanId)  # randomly inject mock transient
 
         if self.indexresults:
             elastic.indexscan_meta(self.states[scanId].metadata,
@@ -266,16 +263,22 @@ class realfast_controller(Controller):
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
                   sdmscan=None, bdfdir=None, prefsname=None):
         """ Given metadata source, define state for a scanId.
+        Some overloading of preferences done here, based on heuristics.
+        Will inject mock transient based on mockprob and other parameters.
         """
 
         # TODO: define prefsname according to config and/or heuristics
-        inprefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
-                                                                      name=prefsname,
-                                                                      inprefs=self.inprefs))
+        inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
+                                            inprefs=self.inprefs)
+
+        # overload prefs based on band-specific rules (req Python>= 3.5)
+        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir)
+
+        st = self.inject_transient(st)  # randomly inject mock transient
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
@@ -374,7 +377,7 @@ class realfast_controller(Controller):
             self.futures[scanId] = futures
             self.errors[scanId] = 0
             self.finished[scanId] = 0
-            elastic.indexscan_status(nsegment=len(segments),
+            elastic.indexscan_status(scanId, nsegment=len(segments),
                                      pending=self.pending(scanId),
                                      finished=self.finished[scanId],
                                      errors=self.errors[scanId])
@@ -406,6 +409,10 @@ class realfast_controller(Controller):
                             if (ncands.status == 'finished') and
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
+
+            elastic.indexscan_status(scanId, pending=self.pending(scanId),
+                                     finished=self.finished[scanId],
+                                     errors=self.errors[scanId])
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
@@ -494,7 +501,6 @@ class realfast_controller(Controller):
         removeids = [scanId for scanId in self.futures
                      if len(self.futures[scanId]) == 0]
         for scanId in removeids:
-
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
             _ = self.finished.pop(scanId)
@@ -530,27 +536,28 @@ class realfast_controller(Controller):
             self.cleanup(badstatuslist=badstatuslist)
             sleep(10)
 
-    def inject_transient(self, scanId):
+    def inject_transient(self, st):
         """ Randomly sets preferences for scan to injects a transient
         into one segment of a scan. Requires state to have been set.
         Transient should be detectable, but randomly placed in the scan.
         Also pushes mock properties to index.
         """
 
-        assert scanId in self.states, "State must be defined first"
-
         if random.uniform(0, 1) < self.mockprob:
-            st = self.states[scanId]
             # TODO: consider how to generalize for ampslope
-            self.states[scanId].prefs.simulated_transient = util.make_transient_params(st)
-            mindexed = (elastic.indexmocks(self.states[scanId],
-                                           indexprefix=self.indexprefix)
+            mocks = util.make_transient_params(st, ntr=1)
+            mindexed = (elastic.indexmock(st.metadata.scanId, mocks,
+                        indexprefix=self.indexprefix)
                         if self.indexresults else 0)
             if mindexed:
                 logger.info("Indexed {0} mock transient to {1}."
                             .format(mindexed, self.indexprefix+"mocks"))
             else:
-                logger.info("Not indexing mock transient.")
+                logger.info("No mock transient indexed.")
+
+            st.prefs.simulated_transient = mocks
+
+        return st
 
     def removefutures(self, badstatuslist=['cancelled', 'error', 'lost'],
                       keep=False):
@@ -576,19 +583,13 @@ class realfast_controller(Controller):
 
             self.errors[scanId] += len(removelist)
 
-            res = elastic.update_field(index=self.indexprefix+'scans', _id=scanId, field='pending',
-                                       value=self.pending(scanId))
-            res += elastic.update_field(index=self.indexprefix+'scans', _id=scanId, field='errors',
-                                        value=self.errors[scanId])
-            logger.info("Set {0}/2 fields with processing status for {1}".format(res, scanId))
-
             # clean them up
             for futures in removelist:
                 workers = [self.client.who_has(fut) for futs in removelist
-                           for fut in futs]
+                           for fut in futs if fut.status in badstatuslist]
                 workerids = [self.workernames[ww[0]]
-                             for worker in workers
-                             for ww in listvalues(worker) if ww]
+                             for worker in workers]
+#                             for ww in listvalues(worker) if ww]
                 logger.warn("Removing bad job from {0}".format(set(workerids)))
                 self.futures[scanId].remove(futures)
                 removed += 1
@@ -611,8 +612,8 @@ class realfast_controller(Controller):
         logger.info('End of scheduling block message received.')
 
 
-def search_config(config, preffile=None, prefsname=None, inprefs={}, nameincludes=None,
-                  searchintents=None):
+def search_config(config, preffile=None, prefsname=None, inprefs={},
+                  nameincludes=None, searchintents=None):
     """ Test whether configuration specifies a scan config that realfast should
     search
     """
