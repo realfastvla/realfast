@@ -92,7 +92,6 @@ class realfast_controller(Controller):
         self.states = {}
         self.futures = {}
         self.futures_removed = {}
-        self.nsegment = {}
         self.finished = {}
         self.errors = {}
 
@@ -167,19 +166,11 @@ class realfast_controller(Controller):
         return heuristics.spilled_memory(self.daskdir)
 
     def pending(self, key):
+        """ Show number of segments in scanId that are still pending
+        """
+
         return len([futurelist[3] for futurelist in self.futures[key]
                     if futurelist[3].status == 'pending'])
-
-    def scanstatus(self, key):
-        if ((key in self.finished) and (key in self.nsegment) and (key in self.errors)):
-            return ('{0} segments, {1} pending, {2} finished, {3} errors'
-                    .format(self.nsegment[key], self.pending(key),
-                            self.finished[key], self.errors[key]))
-        else:
-            logger.warn("No scan status. {0} {1} {2}"
-                        .format(key in self.nsegment, key in self.finished,
-                                key in self.errors))
-            return None
 
     def restart(self):
         self.client.restart()
@@ -381,12 +372,12 @@ class realfast_controller(Controller):
 
         if len(futures):
             self.futures[scanId] = futures
-            self.nsegment[scanId] = len(segments)
             self.errors[scanId] = 0
             self.finished[scanId] = 0
-            res = elastic.indexscan_status(scanId=scanId,
-                                           status=self.scanstatus(scanId),
-                                           indexprefix=self.indexprefix)
+            elastic.indexscan_status(nsegment=len(segments),
+                                     pending=self.pending(scanId),
+                                     finished=self.finished[scanId],
+                                     errors=self.errors[scanId])
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
@@ -503,13 +494,9 @@ class realfast_controller(Controller):
         removeids = [scanId for scanId in self.futures
                      if len(self.futures[scanId]) == 0]
         for scanId in removeids:
-            res = elastic.indexscan_status(scanId=scanId,
-                                           status=self.scanstatus(scanId),
-                                           indexprefix=self.indexprefix)
 
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
-            _ = self.nsegment.pop(scanId)
             _ = self.finished.pop(scanId)
             _ = self.errors.pop(scanId)
 
@@ -588,9 +575,12 @@ class realfast_controller(Controller):
                              (scanId0 == scanId)]
 
             self.errors[scanId] += len(removelist)
-            res = elastic.indexscan_status(scanId=scanId,
-                                           status=self.scanstatus(scanId),
-                                           indexprefix=self.indexprefix)
+
+            res = elastic.update_field(index=self.indexprefix+'scans', _id=scanId, field='pending',
+                                       value=self.pending(scanId))
+            res += elastic.update_field(index=self.indexprefix+'scans', _id=scanId, field='errors',
+                                        value=self.errors[scanId])
+            logger.info("Set {0}/2 fields with processing status for {1}".format(res, scanId))
 
             # clean them up
             for futures in removelist:

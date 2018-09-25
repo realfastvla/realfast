@@ -165,14 +165,27 @@ def indexscan_meta(metadata, preferences=None, indexprefix='new'):
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
-def indexscan_status(scanId, status, indexprefix='new'):
-    """ Update status field string for scanId
+def indexscan_status(scanId, nsegment=None, pending=None, finished=None,
+                     errors=None, indexprefix='new'):
+    """ Update status fields for scanId
     """
 
-    res = update_field(index=indexprefix+'scans', _id=scanId, field='status',
-                       value=status)
+    res = 0
+    if nsegment is not None:
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='nsegment', value=int(nsegment))
+    if pending is not None:
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='pending', value=int(pending))
+    if finished is not None:
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='finished', value=int(finished))
+    if errors is not None:
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='errors', value=int(errors))
 
-    return res
+    logger.info("Set {0}/4 fields with processing status for {1}"
+                .format(res, scanId))
 
 
 def indexprefs(preferences, indexprefix='new'):
@@ -402,31 +415,36 @@ def candid(data):
                     data['dmind'], data['dtind']))
 
 
-def update_field(index, field, value, **kwargs):
+def update_field(index, field, value, Id=None, **kwargs):
     """ Replace an index's field with a value.
-    Optionally query the index with kwargs.
+    Option to work on single Id or query the index with kwargs.
     Use with caution.
     """
 
     doc_type = index.rstrip('s')
-    if len(kwargs):
-        searchquery = {"match": kwargs}
-    else:
-        searchquery = {"match_all": {}}
 
-    query = {"query": searchquery,
-             "script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
+    query = {"script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                         "lang": "painless"}}
+    if Id is None:
+        if len(kwargs):
+            searchquery = {"match": kwargs}
+        else:
+            searchquery = {"match_all": {}}
 
-    resp = es.update_by_query(body=query, doc_type=doc_type, index=index,
-                              conflicts="proceed")
+        query["query"] = searchquery
 
-    response_info = {"total": resp["total"], "updated": resp["updated"],
-                     "type": "success"}
-    if resp["failures"] != []:
-        response_info["type"] = "failure"
+        resp = es.update_by_query(body=query, doc_type=doc_type, index=index,
+                                  conflicts="proceed")
+    else:
+        resp = es.update(id=Id, body=query, doc_type=doc_type, index=index)
 
-    return response_info
+#    response_info = {"total": resp["total"], "updated": resp["updated"],
+#                     "type": "success"}
+#    if resp["failures"] != []:
+#        response_info["type"] = "failure"
+#        return 0
+
+    return resp['_shards']['successful']
 
 
 def remove_ids(index, **kwargs):
@@ -515,7 +533,7 @@ def move_docs(indexprefix1='new', indexprefix2='final',
 
             # set tags field
             update_field(indexprefix2+'cands', 'tags',
-                         consensus[candId]['tags'], _id=candId)
+                         consensus[candId]['tags'], Id=candId)
 
             # if no candIds remain, then move remaining docs
             if len(docids[indexprefix1+'cands']) == 0:
