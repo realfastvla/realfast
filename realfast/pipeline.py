@@ -33,7 +33,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
         segments = list(range(st.nsegment))
 
     futures = []
-    sleeptime = st.nints*st.inttime/st.nsegment
+    sleeptime = 0.8*st.nints*st.inttime/st.nsegment  # bit shorter than scan
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
