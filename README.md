@@ -2,7 +2,7 @@
 
 Realfast is the name of a project and software package related to radio interferometric data analysis at the Very Large Array. For more information, see [realfast.io](http://realfast.io) or visit the [VLA](https://public.nrao.edu/telescopes/vla/) web site.
 
-This repo includes a Python 2 application that integrates a transient search pipeline with the real-time environment at the VLA. This requires running asynchronous processes in a cluster environment and using VLA services for distributing data, metadata, and archiving. This application:
+This repo includes a Python 3 application that integrates a transient search pipeline with the real-time environment at the VLA. This requires running asynchronous processes in a cluster environment and using VLA services for distributing data, metadata, and archiving. This application:
 * monitors multicast messages with [evla_mcast](https://github.com/demorest/evla_mcast),
 * catches visibility data via the [vys](https://github.com/mpokorny/vysmaw) protocol,
 * defines a fast transient search pipeline with [rfpipe](http://github.com/realfastvla/rfpipe),
@@ -20,17 +20,16 @@ Requirements:
 ---------
 The realfast application is build upon the following libraries:
 
-* Python 2.7 and the scientific python stack (numpy, etc.)
-* [rfpipe](http://github.com/realfastvla/rfpipe)
-* [rtpipe](http://github.com/caseyjlaw/rtpipe) (temporarily required for its flagger)
+* Python 3.5 and the scientific python stack (numpy, etc.)
 * [evla_mcast](https://github.com/demorest/evla_mcast)
 * [vys](https://github.com/mpokorny/vysmaw) and [vysmaw_apps](https://github.com/realfastvla/vysmaw_apps)
 * [distributed](https://github.com/dask/distributed)
-* [pyfft](https://pythonhosted.org/pyfft) and [pycuda](https://mathema.tician.de/software/pycuda) for GPU support
+* [rfpipe](http://github.com/realfastvla/rfpipe)
+* [rfgpu](http://github.com/realfastvla/rfgpu)
+* [sdmpy](https://github.com/demorest/sdmpy) (to read/write sdm/bdf data)
 * [elasticsearch](https://github.com/elastic/elasticsearch-py),
 * [supervisor](http://supervisord.org) (to manage/daemonize processes)
 * [click](http://click.pocoo.org)
-* [sdmpy](https://github.com/demorest/sdmpy) (optional, to read/write sdm/bdf data)
  
 Install
 ------
