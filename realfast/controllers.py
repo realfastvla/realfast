@@ -171,7 +171,7 @@ class realfast_controller(Controller):
         """
 
         return dict([(scanId, len(futurelist))
-                    for scanId, futurelist in iteritems(rfc.futures)
+                    for scanId, futurelist in iteritems(self.futures)
                     for futures in futurelist
                     if futures[3].status == 'pending'])
 
@@ -676,11 +676,11 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     (e.g., galactic/extragal, FRB/pulsar).
     """
 
-    inmeta = metadata.make_metadata(inmeta=inmeta, config=config,
-                                    sdmfile=sdmfile, sdmscan=sdmscan,
-                                    bdfdir=bdfdir)
+    meta = metadata.make_metadata(inmeta=inmeta, config=config,
+                                  sdmfile=sdmfile, sdmscan=sdmscan,
+                                  bdfdir=bdfdir)
 
-    band = reffreq_to_band(inmeta['spw_reffreq'])
+    band = heuristics.reffreq_to_band(meta.spw_reffreq)
     if band is not None:
         # currently only 'L' and 'S' are defined
         # TODO: parse preffile to check available prefsnames
