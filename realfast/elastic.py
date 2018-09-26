@@ -8,6 +8,7 @@ from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from rfpipe.candidates import calc_cluster_rank
 import pickle
 import logging
+from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
 logger.setLevel(10)
@@ -19,6 +20,64 @@ es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
 ###
 # Indexing stuff
 ###
+
+def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
+              sdmsubscan=1, bdfdir=None, preferences=None, datasource=None,
+              indexprefix='new'):
+    """ Index properties of scan.
+    Uses data source (config, sdm, etc.) to define metadata object.
+
+    """
+
+    meta = metadata.make_metadata(inmeta=inmeta, config=config,
+                                  sdmfile=sdmfile, sdmscan=sdmscan,
+                                  bdfdir=bdfdir)
+    if datasource is not None:
+        meta.datasource = datasource
+    elif config is not None:
+        meta.datasource = 'vys'
+    elif (sdmfile is not None) and (sdmscan is not None):
+        meta.datasource = 'sdm'
+    else:
+        logger.warn("Could not determine datasource for indexing.")
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = meta.datasetId
+    scandict['scanId'] = meta.scanId
+    scandict['projid'] = 'Unknown'
+    scandict['scanNo'] = int(meta.scan)
+    scandict['subscanNo'] = int(meta.subscan)
+    scandict['source'] = meta.source
+    ra, dec = degrees(meta.radec)
+    scandict['ra_deg'] = float(ra)
+    scandict['dec_deg'] = float(dec)
+    scandict['startTime'] = float(meta.starttime_mjd)
+    scandict['stopTime'] = float(meta.endtime_mjd)
+    scandict['datasource'] = meta.datasource
+    scandict['scan_intent'] = meta.intent  # assumes ,-delimited string
+    scandict['inttime'] = meta.inttime
+    band = heuristics.reffreq_to_band(meta.spw_reffreq)
+    scandict['band'] = band
+
+    # if preferences provided, it will connect them by a unique name
+    if preferences:
+        scandict['prefsname'] = preferences.name
+        indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
+
+    # push scan info with unique id of scanId
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=meta.scanId,
+                   command='index')
+    if res == 1:
+        logger.info('Indexed scan config {0} to {1}'
+                    .format(meta.scanId, index))
+    else:
+        logger.warn('Scan config not indexed for {0}'.format(meta.scanId))
+
 
 def indexscan_config(config, preferences=None, datasource='vys',
                      indexprefix='new'):
@@ -103,6 +162,9 @@ def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
     scandict['stopTime'] = float(scan.endMJD)
     scandict['datasource'] = datasource
     scandict['scan_intent'] = ','.join(scan.intents)
+    scandict['inttime'] = metadata.inttime
+    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
+    scandict['band'] = band
 
     # if preferences provided, it will connect them by a unique name
     if preferences:
@@ -150,6 +212,9 @@ def indexscan_meta(metadata, preferences=None, indexprefix='new'):
     scandict['stopTime'] = float(metadata.endtime_mjd)
     scandict['datasource'] = metadata.datasource
     scandict['scan_intent'] = metadata.intent  # assumes ,-delimited string
+    scandict['inttime'] = metadata.inttime
+    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
+    scandict['band'] = band
 
     # if preferences provided, it will connect them by a unique name
     if preferences:
@@ -169,8 +234,8 @@ def indexscan_meta(metadata, preferences=None, indexprefix='new'):
         logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
 
 
-def indexscan_status(scanId, nsegment=None, pending=None, finished=None,
-                     errors=None, indexprefix='new'):
+def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
+                    errors=None, indexprefix='new'):
     """ Update status fields for scanId
     """
 

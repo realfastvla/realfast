@@ -170,10 +170,10 @@ class realfast_controller(Controller):
         """ Show number of segments in scanId that are still pending
         """
 
-        return dict([(scanId, len(futurelist))
-                    for scanId, futurelist in iteritems(self.futures)
-                    for futures in futurelist
-                    if futures[3].status == 'pending'])
+        return dict([(scanId,
+                      len(list(filter(lambda x: x[3].status == 'pending',
+                                       futurelist))))
+                     for scanId, futurelist in iteritems(self.futures)])
 
     def restart(self):
         self.client.restart()
@@ -197,10 +197,10 @@ class realfast_controller(Controller):
                            inmeta={'datasource': 'vys'})
 
             if self.indexresults:
-                elastic.indexscan_config(config,
-                                         preferences=self.states[config.scanId].prefs,
-                                         datasource='vys',
-                                         indexprefix=self.indexprefix)
+                elastic.indexscan(config=config,
+                                  preferences=self.states[config.scanId].prefs,
+                                  datasource='vys',
+                                  indexprefix=self.indexprefix)
             else:
                 logger.info("Not indexing config or prefs.")
 
@@ -225,10 +225,11 @@ class realfast_controller(Controller):
                        inmeta={'datasource': 'sdm'})
 
         if self.indexresults:
-            elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
-                                  preferences=self.states[scanId].prefs,
-                                  datasource='sdm',
-                                  indexprefix=self.indexprefix)
+            elastic.indexscan(sdmfile=sdmfile, sdmscan=sdmscan,
+                              sdmsubscan=sdmsubscan,
+                              preferences=self.states[scanId].prefs,
+                              datasource='sdm',
+                              indexprefix=self.indexprefix)
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
@@ -250,9 +251,9 @@ class realfast_controller(Controller):
         self.set_state(scanId, inmeta=inmeta)
 
         if self.indexresults:
-            elastic.indexscan_meta(self.states[scanId].metadata,
-                                   preferences=self.states[scanId].prefs,
-                                   indexprefix=self.indexprefix)
+            elastic.indexscan(inmeta=self.states[scanId].metadata,
+                              preferences=self.states[scanId].prefs,
+                              indexprefix=self.indexprefix)
         else:
             logger.info("Not indexing sdm scan or prefs.")
 
@@ -371,7 +372,7 @@ class realfast_controller(Controller):
             self.futures[scanId] = futures
             self.errors[scanId] = 0
             self.finished[scanId] = 0
-            elastic.indexscan_status(scanId, nsegment=len(segments),
+            elastic.indexscanstatus(scanId, nsegment=len(segments),
                                      pending=self.pending[scanId],
                                      finished=self.finished[scanId],
                                      errors=self.errors[scanId])
@@ -404,7 +405,7 @@ class realfast_controller(Controller):
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
 
-            elastic.indexscan_status(scanId, pending=self.pending[scanId],
+            elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                      finished=self.finished[scanId],
                                      errors=self.errors[scanId])
 
@@ -889,4 +890,4 @@ class config_controller(Controller):
         if self.preffile:
             prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
                                                                         name='default'))
-            elastic.indexscan_config(config, preferences=prefs)
+            elastic.indexscan(config=config, preferences=prefs)
