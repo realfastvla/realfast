@@ -198,24 +198,6 @@ def is_nrao_default(inmeta):
     return True
 
 
-def band_prefs(inmeta):
-    """ Define preferences to overload default based on frequency band.
-    Most important, select spw to avoid RFI and excessive computing.
-    """
-
-    newprefs = {}
-
-    band = reffreq_to_band(inmeta['spw_reffreq'])
-    if band == 'L':
-        newprefs['spw'] = list(range(6, 14))
-        newprefs['memory_limit'] = 8
-        newprefs['maxdm'] = 1500
-    elif band == 'S':
-        newprefs['spw'] = [0] + list(range(3, 16))
-
-    return newprefs
-
-
 def total_images_searched(st):
     """ Number of images formed (trials) in all segments, dms, dts.
     """

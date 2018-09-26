@@ -13,7 +13,7 @@ from astropy import time
 from time import sleep
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates, util
+from rfpipe import state, preferences, candidates, util, metadata
 from realfast import pipeline, elastic, mcaf_servers, heuristics
 
 import logging
@@ -112,7 +112,7 @@ class realfast_controller(Controller):
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix', 'prefsname', 'daskdir']:
+                     'indexprefix', 'daskdir']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -187,14 +187,13 @@ class realfast_controller(Controller):
         """
 
         summarize(config)
-        prefsname = self.get_prefsname(config)
 
-        if search_config(config, preffile=self.preffile, prefsname=prefsname,
-                         inprefs=self.inprefs, nameincludes=self.nameincludes,
+        if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
+                         nameincludes=self.nameincludes,
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config, prefsname=prefsname,
+            self.set_state(config.scanId, config=config,
                            inmeta={'datasource': 'vys'})
 
             if self.indexresults:
@@ -222,9 +221,8 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(os.path.basename(sdmfile.rstrip('/')),
                                       str(sdmscan), str(sdmsubscan))
 
-        prefsname = self.get_prefsname()
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
-                       prefsname=prefsname, inmeta={'datasource': 'sdm'})
+                       inmeta={'datasource': 'sdm'})
 
         if self.indexresults:
             elastic.indexscan_sdm(sdmfile, sdmscan, sdmsubscan,
@@ -249,8 +247,7 @@ class realfast_controller(Controller):
         scanId = '{0}.{1}.{2}'.format(inmeta['datasetId'], str(inmeta['scan']),
                                       str(inmeta['subscan']))
 
-        prefsname = self.get_prefsname()
-        self.set_state(scanId, inmeta=inmeta, prefsname=prefsname)
+        self.set_state(scanId, inmeta=inmeta)
 
         if self.indexresults:
             elastic.indexscan_meta(self.states[scanId].metadata,
@@ -264,18 +261,22 @@ class realfast_controller(Controller):
         self.cleanup()
 
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
-                  sdmscan=None, bdfdir=None, prefsname=None):
+                  sdmscan=None, bdfdir=None):
         """ Given metadata source, define state for a scanId.
-        Some overloading of preferences done here, based on heuristics.
+        Uses metadata to set preferences used in preffile (prefsname).
+        Preferences are then overloaded with self.inprefs.
         Will inject mock transient based on mockprob and other parameters.
         """
 
-        # TODO: define prefsname according to config and/or heuristics
+        prefsname = get_prefsname(inmeta=inmeta, config=config,
+                                  sdmfile=sdmfile, sdmscan=sdmscan,
+                                  bdfdir=bdfdir)
+
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-        # overload prefs based on band-specific rules (req Python>= 3.5)
-        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
+        # alternatively, overload prefs with compiled rules (req Python>= 3.5)
+#        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
@@ -290,16 +291,6 @@ class realfast_controller(Controller):
                             heuristics.total_compute_time(st)))
 
         self.states[scanId] = st
-
-    def get_prefsname(self, config=None):
-        """ Given a scan configuration, set the name of the realfast preferences to use
-        Allows configuration of pipeline based on scan properties.
-        (e.g., galactic/extragal, FRB/pulsar).
-        For now, just takes it from realfast preferences.
-        """
-
-        prefsname = self.prefsname if self.prefsname is not None else 'default'
-        return prefsname
 
     def start_pipeline(self, scanId, cfile=None, segments=None):
         """ Start pipeline conditional on cluster state.
@@ -615,7 +606,7 @@ class realfast_controller(Controller):
         logger.info('End of scheduling block message received.')
 
 
-def search_config(config, preffile=None, prefsname=None, inprefs={},
+def search_config(config, preffile=None, inprefs={},
                   nameincludes=None, searchintents=None):
     """ Test whether configuration specifies a scan config that realfast should
     search
@@ -668,6 +659,7 @@ def search_config(config, preffile=None, prefsname=None, inprefs={},
         return False
 
     # 6) only if state validates
+    prefsname = get_prefsname(config=config)
     if not heuristics.state_validates(config=config, preffile=preffile,
                                       prefsname=prefsname, inprefs=inprefs):
         logger.warn("State not valid for scanId {0}"
@@ -675,6 +667,30 @@ def search_config(config, preffile=None, prefsname=None, inprefs={},
         return False
 
     return True
+
+
+def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
+                  bdfdir=None):
+    """ Given a scan, set the name of the realfast preferences to use
+    Allows configuration of pipeline based on scan properties.
+    (e.g., galactic/extragal, FRB/pulsar).
+    """
+
+    inmeta = metadata.make_metadata(inmeta=inmeta, config=config,
+                                    sdmfile=sdmfile, sdmscan=sdmscan,
+                                    bdfdir=bdfdir)
+
+    band = reffreq_to_band(inmeta['spw_reffreq'])
+    if band is not None:
+        # currently only 'L' and 'S' are defined
+        # TODO: parse preffile to check available prefsnames
+        if band is in ['C', 'X', 'Ku', 'K', 'Ka', 'Q']:
+            band = 'S'
+        prefsname = 'NRAOdefault' + band
+    else:
+        prefsname = 'default'
+
+    return prefsname
 
 
 def summarize(config):
