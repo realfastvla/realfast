@@ -6,6 +6,8 @@ from io import open
 import os.path
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from rfpipe.candidates import calc_cluster_rank
+from rfpipe.metadata import make_metadata
+from realfast import heuristics
 import pickle
 import logging
 from numpy import degrees
@@ -29,9 +31,9 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
 
     """
 
-    meta = metadata.make_metadata(inmeta=inmeta, config=config,
-                                  sdmfile=sdmfile, sdmscan=sdmscan,
-                                  bdfdir=bdfdir)
+    meta = make_metadata(inmeta=inmeta, config=config, sdmfile=sdmfile,
+                         sdmscan=sdmscan, bdfdir=bdfdir)
+
     if datasource is not None:
         meta.datasource = datasource
     elif config is not None:
@@ -41,12 +43,11 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     else:
         logger.warn("Could not determine datasource for indexing.")
 
-    scandict = {}
-
     # define dict for scan properties to index
+    scandict = {}
     scandict['datasetId'] = meta.datasetId
     scandict['scanId'] = meta.scanId
-    scandict['projid'] = 'Unknown'
+#    scandict['projid'] = 'Unknown'
     scandict['scanNo'] = int(meta.scan)
     scandict['subscanNo'] = int(meta.subscan)
     scandict['source'] = meta.source
