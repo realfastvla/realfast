@@ -165,12 +165,15 @@ class realfast_controller(Controller):
     def spilled_memory(self):
         return heuristics.spilled_memory(self.daskdir)
 
-    def pending(self, key):
+    @property
+    def pending(self):
         """ Show number of segments in scanId that are still pending
         """
 
-        return len([futurelist[3] for futurelist in self.futures[key]
-                    if futurelist[3].status == 'pending'])
+        return dict([(scanId, len(futurelist))
+                    for scanId, futurelist in iteritems(rfc.futures)
+                    for futures in futurelist
+                    if futures[3].status == 'pending'])
 
     def restart(self):
         self.client.restart()
@@ -378,7 +381,7 @@ class realfast_controller(Controller):
             self.errors[scanId] = 0
             self.finished[scanId] = 0
             elastic.indexscan_status(scanId, nsegment=len(segments),
-                                     pending=self.pending(scanId),
+                                     pending=self.pending[scanId],
                                      finished=self.finished[scanId],
                                      errors=self.errors[scanId])
 
@@ -410,7 +413,7 @@ class realfast_controller(Controller):
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
 
-            elastic.indexscan_status(scanId, pending=self.pending(scanId),
+            elastic.indexscan_status(scanId, pending=self.pending[scanId],
                                      finished=self.finished[scanId],
                                      errors=self.errors[scanId])
 
@@ -587,9 +590,9 @@ class realfast_controller(Controller):
             for futures in removelist:
                 workers = [self.client.who_has(fut) for futs in removelist
                            for fut in futs[1:] if fut.status in badstatuslist]
-                workerids = [self.workernames[worker]
-                             for worker in workers]
-#                             for ww in listvalues(worker) if ww]
+                workerids = [self.workernames[worker[0][0]]
+                             for worker in workers
+                             for ww in listvalues(worker) if ww]
                 logger.warn("Removing bad job from {0}".format(set(workerids)))
                 self.futures[scanId].remove(futures)
                 removed += 1
