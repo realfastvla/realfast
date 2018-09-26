@@ -207,7 +207,9 @@ def band_prefs(inmeta):
 
     band = reffreq_to_band(inmeta['spw_reffreq'])
     if band == 'L':
-        newprefs['spw'] = list(range(7, 16))
+        newprefs['spw'] = list(range(6, 14))
+        newprefs['memory_limit'] = 8
+        newprefs['maxdm'] = 1500
     elif band == 'S':
         newprefs['spw'] = [0] + list(range(3, 16))
 
