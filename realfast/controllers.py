@@ -684,7 +684,7 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     if band is not None:
         # currently only 'L' and 'S' are defined
         # TODO: parse preffile to check available prefsnames
-        if band is in ['C', 'X', 'Ku', 'K', 'Ka', 'Q']:
+        if band in ['C', 'X', 'Ku', 'K', 'Ka', 'Q']:
             band = 'S'
         prefsname = 'NRAOdefault' + band
     else:
