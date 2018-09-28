@@ -34,14 +34,15 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     meta = make_metadata(inmeta=inmeta, config=config, sdmfile=sdmfile,
                          sdmscan=sdmscan, bdfdir=bdfdir)
 
-    if datasource is not None:
-        meta.datasource = datasource
-    elif config is not None:
-        meta.datasource = 'vys'
-    elif (sdmfile is not None) and (sdmscan is not None):
-        meta.datasource = 'sdm'
-    else:
-        logger.warn("Could not determine datasource for indexing.")
+    if meta.datasource is None:
+        if datasource is not None:
+            meta.datasource = datasource
+        elif config is not None:
+            meta.datasource = 'vys'
+        elif (sdmfile is not None) and (sdmscan is not None):
+            meta.datasource = 'sdm'
+        else:
+            logger.warn("Could not determine datasource for indexing.")
 
     # define dict for scan properties to index
     scandict = {}
