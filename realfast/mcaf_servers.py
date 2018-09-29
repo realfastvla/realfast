@@ -113,9 +113,13 @@ def makesdm(startTime, endTime, metadata, data):
                 .format(metadata.datasetId, uid))
     sdmb = SDMBuilder(metadata.datasetId, uid, dataSize, nint, startTime,
                       endTime)
-    sdmb.send()
-
-    return sdmb.location
+    try:
+        sdmb.send()
+        return sdmb.location
+    except HTTPError:
+        logger.warn("Error in SDM builder server. No SDM made for {0}"
+                    .format(metadata.datasetId))
+        return None
 
 
 def makebdf(startTime, endTime, metadata, data, bdfdir='.'):

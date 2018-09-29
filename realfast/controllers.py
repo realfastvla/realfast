@@ -406,8 +406,8 @@ class realfast_controller(Controller):
             self.finished[scanId] += len(finishedlist)
 
             elastic.indexscanstatus(scanId, pending=self.pending[scanId],
-                                     finished=self.finished[scanId],
-                                     errors=self.errors[scanId])
+                                    finished=self.finished[scanId],
+                                    errors=self.errors[scanId])
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
@@ -738,7 +738,7 @@ def summarize(config):
                     "Proceeding.")
 
 
-def createproducts(candcollection, datafuture, sdmdir='.',
+def createproducts(candcollection, data, sdmdir='.',
                    savebdfdir='/lustre/evla/wcbe/data/no_archive/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
@@ -751,6 +751,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
         logger.info('No candidates to generate products for.')
         return []
 
+    candcollection = candcollection.result()
     metadata = candcollection.metadata
     segment = candcollection.segment
     if not isinstance(segment, int):
@@ -760,7 +761,7 @@ def createproducts(candcollection, datafuture, sdmdir='.',
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
     logger.info('Getting data for candidate time ranges {0}.'.format(candranges))
 
-    data = datafuture.result()
+    data = data.result()
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
