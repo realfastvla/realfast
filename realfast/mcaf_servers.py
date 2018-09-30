@@ -4,6 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 from future.moves.urllib.parse import urlparse, urlunparse, urlencode
 from future.moves.urllib.request import urlopen
+from future.moves.urllib.error import HTTPError
 
 import os.path
 from lxml import etree, objectify

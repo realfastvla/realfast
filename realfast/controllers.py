@@ -751,7 +751,7 @@ def createproducts(candcollection, data, sdmdir='.',
         logger.info('No candidates to generate products for.')
         return []
 
-    candcollection = candcollection.result()
+#    candcollection = candcollection.result()
     metadata = candcollection.metadata
     segment = candcollection.segment
     if not isinstance(segment, int):
@@ -761,7 +761,7 @@ def createproducts(candcollection, data, sdmdir='.',
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
     logger.info('Getting data for candidate time ranges {0}.'.format(candranges))
 
-    data = data.result()
+#    data = data.result()
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
