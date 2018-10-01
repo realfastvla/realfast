@@ -172,7 +172,7 @@ class realfast_controller(Controller):
 
         return dict([(scanId,
                       len(list(filter(lambda x: x[3].status == 'pending',
-                                       futurelist))))
+                                      futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
 
     def restart(self):
@@ -412,8 +412,8 @@ class realfast_controller(Controller):
 
         scanIds = [scanId for scanId in self.futures]
         if len(scanIds):
-            logger.info("Checking on {0} jobs with scanId: {1}"
-                        .format(len(scanIds), ','.join(scanIds)))
+            logger.info("Checking on scanIds: {0}"
+                        .format(','.join(scanIds)))
 
         removed = 0
         for scanId in self.futures:
