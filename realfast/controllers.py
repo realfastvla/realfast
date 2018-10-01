@@ -136,7 +136,7 @@ class realfast_controller(Controller):
                 for seg, data, cc, ncands in futurelist]
 
     @property
-    def errorstr(self):
+    def exceptions(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
                                             cc.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
@@ -334,17 +334,19 @@ class realfast_controller(Controller):
                         else:
                             logger.info("Not indexing scan or prefs.")
 
-                    self.futures[scanId] += pipeline_seg(st, segment,
-                                                         cl=self.client,
-                                                         cfile=cfile,
-                                                         vys_timeout=vys_timeout,
-                                                         mem_read=w_memlim,
-                                                         mem_search=2*st.vismem*1e9)
+                    self.futures[scanId].append(pipeline.pipeline_seg(st,
+                                                                      segment,
+                                                                      cl=self.client,
+                                                                      cfile=cfile,
+                                                                      vys_timeout=vys_timeout,
+                                                                      mem_read=w_memlim,
+                                                                      mem_search=2*st.vismem*1e9))
                     nsegment += 1
-                    elastic.indexscanstatus(scanId, nsegment=nsegment,
-                                            pending=self.pending[scanId],
-                                            finished=self.finished[scanId],
-                                            errors=self.errors[scanId])
+                    if self.indexresults:
+                        elastic.indexscanstatus(scanId, nsegment=nsegment,
+                                                pending=self.pending[scanId],
+                                                finished=self.finished[scanId],
+                                                errors=self.errors[scanId])
 
                     elapsedtime = time.Time.now().unix - t0
                     if elapsedtime > timeout:
@@ -392,10 +394,11 @@ class realfast_controller(Controller):
                 self.futures[scanId] = futures
                 self.errors[scanId] = 0
                 self.finished[scanId] = 0
-                elastic.indexscanstatus(scanId, nsegment=len(futures),
-                                        pending=self.pending[scanId],
-                                        finished=self.finished[scanId],
-                                        errors=self.errors[scanId])
+                if self.indexresults:
+                    elastic.indexscanstatus(scanId, nsegment=len(futures),
+                                            pending=self.pending[scanId],
+                                            finished=self.finished[scanId],
+                                            errors=self.errors[scanId])
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
@@ -424,10 +427,10 @@ class realfast_controller(Controller):
                             if (ncands.status == 'finished') and
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
-
-            elastic.indexscanstatus(scanId, pending=self.pending[scanId],
-                                    finished=self.finished[scanId],
-                                    errors=self.errors[scanId])
+            if self.indexresults:
+                elastic.indexscanstatus(scanId, pending=self.pending[scanId],
+                                        finished=self.finished[scanId],
+                                        errors=self.errors[scanId])
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:

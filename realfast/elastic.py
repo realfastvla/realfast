@@ -83,163 +83,6 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         indexprefs(preferences, indexprefix=indexprefix)
 
 
-### TODO: remove these if new indexscan function works as expected for all inputs
-
-def indexscan_config(config, preferences=None, datasource='vys',
-                     indexprefix='new'):
-    """ Takes scan config and creates dict to push
-    to elasticsearch scnas index.
-    Optionally pushes rfpipe preferences object as separate doc
-    and connects them via the hexdigest name.
-    Note index names must end in s and types are derived as singular form.
-    datasource is assumed to be 'vys', but 'sim' is an option.
-    indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='new' for production.
-    """
-
-    scandict = {}
-
-    # define dict for scan properties to index
-    scandict['datasetId'] = config.datasetId
-    scandict['scanId'] = config.scanId
-    scandict['projid'] = config.projid
-    scandict['scanNo'] = int(config.scanNo)
-    scandict['subscanNo'] = int(config.subscanNo)
-    scandict['source'] = str(config.source)
-    scandict['ra_deg'] = float(config.ra_deg)
-    scandict['dec_deg'] = float(config.dec_deg)
-    scandict['startTime'] = float(config.startTime)
-    scandict['stopTime'] = float(config.stopTime)
-    scandict['datasource'] = datasource
-    scandict['scan_intent'] = config.scan_intent
-
-    # if preferences provided, it will connect them by a unique name
-    if preferences:
-        scandict['prefsname'] = preferences.name
-        indexprefs(preferences, indexprefix=indexprefix)
-        scandict['searchtype'] = preferences.searchtype
-        scandict['fftmode'] = preferences.fftmode
-
-    # push scan info with unique id of scanId
-    index = indexprefix+'scans'
-    res = pushdata(scandict, index=index, Id=config.scanId,
-                   command='index')
-    if res == 1:
-        logger.info('Indexed scan config {0} to {1}'.format(config.scanId,
-                                                            index))
-    else:
-        logger.warn('Scan config not indexed for {0}'.format(config.scanId))
-
-
-def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
-                  datasource='sdm', indexprefix='new'):
-    """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
-    indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='new' for production.
-    """
-
-# must include:
-#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
-#                      'dec_deg', 'scan_intent', 'source', 'startTime',
-#                      'stopTime']
-
-    import sdmpy
-    from numpy import degrees
-
-    datasetId = os.path.basename(sdmfile.rstrip('/'))
-    scanId = '{0}.{1}.{2}'.format(datasetId, str(sdmscan), str(sdmsubscan))
-
-    sdm = sdmpy.SDM(sdmfile, use_xsd=False)
-    scan = sdm.scan(sdmscan)
-
-    scandict = {}
-
-    # define dict for scan properties to index
-    scandict['datasetId'] = datasetId
-    scandict['scanId'] = scanId
-    scandict['projid'] = 'Unknown'
-    scandict['scanNo'] = int(sdmscan)
-    scandict['subscanNo'] = int(sdmsubscan)
-    scandict['source'] = str(scan.source)
-    ra, dec = degrees(scan.coordinates)
-    scandict['ra_deg'] = float(ra)
-    scandict['dec_deg'] = float(dec)
-    scandict['startTime'] = float(scan.startMJD)
-    scandict['stopTime'] = float(scan.endMJD)
-    scandict['datasource'] = datasource
-    scandict['scan_intent'] = ','.join(scan.intents)
-    scandict['inttime'] = metadata.inttime
-    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
-    scandict['band'] = band
-
-    # if preferences provided, it will connect them by a unique name
-    if preferences:
-        scandict['prefsname'] = preferences.name
-        indexprefs(preferences, indexprefix=indexprefix)
-        scandict['searchtype'] = preferences.searchtype
-        scandict['fftmode'] = preferences.fftmode
-
-    # push scan info with unique id of scanId
-    index = indexprefix+'scans'
-    res = pushdata(scandict, index=index, Id=scanId,
-                   command='index')
-    if res == 1:
-        logger.info('Indexed scan config {0} to {1}'.format(scanId, index))
-    else:
-        logger.warn('Scan config not indexed for {0}'.format(scanId))
-
-
-def indexscan_meta(metadata, preferences=None, indexprefix='new'):
-    """ Takes metadata object and pushes to elasticsearch scans index.
-    indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='new' for production.
-    """
-
-# must include:
-#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
-#                      'dec_deg', 'scan_intent', 'source', 'startTime',
-#                      'stopTime']
-
-    from numpy import degrees
-
-    scandict = {}
-
-    # define dict for scan properties to index
-    scandict['datasetId'] = metadata.datasetId
-    scandict['scanId'] = metadata.scanId
-    scandict['projid'] = 'Unknown'
-    scandict['scanNo'] = int(metadata.scan)
-    scandict['subscanNo'] = int(metadata.subscan)
-    scandict['source'] = metadata.source
-    ra, dec = degrees(metadata.radec)
-    scandict['ra_deg'] = float(ra)
-    scandict['dec_deg'] = float(dec)
-    scandict['startTime'] = float(metadata.starttime_mjd)
-    scandict['stopTime'] = float(metadata.endtime_mjd)
-    scandict['datasource'] = metadata.datasource
-    scandict['scan_intent'] = metadata.intent  # assumes ,-delimited string
-    scandict['inttime'] = metadata.inttime
-    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
-    scandict['band'] = band
-
-    # if preferences provided, it will connect them by a unique name
-    if preferences:
-        scandict['prefsname'] = preferences.name
-        indexprefs(preferences, indexprefix=indexprefix)
-        scandict['searchtype'] = preferences.searchtype
-        scandict['fftmode'] = preferences.fftmode
-
-    # push scan info with unique id of scanId
-    index = indexprefix+'scans'
-    res = pushdata(scandict, index=index, Id=metadata.scanId,
-                   command='index')
-    if res == 1:
-        logger.info('Indexed scan config {0} to {1}'
-                    .format(metadata.scanId, index))
-    else:
-        logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
-
-
 def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
                     errors=None, indexprefix='new'):
     """ Update status fields for scanId
@@ -264,8 +107,8 @@ def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='errors', value=int(errors))
 
-    logger.info("Updated {0}/{1} fields with processing status for {2}"
-                .format(res, tried, scanId))
+    logger.debug("Updated {0}/{1} fields with processing status for {2}"
+                 .format(res, tried, scanId))
 
 
 def indexprefs(preferences, indexprefix='new'):
@@ -431,6 +274,163 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     return count
 
 
+### TODO: remove these if new indexscan function works as expected for all inputs
+
+def indexscan_config(config, preferences=None, datasource='vys',
+                     indexprefix='new'):
+    """ Takes scan config and creates dict to push
+    to elasticsearch scnas index.
+    Optionally pushes rfpipe preferences object as separate doc
+    and connects them via the hexdigest name.
+    Note index names must end in s and types are derived as singular form.
+    datasource is assumed to be 'vys', but 'sim' is an option.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='new' for production.
+    """
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = config.datasetId
+    scandict['scanId'] = config.scanId
+    scandict['projid'] = config.projid
+    scandict['scanNo'] = int(config.scanNo)
+    scandict['subscanNo'] = int(config.subscanNo)
+    scandict['source'] = str(config.source)
+    scandict['ra_deg'] = float(config.ra_deg)
+    scandict['dec_deg'] = float(config.dec_deg)
+    scandict['startTime'] = float(config.startTime)
+    scandict['stopTime'] = float(config.stopTime)
+    scandict['datasource'] = datasource
+    scandict['scan_intent'] = config.scan_intent
+
+    # if preferences provided, it will connect them by a unique name
+    if preferences:
+        scandict['prefsname'] = preferences.name
+        indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
+
+    # push scan info with unique id of scanId
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=config.scanId,
+                   command='index')
+    if res == 1:
+        logger.info('Indexed scan config {0} to {1}'.format(config.scanId,
+                                                            index))
+    else:
+        logger.warn('Scan config not indexed for {0}'.format(config.scanId))
+
+
+def indexscan_sdm(sdmfile, sdmscan, sdmsubscan, preferences=None,
+                  datasource='sdm', indexprefix='new'):
+    """ Takes sdmfile and sdmscan and pushes to elasticsearch scans index.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='new' for production.
+    """
+
+# must include:
+#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
+#                      'dec_deg', 'scan_intent', 'source', 'startTime',
+#                      'stopTime']
+
+    import sdmpy
+    from numpy import degrees
+
+    datasetId = os.path.basename(sdmfile.rstrip('/'))
+    scanId = '{0}.{1}.{2}'.format(datasetId, str(sdmscan), str(sdmsubscan))
+
+    sdm = sdmpy.SDM(sdmfile, use_xsd=False)
+    scan = sdm.scan(sdmscan)
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = datasetId
+    scandict['scanId'] = scanId
+    scandict['projid'] = 'Unknown'
+    scandict['scanNo'] = int(sdmscan)
+    scandict['subscanNo'] = int(sdmsubscan)
+    scandict['source'] = str(scan.source)
+    ra, dec = degrees(scan.coordinates)
+    scandict['ra_deg'] = float(ra)
+    scandict['dec_deg'] = float(dec)
+    scandict['startTime'] = float(scan.startMJD)
+    scandict['stopTime'] = float(scan.endMJD)
+    scandict['datasource'] = datasource
+    scandict['scan_intent'] = ','.join(scan.intents)
+    scandict['inttime'] = metadata.inttime
+    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
+    scandict['band'] = band
+
+    # if preferences provided, it will connect them by a unique name
+    if preferences:
+        scandict['prefsname'] = preferences.name
+        indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
+
+    # push scan info with unique id of scanId
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=scanId,
+                   command='index')
+    if res == 1:
+        logger.info('Indexed scan config {0} to {1}'.format(scanId, index))
+    else:
+        logger.warn('Scan config not indexed for {0}'.format(scanId))
+
+
+def indexscan_meta(metadata, preferences=None, indexprefix='new'):
+    """ Takes metadata object and pushes to elasticsearch scans index.
+    indexprefix allows specification of set of indices ('test', 'aws').
+    Use indexprefix='new' for production.
+    """
+
+# must include:
+#    scanproperties = ['datasetId', 'scanNo', 'subscanNo', 'projid', 'ra_deg',
+#                      'dec_deg', 'scan_intent', 'source', 'startTime',
+#                      'stopTime']
+
+    from numpy import degrees
+
+    scandict = {}
+
+    # define dict for scan properties to index
+    scandict['datasetId'] = metadata.datasetId
+    scandict['scanId'] = metadata.scanId
+    scandict['projid'] = 'Unknown'
+    scandict['scanNo'] = int(metadata.scan)
+    scandict['subscanNo'] = int(metadata.subscan)
+    scandict['source'] = metadata.source
+    ra, dec = degrees(metadata.radec)
+    scandict['ra_deg'] = float(ra)
+    scandict['dec_deg'] = float(dec)
+    scandict['startTime'] = float(metadata.starttime_mjd)
+    scandict['stopTime'] = float(metadata.endtime_mjd)
+    scandict['datasource'] = metadata.datasource
+    scandict['scan_intent'] = metadata.intent  # assumes ,-delimited string
+    scandict['inttime'] = metadata.inttime
+    band = heuristics.reffreq_to_band(metadata.spw_reffreq)
+    scandict['band'] = band
+
+    # if preferences provided, it will connect them by a unique name
+    if preferences:
+        scandict['prefsname'] = preferences.name
+        indexprefs(preferences, indexprefix=indexprefix)
+        scandict['searchtype'] = preferences.searchtype
+        scandict['fftmode'] = preferences.fftmode
+
+    # push scan info with unique id of scanId
+    index = indexprefix+'scans'
+    res = pushdata(scandict, index=index, Id=metadata.scanId,
+                   command='index')
+    if res == 1:
+        logger.info('Indexed scan config {0} to {1}'
+                    .format(metadata.scanId, index))
+    else:
+        logger.warn('Scan config not indexed for {0}'.format(metadata.scanId))
+
+
 ###
 # Managing elasticsearch documents
 ###
@@ -499,9 +499,10 @@ def update_field(index, field, value, Id=None, **kwargs):
 
     doc_type = index.rstrip('s')
 
-    query = {"script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
-                        "lang": "painless"}}
     if Id is None:
+        query = {"script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
+                            "lang": "painless"}}
+        query['retry_on_conflct'] = 2
         if len(kwargs):
             searchquery = {"match": kwargs}
         else:
@@ -512,13 +513,8 @@ def update_field(index, field, value, Id=None, **kwargs):
         resp = es.update_by_query(body=query, doc_type=doc_type, index=index,
                                   conflicts="proceed")
     else:
+        query = {"doc": {field: value}}
         resp = es.update(id=Id, body=query, doc_type=doc_type, index=index)
-
-#    response_info = {"total": resp["total"], "updated": resp["updated"],
-#                     "type": "success"}
-#    if resp["failures"] != []:
-#        response_info["type"] = "failure"
-#        return 0
 
     return resp['_shards']['successful']
 
