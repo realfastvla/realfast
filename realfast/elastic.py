@@ -66,7 +66,6 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     # if preferences provided, it will connect them by a unique name
     if preferences:
         scandict['prefsname'] = preferences.name
-        indexprefs(preferences, indexprefix=indexprefix)
         scandict['searchtype'] = preferences.searchtype
         scandict['fftmode'] = preferences.fftmode
 
@@ -75,11 +74,16 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     res = pushdata(scandict, index=index, Id=meta.scanId,
                    command='index')
     if res == 1:
-        logger.info('Indexed scan config {0} to {1}'
+        logger.info('Indexed scanId {0} to {1}'
                     .format(meta.scanId, index))
     else:
         logger.warn('Scan config not indexed for {0}'.format(meta.scanId))
 
+    if preferences:
+        indexprefs(preferences, indexprefix=indexprefix)
+
+
+### TODO: remove these if new indexscan function works as expected for all inputs
 
 def indexscan_config(config, preferences=None, datasource='vys',
                      indexprefix='new'):

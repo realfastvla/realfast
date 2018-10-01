@@ -196,14 +196,6 @@ class realfast_controller(Controller):
             self.set_state(config.scanId, config=config,
                            inmeta={'datasource': 'vys'})
 
-            if self.indexresults:
-                elastic.indexscan(config=config,
-                                  preferences=self.states[config.scanId].prefs,
-                                  datasource='vys',
-                                  indexprefix=self.indexprefix)
-            else:
-                logger.info("Not indexing config or prefs.")
-
             self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
 
         else:
@@ -224,15 +216,6 @@ class realfast_controller(Controller):
         self.set_state(scanId, sdmfile=sdmfile, sdmscan=sdmscan, bdfdir=bdfdir,
                        inmeta={'datasource': 'sdm'})
 
-        if self.indexresults:
-            elastic.indexscan(sdmfile=sdmfile, sdmscan=sdmscan,
-                              sdmsubscan=sdmsubscan,
-                              preferences=self.states[scanId].prefs,
-                              datasource='sdm',
-                              indexprefix=self.indexprefix)
-        else:
-            logger.info("Not indexing sdm scan or prefs.")
-
         self.start_pipeline(scanId, segments=segments)
 
         self.cleanup()
@@ -249,13 +232,6 @@ class realfast_controller(Controller):
                                       str(inmeta['subscan']))
 
         self.set_state(scanId, inmeta=inmeta)
-
-        if self.indexresults:
-            elastic.indexscan(inmeta=self.states[scanId].metadata,
-                              preferences=self.states[scanId].prefs,
-                              indexprefix=self.indexprefix)
-        else:
-            logger.info("Not indexing sdm scan or prefs.")
 
         self.start_pipeline(scanId, cfile=cfile, segments=segments)
 
@@ -323,44 +299,88 @@ class realfast_controller(Controller):
 
         # submit, with optional throttling
         futures = []
-        if self.throttle and self.read_overhead and self.read_totfrac and self.spill_limit:
-            logger.info('Starting pipeline throttled by read_overhead {0}, '
-                        'read_totfrac {1}, and spill_limit {2}'
-                        .format(self.read_overhead, self.read_totfrac,
-                                self.spill_limit))
+        if self.throttle:
+            assert self.read_overhead and self.read_totfrac and self.spill_limit
+            timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
+            sleeptime = timeout/st.nsegment
+            logger.info('Submitting segments for scanId {0} throttled by '
+                        'read_overhead {1}, read_totfrac {2}, and '
+                        'spill_limit {3} with timeout {4}s'
+                        .format(scanId, self.read_overhead, self.read_totfrac,
+                                self.spill_limit, timeout))
 
             tot_memlim = self.read_totfrac*sum([v['memory_limit']
                                                 for v in itervalues(self.client.scheduler_info()['workers'])
                                                 if 'READER' in v['resources']])
 
             t0 = time.Time.now().unix
-            timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
-            elapsedtime = time.Time.now().unix - t0
-
-            while (elapsedtime < timeout) and (len(futures) < len(segments)):
-                # Submit if workers are not overloaded
+            elapsedtime = 0
+            for segment in segments:
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
                    heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                 daskdir=self.daskdir)):
-                    futures = pipeline.pipeline_scan(st, segments=segments,
-                                                     cl=self.client,
-                                                     cfile=cfile,
-                                                     vys_timeout=vys_timeout,
-                                                     mem_read=w_memlim,
-                                                     mem_search=2*st.vismem*1e9,
-                                                     throttle=self.throttle)
-                else:
-                    sleep(min(1, timeout/10))
-                    self.cleanup()
+
+                    # if anything is submitted
+                    if segment == 0:
+                        self.futures[scanId] = []
+                        nsegment = 0
+                        self.errors[scanId] = 0
+                        self.finished[scanId] = 0
+                        if self.indexresults:
+                            elastic.indexscan(inmeta=self.states[scanId].metadata,
+                                              preferences=self.states[scanId].prefs,
+                                              indexprefix=self.indexprefix)
+                        else:
+                            logger.info("Not indexing scan or prefs.")
+
+                    self.futures[scanId] += pipeline_seg(st, segment,
+                                                         cl=self.client,
+                                                         cfile=cfile,
+                                                         vys_timeout=vys_timeout,
+                                                         mem_read=w_memlim,
+                                                         mem_search=2*st.vismem*1e9)
+                    nsegment += 1
+                    elastic.indexscanstatus(scanId, nsegment=nsegment,
+                                            pending=self.pending[scanId],
+                                            finished=self.finished[scanId],
+                                            errors=self.errors[scanId])
+
                     elapsedtime = time.Time.now().unix - t0
+                    if elapsedtime > timeout:
+                        break
+                    else:
+                        sleep(sleeptime)
+                        self.cleanup()
+                else:
+                    if heuristics.reader_memory_ok(self.client, w_memlim):
+                        logger.info("No reader available with required memory {0}"
+                                    .format(w_memlim))
+                    elif heuristics.readertotal_memory_ok(self.client,
+                                                          tot_memlim):
+                        logger.info("Total reader memory exceeds limit of {0}"
+                                    .format(tot_memlim))
+                    elif heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                      daskdir=self.daskdir):
+                        logger.info("Spilled memory exceeds limit of {0}"
+                                    .format(self.spill_limit))
+                    sleep(sleeptime)
 
             if elapsedtime > timeout:
-                logger.info("Throttle timed out. ScanId {0} not submitted."
-                            .format(scanId))
+                logger.info("Submission timed out. Submitted {0} segments of "
+                            "ScanId {1}".format(len(futures), scanId))
 
         else:
-            logger.info('Starting pipeline...')
+            logger.info('Submitting all segments for scanId {0}'
+                        .format(scanId))
+
+            if self.indexresults:
+                elastic.indexscan(inmeta=self.states[scanId].metadata,
+                                  preferences=self.states[scanId].prefs,
+                                  indexprefix=self.indexprefix)
+            else:
+                logger.info("Not indexing scan or prefs.")
+
             futures = pipeline.pipeline_scan(st, segments=segments,
                                              cl=self.client, cfile=cfile,
                                              vys_timeout=vys_timeout,
@@ -368,14 +388,14 @@ class realfast_controller(Controller):
                                              mem_search=2*st.vismem*1e9,
                                              throttle=self.throttle)
 
-        if len(futures):
-            self.futures[scanId] = futures
-            self.errors[scanId] = 0
-            self.finished[scanId] = 0
-            elastic.indexscanstatus(scanId, nsegment=len(segments),
-                                     pending=self.pending[scanId],
-                                     finished=self.finished[scanId],
-                                     errors=self.errors[scanId])
+            if len(futures):
+                self.futures[scanId] = futures
+                self.errors[scanId] = 0
+                self.finished[scanId] = 0
+                elastic.indexscanstatus(scanId, nsegment=len(futures),
+                                        pending=self.pending[scanId],
+                                        finished=self.finished[scanId],
+                                        errors=self.errors[scanId])
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
         """ Clean up job list.
