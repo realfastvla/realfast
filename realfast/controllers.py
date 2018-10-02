@@ -321,12 +321,12 @@ class realfast_controller(Controller):
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                 daskdir=self.daskdir)):
 
-                    # if anything is submitted
-                    if segment == 0:
+                    # first time initialize scan
+                    if scanId not in self.futures:
                         self.futures[scanId] = []
-                        nsegment = 0
                         self.errors[scanId] = 0
                         self.finished[scanId] = 0
+                        nsegment = 0
                         if self.indexresults:
                             elastic.indexscan(inmeta=self.states[scanId].metadata,
                                               preferences=self.states[scanId].prefs,
@@ -353,7 +353,7 @@ class realfast_controller(Controller):
                         break
                     else:
                         sleep(sleeptime)
-                        self.cleanup()
+                        self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                 else:
                     if heuristics.reader_memory_ok(self.client, w_memlim):
                         logger.info("No reader available with required memory {0}"
@@ -400,10 +400,11 @@ class realfast_controller(Controller):
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId])
 
-    def cleanup(self, badstatuslist=['cancelled', 'error', 'lost']):
+    def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
         Scans futures, removes finished jobs, and pushes results to relevant indices.
         badstatuslist can include 'cancelled', 'error', 'lost'.
+        keep defines a scanId (string) key that should not be removed from dicts.
         """
 
         removed = 0
@@ -517,15 +518,18 @@ class realfast_controller(Controller):
 
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
-                     if len(self.futures[scanId]) == 0]
+                     if (len(self.futures[scanId]) == 0) and (scanId != keep)]
+        logstr = ("No jobs left for scanIds: {0}.".format(', '.join(removeids)))
+        if keep is not None:
+            logstr += (". Cleaning state and futures dicts (keeping {0})"
+                       .format(keep))
+        else:
+            logstr += ". Cleaning state and futures dicts."
         for scanId in removeids:
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
             _ = self.finished.pop(scanId)
             _ = self.errors.pop(scanId)
-
-            logger.info("No jobs of scanId {0} left. "
-                        "Cleaning state and futures dicts".format(scanId))
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
