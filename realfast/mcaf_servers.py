@@ -79,7 +79,7 @@ class SDMBuilder(object):
             self.response = None
         else:
             self.response = objectify.fromstring(response_xml,
-                                                 parser=_antflagger_parser)
+                                                 parser=_sdmbuilder_parser)
 
     @property
     def location(self):
