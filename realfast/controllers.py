@@ -691,6 +691,11 @@ def search_config(config, preffile=None, inprefs={},
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
+    # 7) only if some fast sampling is done
+    t_fast = 1.
+    if not any([inttime < t_fast for inttime in inttimes]):
+        logger.warn("No subband has integration time faster than {0} s".format(t_fast))
+        return False
 
     return True
 
