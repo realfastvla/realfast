@@ -3,9 +3,11 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-from rfpipe import state
+from datetime import date
 import os.path
+import sys
 from math import log
+from rfpipe import state
 import logging
 logger = logging.getLogger(__name__)
 
@@ -92,20 +94,6 @@ def spilled_memory_ok(limit=1.0, daskdir='.'):
         return False
 
 
-def valid_telcalfile(st):
-    """ Test whether telcalfile exists at the moment.
-    Note: telcalfile may appear later.
-    """
-
-    if st.gainfile is not None:
-        if os.path.exists(st.gainfile) and os.path.isfile(st.gainfile):
-            return True
-        else:
-            return False
-    else:
-        return True  # None is valid, since file may appear during scheduling
-
-
 def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                     bdfdir=None, preffile=None, prefsname=None, inprefs={}):
     """ Try to compile state
@@ -118,6 +106,7 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                          validate=True)
         return True
     except:
+        logger.warn("State did not validate: ", sys.exc_info()[0])
         return False
 
 

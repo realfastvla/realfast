@@ -292,11 +292,6 @@ class realfast_controller(Controller):
                 logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
                             .format(vys_timeout))
 
-        if not heuristics.valid_telcalfile(st):
-            logger.warn("telcalfile {0} for scanId {1} is not available at "
-                        "pipeline submission"
-                        .format(st.gainfile, scanId))
-
         # submit, with optional throttling
         futures = []
         if self.throttle:
@@ -316,10 +311,12 @@ class realfast_controller(Controller):
             t0 = time.Time.now().unix
             elapsedtime = 0
             for segment in segments:
+                # submit if cluster ready and telcal available
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
                    heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                daskdir=self.daskdir)):
+                                                daskdir=self.daskdir) and
+                   self.set_telcalfile(scanId)):
 
                     # first time initialize scan
                     if scanId not in self.futures:
@@ -334,13 +331,13 @@ class realfast_controller(Controller):
                         else:
                             logger.info("Not indexing scan or prefs.")
 
-                    self.futures[scanId].append(pipeline.pipeline_seg(st,
-                                                                      segment,
-                                                                      cl=self.client,
-                                                                      cfile=cfile,
-                                                                      vys_timeout=vys_timeout,
-                                                                      mem_read=w_memlim,
-                                                                      mem_search=2*st.vismem*1e9))
+                    futures = pipeline.pipeline_seg(st, segment,
+                                                    cl=self.client,
+                                                    cfile=cfile,
+                                                    vys_timeout=vys_timeout,
+                                                    mem_read=w_memlim,
+                                                    mem_search=2*st.vismem*1e9)
+                    self.futures[scanId].append(futures)
                     nsegment += 1
                     if self.indexresults:
                         elastic.indexscanstatus(scanId, nsegment=nsegment,
@@ -348,12 +345,6 @@ class realfast_controller(Controller):
                                                 finished=self.finished[scanId],
                                                 errors=self.errors[scanId])
 
-                    elapsedtime = time.Time.now().unix - t0
-                    if elapsedtime > timeout:
-                        break
-                    else:
-                        sleep(sleeptime)
-                        self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                 else:
                     if heuristics.reader_memory_ok(self.client, w_memlim):
                         logger.info("No reader available with required memory {0}"
@@ -366,11 +357,18 @@ class realfast_controller(Controller):
                                                       daskdir=self.daskdir):
                         logger.info("Spilled memory exceeds limit of {0}"
                                     .format(self.spill_limit))
-                    sleep(sleeptime)
+                    elif self.set_telcalfile(scanId):
+                        logger.info("No telcalfile available for {0}"
+                                    .format(scanId))
 
-            if elapsedtime > timeout:
-                logger.info("Submission timed out. Submitted {0} segments of "
-                            "ScanId {1}".format(len(futures), scanId))
+                self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                elapsedtime = time.Time.now().unix - t0
+                if elapsedtime > timeout:
+                    logger.info("Submission timed out. Submitted {0} segments of "
+                                "ScanId {1}".format(nsegment, scanId))
+                    break
+                else:
+                    sleep(sleeptime)
 
         else:
             logger.info('Submitting all segments for scanId {0}'
@@ -383,6 +381,7 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing scan or prefs.")
 
+            self.set_telcalfile(scanId)
             futures = pipeline.pipeline_scan(st, segments=segments,
                                              cl=self.client, cfile=cfile,
                                              vys_timeout=vys_timeout,
@@ -580,6 +579,33 @@ class realfast_controller(Controller):
             st.prefs.simulated_transient = mocks
 
         return st
+
+    def set_telcalfile(self, scanId):
+        """ Find and set telcalfile in state prefs, if not set already.
+        Returns True if set, False if not available.
+        """
+
+        st = self.states[scanId]
+
+        if st.gainfile is not None:
+            return True
+        else:
+            today = date.today()
+            # look for gainfile in mchammer
+            gainfile = os.path.join('/home/mchammer/evladata/telcal/'
+                                    '{0}/{1:02}/{2}.GN'
+                                    .format(today.year, today.month,
+                                            self.metadata.datasetId))
+
+            if os.path.exists(gainfile) and os.path.isfile(gainfile):
+                logger.info("Found telcalfile {0} for scanId {1}."
+                            .format(gainfile, scanId))
+                st.prefs.gainfile = gainfile
+                return True
+            else:
+                logger.warn("No telcalfile {0} found for scanId {1}."
+                            .format(gainfile, scanId))
+                return False
 
     def removefutures(self, badstatuslist=['cancelled', 'error', 'lost'],
                       keep=False):
