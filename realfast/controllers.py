@@ -113,7 +113,7 @@ class realfast_controller(Controller):
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix', 'daskdir']:
+                     'indexprefix', 'daskdir', 'requirecalibration']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -317,7 +317,8 @@ class realfast_controller(Controller):
                    heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                    heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                 daskdir=self.daskdir) and
-                   self.set_telcalfile(scanId)):
+                   (self.set_telcalfile(scanId)
+                    if self.requirecalibration else True)):
 
                     # first time initialize scan
                     if scanId not in self.futures:
@@ -347,18 +348,19 @@ class realfast_controller(Controller):
                                                 errors=self.errors[scanId])
 
                 else:
-                    if heuristics.reader_memory_ok(self.client, w_memlim):
+                    if not heuristics.reader_memory_ok(self.client, w_memlim):
                         logger.info("No reader available with required memory {0}"
                                     .format(w_memlim))
-                    elif heuristics.readertotal_memory_ok(self.client,
-                                                          tot_memlim):
+                    elif not heuristics.readertotal_memory_ok(self.client,
+                                                              tot_memlim):
                         logger.info("Total reader memory exceeds limit of {0}"
                                     .format(tot_memlim))
-                    elif heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                      daskdir=self.daskdir):
+                    elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                          daskdir=self.daskdir):
                         logger.info("Spilled memory exceeds limit of {0}"
                                     .format(self.spill_limit))
-                    elif self.set_telcalfile(scanId):
+                    elif not (self.set_telcalfile(scanId)
+                              if self.requirecalibration else True):
                         logger.info("No telcalfile available for {0}"
                                     .format(scanId))
 
@@ -382,23 +384,23 @@ class realfast_controller(Controller):
             else:
                 logger.info("Not indexing scan or prefs.")
 
-            self.set_telcalfile(scanId)
-            futures = pipeline.pipeline_scan(st, segments=segments,
-                                             cl=self.client, cfile=cfile,
-                                             vys_timeout=vys_timeout,
-                                             mem_read=w_memlim,
-                                             mem_search=2*st.vismem*1e9,
-                                             throttle=self.throttle)
+            if (self.set_telcalfile(scanId) if self.requirecalibration else True):
+                futures = pipeline.pipeline_scan(st, segments=segments,
+                                                 cl=self.client, cfile=cfile,
+                                                 vys_timeout=vys_timeout,
+                                                 mem_read=w_memlim,
+                                                 mem_search=2*st.vismem*1e9,
+                                                 throttle=self.throttle)
 
-            if len(futures):
-                self.futures[scanId] = futures
-                self.errors[scanId] = 0
-                self.finished[scanId] = 0
-                if self.indexresults:
-                    elastic.indexscanstatus(scanId, nsegment=len(futures),
-                                            pending=self.pending[scanId],
-                                            finished=self.finished[scanId],
-                                            errors=self.errors[scanId])
+                if len(futures):
+                    self.futures[scanId] = futures
+                    self.errors[scanId] = 0
+                    self.finished[scanId] = 0
+                    if self.indexresults:
+                        elastic.indexscanstatus(scanId, nsegment=len(futures),
+                                                pending=self.pending[scanId],
+                                                finished=self.finished[scanId],
+                                                errors=self.errors[scanId])
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
@@ -596,7 +598,7 @@ class realfast_controller(Controller):
             gainfile = os.path.join('/home/mchammer/evladata/telcal/'
                                     '{0}/{1:02}/{2}.GN'
                                     .format(today.year, today.month,
-                                            self.metadata.datasetId))
+                                            st.metadata.datasetId))
 
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
                 logger.info("Found telcalfile {0} for scanId {1}."
