@@ -5,6 +5,7 @@ from io import open
 
 import os.path
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
+from urllib3.connection import ConnectionError
 from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
 from realfast import heuristics
@@ -452,32 +453,36 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
     logger.debug('Pushing to index {0} with Id {1}'.format(index, Id))
     res = 0
 
-    if command == 'index':
-        if force:
-            res = es.index(index=index, doc_type=doc_type, id=Id,
-                           body=datadict)
-        else:
-            if not es.exists(index=index, doc_type=doc_type, id=Id):
-                try:
-                    res = es.index(index=index, doc_type=doc_type,
-                                   id=Id, body=datadict)
-                except RequestError:
-                    logger.warn("Id {0} and data {1} not indexed due to request error."
-                                .format(Id, datadict))
+    try:
+        if command == 'index':
+            if force:
+                res = es.index(index=index, doc_type=doc_type, id=Id,
+                               body=datadict)
             else:
-                logger.warn('Id={0} already exists in index {1}'
-                            .format(Id, index))
+                if not es.exists(index=index, doc_type=doc_type, id=Id):
+                    try:
+                        res = es.index(index=index, doc_type=doc_type,
+                                       id=Id, body=datadict)
+                    except RequestError:
+                        logger.warn("Id {0} and data {1} not indexed due to request error."
+                                    .format(Id, datadict))
+                else:
+                    logger.warn('Id={0} already exists in index {1}'
+                                .format(Id, index))
 
-    elif command == 'delete':
-        if es.exists(index=index, doc_type=doc_type, id=Id):
-            res = es.delete(index=index, doc_type=doc_type, id=Id)
+        elif command == 'delete':
+            if es.exists(index=index, doc_type=doc_type, id=Id):
+                res = es.delete(index=index, doc_type=doc_type, id=Id)
+            else:
+                logger.warn('Id={0} not in index'.format(Id))
+
+        if res:
+            return res['_shards']['successful']
         else:
-            logger.warn('Id={0} not in index'.format(Id))
+            return res
+    except ConnectionError:
+        logger.warn("ConnectionError during push to index. Elasticsearch down?")
 
-    if res:
-        return res['_shards']['successful']
-    else:
-        return res
 
 
 def candid(data):
