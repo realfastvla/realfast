@@ -3,7 +3,6 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-from datetime import date
 import os.path
 import sys
 from math import log

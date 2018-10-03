@@ -5,7 +5,7 @@ from io import open
 
 import os.path
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
-from urllib3.connection import ConnectionError
+from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
 from realfast import heuristics
@@ -480,9 +480,8 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
             return res['_shards']['successful']
         else:
             return res
-    except ConnectionError:
+    except (ConnectionError, NewConnectionError):
         logger.warn("ConnectionError during push to index. Elasticsearch down?")
-
 
 
 def candid(data):

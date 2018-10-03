@@ -7,6 +7,7 @@ import pickle
 import os.path
 import glob
 import shutil
+from datetime import date
 import random
 import distributed
 from astropy import time
