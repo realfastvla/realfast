@@ -114,9 +114,8 @@ def makesdm(startTime, endTime, datasetId, data):
     try:
         sdmb.send()
         return sdmb.location
-    except HTTPError:
-        logger.warn("HTTPError in SDM builder server. No SDM made for {0}"
-                    .format(datasetId))
+    except HTTPError as error:
+        logger.warn("HTTPError ({0}) in SDM builder server: {1}".format(error.errno, error.strerror))
         return None
 
 

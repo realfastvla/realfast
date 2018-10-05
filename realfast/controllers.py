@@ -858,8 +858,8 @@ def createproducts(candcollection, data, sdmdir='.',
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)
         else:
-            logger.warn("No sdm/bdf made for start/end time {0}-{1}"
-                        .format(startTime, endTime))
+            logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}}"
+                        .format(metadata.datasetId, startTime, endTime))
 
     return sdmlocs
 
