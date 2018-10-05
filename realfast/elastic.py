@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(10)
 
 # eventually should be updated to search.realfast.io/api with auth
-es = Elasticsearch(['go-nrao-nm.aoc.nrao.edu:9200'])
+es = Elasticsearch(['realfast.aoc.nrao.edu:9200'])
 
 
 ###

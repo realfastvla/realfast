@@ -141,7 +141,7 @@ def is_nrao_default(inmeta):
 
     band = reffreq_to_band(inmeta['spw_reffreq'])
     if band is None:
-        logger.info("NRAO default fail: reffreqs not in just band {0} "
+        logger.info("NRAO default fail: reffreqs not in single band {0} "
                     .format(inmeta['spw_reffreq']))
         return False
     else:
