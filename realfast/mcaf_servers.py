@@ -90,18 +90,15 @@ class SDMBuilder(object):
             return None
 
 
-def makesdm(startTime, endTime, metadata, data):
+def makesdm(startTime, endTime, datasetId, data):
     """ Generates call to sdm builder server for a single candidate.
     Generates a unique id for the bdf from the startTime.
-    Uses metadata and data to create call signature to server with:
+    Uses datasetId and data to create call signature to server with:
     (datasetId, dataSize_bytes, nint, startTime_mjd, endTime_mjd)
     Returns location of newly created SDM.
     Data refers to cut out visibilities from startTime to endTime with
     shape of (nint, nbl, nspw, numBin, nchan, npol).
     """
-
-    assert type(metadata) == Metadata, ("metadata must be "
-                                        "of type rfpipe.metadata.Metadata")
 
     assert data.ndim == 6, ("data must have 6 dimensions: "
                             "nint, nbl, nspw, numBin, nchan, npol.")
@@ -111,15 +108,15 @@ def makesdm(startTime, endTime, metadata, data):
     uid = ('uid:///evla/realfastbdf/{0}'
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
     logger.info("Building SDM for datasetId {0} and bdf {1}"
-                .format(metadata.datasetId, uid))
-    sdmb = SDMBuilder(metadata.datasetId, uid, dataSize, nint, startTime,
+                .format(datasetId, uid))
+    sdmb = SDMBuilder(datasetId, uid, dataSize, nint, startTime,
                       endTime)
     try:
         sdmb.send()
         return sdmb.location
     except HTTPError:
-        logger.warn("Error in SDM builder server. No SDM made for {0}"
-                    .format(metadata.datasetId))
+        logger.warn("HTTPError in SDM builder server. No SDM made for {0}"
+                    .format(datasetId))
         return None
 
 

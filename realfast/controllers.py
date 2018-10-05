@@ -418,12 +418,9 @@ class realfast_controller(Controller):
             logger.info("Checking on scanIds: {0}"
                         .format(','.join(scanIds)))
 
-        removed = 0
+        # clean futures and get finished jobs
+        removed = self.removefutures(badstatuslist)
         for scanId in self.futures:
-
-            # clean futures and get finished jobs
-            removed = self.removefutures(badstatuslist)
-
             finishedlist = [[seg, data, cc, ncands]
                             for (scanId0, futurelist) in iteritems(self.futures)
                             for seg, data, cc, ncands in futurelist
@@ -515,9 +512,6 @@ class realfast_controller(Controller):
                 self.futures[scanId].remove(futures)
                 removed += 1
 
-        # clean up bad futures
-        removed += self.removefutures(badstatuslist)
-
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if (len(self.futures[scanId]) == 0) and (scanId != keep)]
@@ -527,6 +521,8 @@ class realfast_controller(Controller):
                        .format(keep))
         else:
             logstr += ". Cleaning state and futures dicts."
+        logger.info(logstr)
+
         for scanId in removeids:
             _ = self.futures.pop(scanId)
             _ = self.states.pop(scanId)
@@ -808,11 +804,15 @@ def createproducts(candcollection, data, sdmdir='.',
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
+    if isinstance(candcollection, distributed.Future):
+        candcollection = candcollection.result()
+    if isinstance(data, distributed.Future):
+        data = data.result()
+
     if len(candcollection.array) == 0:
         logger.info('No candidates to generate products for.')
         return []
 
-#    candcollection = candcollection.result()
     metadata = candcollection.metadata
     segment = candcollection.segment
     if not isinstance(segment, int):
@@ -822,7 +822,6 @@ def createproducts(candcollection, data, sdmdir='.',
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
     logger.info('Getting data for candidate time ranges {0}.'.format(candranges))
 
-#    data = data.result()
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
@@ -835,7 +834,7 @@ def createproducts(candcollection, data, sdmdir='.',
                     .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata, data_cut)
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId, data_cut)
         if sdmloc is not None:
             if sdmdir is not None:
                 uid = ('uid:///evla/realfastbdf/{0}'
