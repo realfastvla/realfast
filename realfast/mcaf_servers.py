@@ -7,6 +7,7 @@ from future.moves.urllib.request import urlopen
 from future.moves.urllib.error import HTTPError
 
 import os.path
+import sys
 from lxml import etree, objectify
 from astropy import time
 import numpy as np
@@ -114,8 +115,8 @@ def makesdm(startTime, endTime, datasetId, data):
     try:
         sdmb.send()
         return sdmb.location
-    except HTTPError as error:
-        logger.warn("HTTPError ({0}) in SDM builder server: {1}".format(error.errno, error.strerror))
+    except HTTPError:
+        logger.warn("HTTPError in SDM builder server: {1}".format(sys.exc_info()))
         return None
 
 

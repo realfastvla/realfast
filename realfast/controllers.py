@@ -298,7 +298,7 @@ class realfast_controller(Controller):
         if self.throttle:
             assert self.read_overhead and self.read_totfrac and self.spill_limit
             timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
-            sleeptime = timeout/st.nsegment
+            sleeptime = 0.8*timeout/st.nsegment  # bit shorter than sum
             logger.info('Submitting segments for scanId {0} throttled by '
                         'read_overhead {1}, read_totfrac {2}, and '
                         'spill_limit {3} with timeout {4}s'
