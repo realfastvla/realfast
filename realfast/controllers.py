@@ -515,19 +515,20 @@ class realfast_controller(Controller):
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if (len(self.futures[scanId]) == 0) and (scanId != keep)]
-        logstr = ("No jobs left for scanIds: {0}.".format(', '.join(removeids)))
-        if keep is not None:
-            logstr += (". Cleaning state and futures dicts (keeping {0})"
-                       .format(keep))
-        else:
-            logstr += ". Cleaning state and futures dicts."
-        logger.info(logstr)
+        if removeids:
+            logstr = ("No jobs left for scanIds: {0}.".format(', '.join(removeids)))
+            if keep is not None:
+                logstr += (". Cleaning state and futures dicts (keeping {0})"
+                           .format(keep))
+            else:
+                logstr += ". Cleaning state and futures dicts."
+            logger.info(logstr)
 
-        for scanId in removeids:
-            _ = self.futures.pop(scanId)
-            _ = self.states.pop(scanId)
-            _ = self.finished.pop(scanId)
-            _ = self.errors.pop(scanId)
+            for scanId in removeids:
+                _ = self.futures.pop(scanId)
+                _ = self.states.pop(scanId)
+                _ = self.finished.pop(scanId)
+                _ = self.errors.pop(scanId)
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
