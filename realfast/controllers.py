@@ -591,11 +591,11 @@ class realfast_controller(Controller):
             return True
         else:
             today = date.today()
-            # look for gainfile in mchammer
-            gainfile = os.path.join('/home/mchammer/evladata/telcal/'
-                                    '{0}/{1:02}/{2}.GN'
-                                    .format(today.year, today.month,
-                                            st.metadata.datasetId))
+            directory = '/home/mchammer/evladata/telcal/{0}'.format(today.year)
+            name = '{0}.GN'.format(st.metadata.datasetId)
+            for path, dirs, files in os.walk(directory):
+                for f in filter(lambda x: name in x, files):
+                    gainfile = os.path.join(path, name)
 
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
                 logger.info("Found telcalfile {0} for scanId {1}."
