@@ -590,6 +590,7 @@ class realfast_controller(Controller):
         if st.gainfile is not None:
             return True
         else:
+            gainfile = ''
             today = date.today()
             directory = '/home/mchammer/evladata/telcal/{0}'.format(today.year)
             name = '{0}.GN'.format(st.metadata.datasetId)

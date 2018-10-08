@@ -151,10 +151,19 @@ def is_nrao_default(inmeta):
     if not all([nchan == 64 for nchan in inmeta['spw_nchan']]):
         logger.info("NRAO default fail: not all spw have 64 chans {0} "
                     .format(inmeta['spw_nchan']))
-        False
+        return False
     else:
-        logger.info("NRAO default pass: all spw have 64 channels")
         nchan = 64
+        logger.info("NRAO default pass: all spw have {0} channels"
+                    .format(nchan))
+
+    if not all([inmeta['spw_chansize'][0] for chansize in inmeta['spw_chansize']]):
+        logger.info("NRAO default fail: not all spw have same chansize")
+        return False
+    else:
+        chansize = inmeta['spw_chansize'][0]
+        logger.info("NRAO default pass: all spw have chansize of {0}"
+                    .format(chansize))
 
     if len(inmeta['pols_orig']) != 4:
         logger.info("NRAO default fail: {0} pols".format(inmeta['pols_orig']))
@@ -162,7 +171,8 @@ def is_nrao_default(inmeta):
     else:
         logger.info("NRAO default pass: Full pol")
 
-    bandwidth = sum([nchan * chansize for chansize in inmeta['spw_chansize']])
+    bandwidth = max(inmeta['spw_reffreq']) - min(inmeta['spw_reffreq']) + nchan*chansize
+#    bandwidth = sum([nchan * chansize for chansize in inmeta['spw_chansize']])
     if band == 'L' and bandwidth != 1024000000.0:
         logger.info("NRAO default fail: band {0} has bandwidth {1}"
                     .format(band, bandwidth))
