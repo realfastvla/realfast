@@ -253,14 +253,15 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
+        # insert 0 or 1 transient per scan
+        inprefs['simulated_transient'] = int(random.uniform(0, 1) < self.mockprob)
+
         # alternatively, overload prefs with compiled rules (req Python>= 3.5)
 #        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir)
-
-        st = self.inject_transient(st)  # randomly inject mock transient
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
@@ -311,6 +312,7 @@ class realfast_controller(Controller):
 
             t0 = time.Time.now().unix
             elapsedtime = 0
+            nsegment = 0
             for segment in segments:
                 # submit if cluster ready and telcal available
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -325,7 +327,6 @@ class realfast_controller(Controller):
                         self.futures[scanId] = []
                         self.errors[scanId] = 0
                         self.finished[scanId] = 0
-                        nsegment = 0
                         if self.indexresults:
                             elastic.indexscan(inmeta=self.states[scanId].metadata,
                                               preferences=self.states[scanId].prefs,
@@ -435,6 +436,22 @@ class realfast_controller(Controller):
             # TODO: make robust to lost jobs
             for futures in finishedlist:
                 seg, data, cc, ncands_fut = futures
+
+                # index mock created remotely
+                if self.indexresults and self.states[scanId].prefs.simulated_transient:
+                    logger.info("Getting mock created for scanId {0}"
+                                .format(scanId))
+                    mocks = self.client.submit(lambda x: x.prefs.simulated_transient, cc)
+                    mocks = mocks.result()
+                    if mocks[0][0] == seg:
+                        mindexed = elastic.indexmock(scanId, mocks,
+                                                     indexprefix=self.indexprefix)
+                    if mindexed:
+                        logger.info("Indexed {0} mock transient to {1}."
+                                    .format(mindexed, self.indexprefix+"mocks"))
+                    else:
+                        logger.info("No mock transient indexed.")
+
                 ncands = ncands_fut.result()
                 if ncands:
                     if self.indexresults:
@@ -556,29 +573,6 @@ class realfast_controller(Controller):
                 badstatuslist += ['pending']
             self.cleanup(badstatuslist=badstatuslist)
             sleep(10)
-
-    def inject_transient(self, st):
-        """ Randomly sets preferences for scan to injects a transient
-        into one segment of a scan. Requires state to have been set.
-        Transient should be detectable, but randomly placed in the scan.
-        Also pushes mock properties to index.
-        """
-
-        if random.uniform(0, 1) < self.mockprob:
-            # TODO: consider how to generalize for ampslope
-            mocks = util.make_transient_params(st, ntr=1)
-            mindexed = (elastic.indexmock(st.metadata.scanId, mocks,
-                        indexprefix=self.indexprefix)
-                        if self.indexresults else 0)
-            if mindexed:
-                logger.info("Indexed {0} mock transient to {1}."
-                            .format(mindexed, self.indexprefix+"mocks"))
-            else:
-                logger.info("No mock transient indexed.")
-
-            st.prefs.simulated_transient = mocks
-
-        return st
 
     def set_telcalfile(self, scanId):
         """ Find and set telcalfile in state prefs, if not set already.
