@@ -12,6 +12,7 @@ import random
 import distributed
 from astropy import time
 from time import sleep
+import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
 from rfpipe import state, preferences, candidates, util, metadata
@@ -450,7 +451,6 @@ class realfast_controller(Controller):
                                         .format(mindexed, self.indexprefix+"mocks"))
                     if mindexed == 0:
                         logger.info("No mock transient indexed.")
-                    self.mocks[scanId].remove(mocks)
                     _ = self.mocks.pop(scanId)
 
             # check on finished
