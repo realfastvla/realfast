@@ -95,6 +95,7 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
+        self.mocks = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -253,9 +254,6 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-        # insert 0 or 1 transient per scan
-        inprefs['simulated_transient'] = int(random.uniform(0, 1) < self.mockprob)
-
         # alternatively, overload prefs with compiled rules (req Python>= 3.5)
 #        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
 
@@ -294,6 +292,13 @@ class realfast_controller(Controller):
                 logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
                             .format(vys_timeout))
 
+        if random.uniform(0, 1) < self.mockprob:
+            mockseg = random.choice(segments)
+            logger.info("Mock set for scanId {0} in segment {1}"
+                        .format(scanId, mockseg))
+        else:
+            mockseg = -1
+
         # submit, with optional throttling
         futures = []
         if self.throttle:
@@ -313,6 +318,7 @@ class realfast_controller(Controller):
             t0 = time.Time.now().unix
             elapsedtime = 0
             nsegment = 0
+
             for segment in segments:
                 # submit if cluster ready and telcal available
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -340,6 +346,14 @@ class realfast_controller(Controller):
                                                     vys_timeout=vys_timeout,
                                                     mem_read=w_memlim,
                                                     mem_search=2*st.vismem*1e9)
+                    # update state and index mocks if mockseg
+                    if segment == mockseg:
+                        logger.info("Submitting mock param calc for scanId {0} in segment {1}"
+                                    .format(scanId, mockseg))
+                        self.mocks[scanId] = self.client.submit(make_transient_params,
+                                                                st, data=futures[1],
+                                                                segment=mockseg)
+
                     self.futures[scanId].append(futures)
                     nsegment += 1
                     if self.indexresults:
@@ -422,6 +436,24 @@ class realfast_controller(Controller):
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
         for scanId in self.futures:
+
+            # check on mocks
+            if scanId in self.mocks:
+                if self.mocks[scanId].status == 'finished':
+                    mocks = self.mocks[scanId].result()
+                    mindexed = 0
+                    if self.indexresults:
+                        mindexed = elastic.indexmock(scanId, mocks,
+                                                     indexprefix=self.indexprefix)
+                        if mindexed:
+                            logger.info("Indexed {0} mock transient to {1}."
+                                        .format(mindexed, self.indexprefix+"mocks"))
+                    if mindexed == 0:
+                        logger.info("No mock transient indexed.")
+                    self.mocks[scanId].remove(mocks)
+                    _ = self.mocks.pop(scanId)
+
+            # check on finished
             finishedlist = [[seg, data, cc, ncands]
                             for (scanId0, futurelist) in iteritems(self.futures)
                             for seg, data, cc, ncands in futurelist
@@ -436,21 +468,6 @@ class realfast_controller(Controller):
             # TODO: make robust to lost jobs
             for futures in finishedlist:
                 seg, data, cc, ncands_fut = futures
-
-                # index mock created remotely
-                if self.indexresults and self.states[scanId].prefs.simulated_transient:
-                    logger.info("Getting mock created for scanId {0}"
-                                .format(scanId))
-                    mocks = self.client.submit(lambda x: x.prefs.simulated_transient, cc)
-                    mocks = mocks.result()
-                    if mocks[0][0] == seg:
-                        mindexed = elastic.indexmock(scanId, mocks,
-                                                     indexprefix=self.indexprefix)
-                    if mindexed:
-                        logger.info("Indexed {0} mock transient to {1}."
-                                    .format(mindexed, self.indexprefix+"mocks"))
-                    else:
-                        logger.info("No mock transient indexed.")
 
                 ncands = ncands_fut.result()
                 if ncands:
@@ -747,6 +764,20 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
         prefsname = 'default'
 
     return prefsname
+
+
+def make_transient_params(st, data=None, segment=None):
+    """ Select from read data and calc transient params
+    """
+
+    # take pols of interest
+    takepol = [st.metadata.pols_orig.index(pol) for pol in st.pols]
+    logger.debug('Selecting pols {0} and chans {1}'.format(st.pols, st.chans))
+
+    datap = np.nan_to_num(data.take(takepol, axis=3).take(st.chans, axis=2),
+                          copy=True)
+
+    return util.make_transient_params(st, data=datap, ntr=1, segment=segment)
 
 
 def summarize(config):
