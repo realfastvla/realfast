@@ -67,7 +67,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
     if segment == mockseg:
         st.prefs.simulated_transient = 1
     else:
-        st.prefs.simulated_transient = 0
+        st.prefs.simulated_transient = None
 
     candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
     resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
