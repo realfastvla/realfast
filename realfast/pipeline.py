@@ -17,7 +17,7 @@ vys_timeout_default = 10
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
                   vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                  throttle=False):
+                  throttle=False, mockseg=None):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -37,7 +37,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
-                                    mem_search=mem_search))
+                                    mem_search=mem_search, mockseg=mockseg))
         if throttle:
             sleep(sleeptime)
             # TODO: start if segment starttime is close
@@ -46,7 +46,8 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
-                 vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.):
+                 vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
+                 mockseg=None):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
@@ -63,19 +64,30 @@ def pipeline_seg(st, segment, cl, cfile=None,
                                         cfile=cfile)
     resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
 
+    if segment == mockseg:
+        st.prefs.simulated_transient = 1
+    else:
+        st.prefs.simulated_transient = 0
+
     candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
     resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
     if st.fftmode == 'cuda':
         resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
-    ncands = delayed(lambda x: len(x))(candcollection)
+    acc = delayed(analyze_cc(candcollection))
 
-    futures_seg = cl.compute((segment, data, candcollection, ncands),
+    futures_seg = cl.compute((segment, data, candcollection, acc),
                              resources=resources, fifo_timeout='0s')
 
     return futures_seg
 
 
 ### helper functions (not necessarily in use)
+
+def analyze_cc(cc):
+    """ Submittable function to get results of cc in memory
+    """
+    return len(cc), cc.prefs.simulated_transient
+
 
 def read_segment(st, segment, cfile, vys_timeout):
     """ Wrapper for source.read_segment that secedes from worker

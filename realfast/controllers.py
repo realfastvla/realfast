@@ -96,7 +96,6 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
-        self.mocks = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -136,14 +135,14 @@ class realfast_controller(Controller):
     def statuses(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.status, cc.status)
                 for (scanId, futurelist) in iteritems(self.futures)
-                for seg, data, cc, ncands in futurelist]
+                for seg, data, cc, acc in futurelist]
 
     @property
     def exceptions(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
                                             cc.exception())
                 for (scanId, futurelist) in iteritems(self.futures)
-                for seg, data, cc, ncands in futurelist
+                for seg, data, cc, acc in futurelist
                 if data.status == 'error' or cc.status == 'error']
 
     @property
@@ -293,12 +292,10 @@ class realfast_controller(Controller):
                 logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
                             .format(vys_timeout))
 
-        if random.uniform(0, 1) < self.mockprob:
-            mockseg = random.choice(segments)
+        mockseg = random.choice(segments) if random.uniform(0, 1) < self.mockprob else None
+        if mockseg is not None:
             logger.info("Mock set for scanId {0} in segment {1}"
                         .format(scanId, mockseg))
-        else:
-            mockseg = -1
 
         # submit, with optional throttling
         futures = []
@@ -346,14 +343,8 @@ class realfast_controller(Controller):
                                                     cfile=cfile,
                                                     vys_timeout=vys_timeout,
                                                     mem_read=w_memlim,
-                                                    mem_search=2*st.vismem*1e9)
-                    # update state and index mocks if mockseg
-                    if segment == mockseg:
-                        logger.info("Submitting mock param calc for scanId {0} in segment {1}"
-                                    .format(scanId, mockseg))
-                        self.mocks[scanId] = self.client.submit(make_transient_params,
-                                                                st, data=futures[1],
-                                                                segment=mockseg)
+                                                    mem_search=2*st.vismem*1e9,
+                                                    mockseg=mockseg)
 
                     self.futures[scanId].append(futures)
                     nsegment += 1
@@ -406,7 +397,8 @@ class realfast_controller(Controller):
                                                  vys_timeout=vys_timeout,
                                                  mem_read=w_memlim,
                                                  mem_search=2*st.vismem*1e9,
-                                                 throttle=self.throttle)
+                                                 throttle=self.throttle,
+                                                 mockseg=mockseg)
 
                 if len(futures):
                     self.futures[scanId] = futures
@@ -438,26 +430,11 @@ class realfast_controller(Controller):
         removed = self.removefutures(badstatuslist)
         for scanId in self.futures:
 
-            # check on mocks
-            if scanId in self.mocks:
-                if self.mocks[scanId].status == 'finished':
-                    mocks = self.mocks[scanId].result()
-                    mindexed = 0
-                    if self.indexresults:
-                        mindexed = elastic.indexmock(scanId, mocks,
-                                                     indexprefix=self.indexprefix)
-                        if mindexed:
-                            logger.info("Indexed {0} mock transient to {1}."
-                                        .format(mindexed, self.indexprefix+"mocks"))
-                    if mindexed == 0:
-                        logger.info("No mock transient indexed.")
-                    _ = self.mocks.pop(scanId)
-
             # check on finished
-            finishedlist = [[seg, data, cc, ncands]
+            finishedlist = [[seg, data, cc, acc]
                             for (scanId0, futurelist) in iteritems(self.futures)
-                            for seg, data, cc, ncands in futurelist
-                            if (ncands.status == 'finished') and
+                            for seg, data, cc, acc in futurelist
+                            if (acc.status == 'finished') and
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
             if self.indexresults:
@@ -467,9 +444,19 @@ class realfast_controller(Controller):
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
-                seg, data, cc, ncands_fut = futures
+                seg, data, cc, acc = futures
 
-                ncands = ncands_fut.result()
+                ncands, mocks = acc.result()
+                mindexed = 0
+                if self.indexresults:
+                    mindexed = elastic.indexmock(scanId, mocks,
+                                                 indexprefix=self.indexprefix)
+                    if mindexed:
+                        logger.info("Indexed {0} mock transient to {1}."
+                                    .format(mindexed, self.indexprefix+"mocks"))
+                if mindexed == 0:
+                    logger.info("No mock transient indexed.")
+
                 if ncands:
                     if self.indexresults:
                         tags = self.tags
@@ -633,12 +620,12 @@ class realfast_controller(Controller):
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are cancelled
 
-            removelist = [[seg, data, cc, ncands]
+            removelist = [[seg, data, cc, acc]
                           for (scanId0, futurelist) in iteritems(self.futures)
-                          for seg, data, cc, ncands in futurelist
+                          for seg, data, cc, acc in futurelist
                           if ((data.status in badstatuslist) or
                               (cc.status in badstatuslist) or
-                              (ncands.status in badstatuslist)) and
+                              (acc.status in badstatuslist)) and
                              (scanId0 == scanId)]
 
             self.errors[scanId] += len(removelist)
