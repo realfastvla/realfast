@@ -73,7 +73,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
     resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
     if st.fftmode == 'cuda':
         resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
-    acc = delayed(analyze_cc(candcollection))
+    acc = delayed(analyze_cc)(candcollection)
 
     futures_seg = cl.compute((segment, data, candcollection, acc),
                              resources=resources, fifo_timeout='0s')

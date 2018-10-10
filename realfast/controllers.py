@@ -447,15 +447,14 @@ class realfast_controller(Controller):
                 seg, data, cc, acc = futures
 
                 ncands, mocks = acc.result()
-                mindexed = 0
-                if self.indexresults:
+                if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
                                                  indexprefix=self.indexprefix)
                     if mindexed:
                         logger.info("Indexed {0} mock transient to {1}."
                                     .format(mindexed, self.indexprefix+"mocks"))
-                if mindexed == 0:
-                    logger.info("No mock transient indexed.")
+                    else:
+                        logger.info("Could not index mock transient.")
 
                 if ncands:
                     if self.indexresults:
