@@ -515,15 +515,17 @@ class realfast_controller(Controller):
                 if self.saveproducts and ncands:
                     newsdms_fut = self.client.submit(createproducts, cc, data,
                                                      priority=5)
-                    sdms += len(newsdms_fut.result())
-                    if len(newsdms_fut.result()):
-                        logger.info("Created new SDMs at: {0}"
-                                    .format(newsdms_fut.result()))
-                    else:
-                        logger.info("No new SDMs created")
-
-                    if self.archiveproducts:
-                        runingest(newsdms_fut.result())  # TODO: implement this
+                    try:
+                        sdms += len(newsdms_fut.result())
+                        if len(newsdms_fut.result()):
+                            logger.info("Created new SDMs at: {0}"
+                                        .format(newsdms_fut.result()))
+                        else:
+                            logger.info("No new SDMs created")
+                        if self.archiveproducts:
+                            runingest(newsdms_fut.result())  # TODO: implement this
+                    except distributed.scheduler.KilledWorker:
+                        logger.warn("Lost SDM generation due to killed worker.")                        
 
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
@@ -809,7 +811,7 @@ def summarize(config):
 
 
 def createproducts(candcollection, data, sdmdir='.',
-                   savebdfdir='/lustre/evla/wcbe/data/no_archive/'):
+                   savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
     This uses the mcaf_servers module, which calls the sdm builder server.
@@ -829,11 +831,13 @@ def createproducts(candcollection, data, sdmdir='.',
     metadata = candcollection.metadata
     segment = candcollection.segment
     if not isinstance(segment, int):
-        logger.warn("Cannot get unique segment from candcollection ({0})".format(segment))
+        logger.warn("Cannot get unique segment from candcollection ({0})"
+                    .format(segment))
     st = candcollection.state
 
     candranges = gencandranges(candcollection)  # finds time windows to save from segment
-    logger.info('Getting data for candidate time ranges {0}.'.format(candranges))
+    logger.info('Getting data for candidate time ranges {0}.'
+                .format(candranges))
 
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
@@ -847,7 +851,8 @@ def createproducts(candcollection, data, sdmdir='.',
                     .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId, data_cut)
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
+                                      data_cut)
         if sdmloc is not None:
             if sdmdir is not None:
                 uid = ('uid:///evla/realfastbdf/{0}'
