@@ -621,7 +621,7 @@ class realfast_controller(Controller):
         for scanId in self.futures:
             # create list of futures (a dict per segment) that are cancelled
 
-            removelist = [[seg, data, cc, acc]
+            removelist = [(seg, data, cc, acc)
                           for (scanId0, futurelist) in iteritems(self.futures)
                           for seg, data, cc, acc in futurelist
                           if ((data.status in badstatuslist) or
