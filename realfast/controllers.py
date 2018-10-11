@@ -632,13 +632,14 @@ class realfast_controller(Controller):
             self.errors[scanId] += len(removelist)
 
             # clean them up
-            errworkers = [self.client.who_has(fut) for futs in removelist
+            errworkers = [(fut, self.client.who_has(fut)) for futs in removelist
                           for fut in futs[1:] if fut.status == 'error']
-            errworkerids = [self.workernames[worker[0][0]]
-                            for worker in errworkers
+            errworkerids = [(fut, self.workernames[worker[0][0]])
+                            for fut, worker in errworkers
                             for ww in listvalues(worker) if ww]
-            if len(errworkerids):
-                logger.warn("Error on workers {0}".format(set(errworkerids)))
+            for i, errworkerid in enumerate(errworkerids):
+                fut, worker = errworkerid
+                logger.warn("Error on workers {0}: {1}".format(worker, fut.exception()))
 
             for futures in removelist:
                 self.futures[scanId].remove(futures)
