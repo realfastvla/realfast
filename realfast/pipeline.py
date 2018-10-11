@@ -58,28 +58,39 @@ def pipeline_seg(st, segment, cl, cfile=None,
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
 
-    resources = {}
+#    data = delayed(source.read_segment)(st, segment, timeout=vys_timeout,
+#                                        cfile=cfile)
 
-    data = delayed(source.read_segment)(st, segment, timeout=vys_timeout,
-                                        cfile=cfile)
-    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
+#    resources = {}
+#    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
+
+    data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
+                     cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
+                     fifo_timeout='0s', priority=-1)
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1
     else:
         st.prefs.simulated_transient = None
 
-    candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
-    resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
-    if st.fftmode == 'cuda':
-        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
-    acc = delayed(analyze_cc)(candcollection)
+#    candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
+#    resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
+#    if st.fftmode == 'cuda':
+#        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
+
+    candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
+                               resources={'MEMORY': mem_search, 'GPU': 1},
+                               fifo_timeout='0s', priority=1)
+
+#    acc = delayed(analyze_cc)(candcollection)
+
+    acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2)
 
 #    futures_seg = cl.compute((segment, data, candcollection, acc),
 #                             resources=resources, fifo_timeout='0s')
-    data = cl.compute(data, resources=resources, fifo_timeout='0s', priority=-1)
-    candcollection = cl.compute(candcollection, resources=resources, fifo_timeout='0s', priority=1)
-    acc = cl.compute(acc, resources=resources, fifo_timeout='0s', priority=2)
+#    data = cl.compute(data, resources=resources, fifo_timeout='0s', priority=-1)
+#    candcollection = cl.compute(candcollection, resources=resources, fifo_timeout='0s', priority=1)
+#    acc = cl.compute(acc, fifo_timeout='0s', priority=2)
 
     return (segment, data, candcollection, acc)
 
@@ -89,7 +100,11 @@ def pipeline_seg(st, segment, cl, cfile=None,
 def analyze_cc(cc):
     """ Submittable function to get results of cc in memory
     """
-    return len(cc), cc.prefs.simulated_transient
+    if isinstance(cc.prefs.simulated_transient, tuple):
+        simulated_transient = cc.prefs.simulated_transient
+    else:
+        simulated_transient = None
+    return len(cc), simulated_transient
 
 
 def read_segment(st, segment, cfile, vys_timeout):
