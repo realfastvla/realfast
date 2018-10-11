@@ -75,10 +75,13 @@ def pipeline_seg(st, segment, cl, cfile=None,
         resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
     acc = delayed(analyze_cc)(candcollection)
 
-    futures_seg = cl.compute((segment, data, candcollection, acc),
-                             resources=resources, fifo_timeout='0s')
+#    futures_seg = cl.compute((segment, data, candcollection, acc),
+#                             resources=resources, fifo_timeout='0s')
+    data = cl.compute(data, resources=resources, fifo_timeout='0s', priority=-1)
+    candcollection = cl.compute(candcollection, resources=resources, fifo_timeout='0s', priority=1)
+    acc = cl.compute(acc, resources=resources, fifo_timeout='0s', priority=2)
 
-    return futures_seg
+    return (segment, data, candcollection, acc)
 
 
 ### helper functions (not necessarily in use)

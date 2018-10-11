@@ -431,7 +431,7 @@ class realfast_controller(Controller):
         for scanId in self.futures:
 
             # check on finished
-            finishedlist = [[seg, data, cc, acc]
+            finishedlist = [(seg, data, cc, acc)
                             for (scanId0, futurelist) in iteritems(self.futures)
                             for seg, data, cc, acc in futurelist
                             if (acc.status == 'finished') and
@@ -525,7 +525,7 @@ class realfast_controller(Controller):
                         if self.archiveproducts:
                             runingest(newsdms_fut.result())  # TODO: implement this
                     except distributed.scheduler.KilledWorker:
-                        logger.warn("Lost SDM generation due to killed worker.")                        
+                        logger.warn("Lost SDM generation due to killed worker.")                       
 
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
