@@ -100,7 +100,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 def analyze_cc(cc):
     """ Submittable function to get results of cc in memory
     """
-    if isinstance(cc.prefs.simulated_transient, tuple):
+    if isinstance(cc.prefs.simulated_transient, list):
         simulated_transient = cc.prefs.simulated_transient
     else:
         simulated_transient = None
