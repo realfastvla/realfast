@@ -470,17 +470,18 @@ class realfast_controller(Controller):
                         msp_fut = self.client.submit(makesummaryplot,
                                                      workdir,
                                                      scanId,
-                                                     priority=5).result()
+                                                     priority=5)
                         nplots_fut = self.client.submit(moveplots, cc, scanId,
                                                         destination=_candplot_dir,
                                                         priority=5)
-                        if res_fut.result() or nplots_fut.result():
+                        if res_fut.result() or nplots_fut.result() or msp_fut.result():
                             logger.info('Indexed {0} cands to {1} and '
-                                        'moved {2} plots to {3} for '
-                                        'scanId {4}'
+                                        'moved {2} plots and summarized {3} '
+                                        'to {4} for scanId {5}'
                                         .format(res_fut.result(),
                                                 self.indexprefix+'cands',
                                                 nplots_fut.result(),
+                                                msp_fut.result(),
                                                 _candplot_dir,
                                                 scanId))
                         else:
@@ -939,7 +940,8 @@ def makesummaryplot(workdir, scanId):
     """
 
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    candidates.makesummaryplot(candsfile)
+    ncands = candidates.makesummaryplot(candsfile)
+    return ncands
 
 
 class config_controller(Controller):
