@@ -467,14 +467,14 @@ class realfast_controller(Controller):
                         # TODO: makesumaryplot logs cands in all segments
                         # this is confusing when only one segment being handled here
                         workdir = self.states[scanId].prefs.workdir
-                        msp_fut = self.client.submit(makesummaryplot,
-                                                     workdir,
-                                                     scanId,
-                                                     priority=5)
+                        msp = self.client.submit(makesummaryplot,
+                                                 workdir,
+                                                 scanId,
+                                                 priority=5).result()
                         nplots_fut = self.client.submit(moveplots, cc, scanId,
                                                         destination=_candplot_dir,
                                                         priority=5)
-                        if res_fut.result() or nplots_fut.result() or msp_fut.result():
+                        if res_fut.result() or nplots_fut.result() or msp_fut:
                             logger.info('Indexed {0} cands to {1} and '
                                         'moved {2} plots and summarized {3} '
                                         'to {4} for scanId {5}'
