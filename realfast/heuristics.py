@@ -105,7 +105,9 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                          validate=True)
         return True
     except:
-        logger.warn("State did not validate: ", sys.exc_info()[0])
+        import traceback
+        traceback.print_tb(sys.exc_info()[2] )
+        logger.warn("State did not validate")
         return False
 
 
@@ -192,6 +194,12 @@ def is_nrao_default(inmeta):
     else:
         logger.info("NRAO default pass: bandwidth {0} for band {1}"
                     .format(bandwidth, band))
+
+    if inmeta['inttime'] > 1.:
+        logger.info("NRAO default fail: inttime {0} >= 1 s".format(inmeta['inttime']))
+        return False
+    else:
+        logger.info("NRAO default pass: inttime {0} < 1 s".format(inmeta['inttime']))
 
     return True
 
