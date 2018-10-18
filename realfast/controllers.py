@@ -7,6 +7,7 @@ import pickle
 import os.path
 import glob
 import shutil
+import subprocess
 from datetime import date
 import random
 import distributed
@@ -32,8 +33,8 @@ _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # product
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 _distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
-_candplot_dir = '/users/claw/public_html/realfast/plots'
-_candplot_url_prefix = 'http://www.aoc.nrao.edu/~claw/realfast/plots'
+_candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
+_candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
 
 
@@ -447,6 +448,7 @@ class realfast_controller(Controller):
                 seg, data, cc, acc = futures
 
                 ncands, mocks = acc.result()
+                logger.info("{0} {1} {2} {3}".format(scanId, seg, ncands, mocks))
                 if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
                                                  indexprefix=self.indexprefix)
@@ -917,12 +919,13 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
     candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
                           .format(workdir, scanId, segment))
     for candplot in candplots:
-        try:
-            shutil.move(candplot, destination)
-            nplots += 1
-        except shutil.Error:
-            logger.warn("Plot {0} already exists at {1}. Skipping..."
-                        .format(candplot, destination))
+#        try:
+#            shutil.move(candplot, destination)
+        success = rsync(candplot, destination)
+        nplots += success
+#        except shutil.Error:
+#            logger.warn("Plot {0} already exists at {1}. Skipping..."
+#                        .format(candplot, destination))
 
     # move summary plot too
     summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
@@ -933,6 +936,18 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
         logger.warn("No summary plot {0} found".format(summaryplot))
 
     return nplots
+
+
+def rsync(original, new):
+    """ Uses subprocess.call to rsync from 'filename' to 'new'
+    If new is directory, copies original in.
+    If new is new file, copies original to that name.
+    """
+
+    assert os.path.exists(original), 'Need original file!'
+    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
+
+    return int(res == 0)
 
 
 def makesummaryplot(workdir, scanId):
