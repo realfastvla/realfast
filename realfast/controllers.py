@@ -931,7 +931,8 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
     summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
     summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
     if os.path.exists(summaryplot):
-        shutil.move(summaryplot, summaryplotdest)
+#        shutil.move(summaryplot, summaryplotdest)
+        success = rsync(summaryplot, summaryplotdest)
     else:
         logger.warn("No summary plot {0} found".format(summaryplot))
 
