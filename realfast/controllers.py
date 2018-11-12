@@ -130,7 +130,7 @@ class realfast_controller(Controller):
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'
-                .format(len(self.futures)))
+                .format(len(self.statuses)))
 
     @property
     def statuses(self):

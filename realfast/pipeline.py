@@ -79,7 +79,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
 
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
-                               resources={'MEMORY': mem_search, 'GPU': 1},
+                               resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1)
 
 #    acc = delayed(analyze_cc)(candcollection)
