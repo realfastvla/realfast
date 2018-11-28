@@ -9,6 +9,7 @@ from future.moves.urllib.error import HTTPError
 import os.path
 import sys
 from lxml import etree, objectify
+import json
 from astropy import time
 import numpy as np
 from rfpipe.metadata import Metadata
@@ -35,15 +36,26 @@ class SDMBuilder(object):
 
     _E = objectify.ElementMaker(annotate=False)
 
-    def __init__(self, datasetId=None, uid=None, dataSize=None,
+    def __init__(self, datasetId=None, outputDatasetId=None,
+                 uid=None, dataSize=None,
                  numIntegrations=None, startTime=None, endTime=None,
+                 calScanNumber=0, annotation={},
                  host=_host, path=_sdmpath):
         self.datasetId = datasetId
+        if outputDatasetId is None:
+            self.outputDatasetId = datasetId + '-realfast'
+        else:
+            self.outputDatasetId = outputDatasetId
         self.uid = uid
         self.dataSize = dataSize
         self.numIntegrations = numIntegrations
         self.startTime = startTime
         self.endTime = endTime
+        # Note, calScanNumber is here as a placeholder, but the syntax will
+        # likely change and we don't have this information readily available
+        # anyways.
+        self.calScanNumber = calScanNumber
+        self.annotation = annotation
         self.host = host
         self.path = path
 
@@ -51,12 +63,21 @@ class SDMBuilder(object):
     def _root(self):
         return self._E.SdmBuilderMessage(
                 self._E.datasetId(self.datasetId),
+                self._E.outputDatasetId(self.outputDatasetId),
                 self._E.bdf(
                     self._E.uid(self.uid),
                     self._E.dataSize(self.dataSize),
                     self._E.numIntegrations(self.numIntegrations),
                     self._E.startTime(repr(self.startTime)),
                     self._E.endTime(repr(self.endTime)),
+                    # Don't send it because we don't have valid info:
+                    #self._E.calScanNumber(self.calScanNumber),
+                    ),
+                self._E.annotation(
+                    self._E.sValue(json.dumps(self.annotation)),
+                    # annotation attributes:
+                    {'issue': 'REALFAST_METADATA', 
+                        'details': 'Realfast candidate metadata'}
                     ),
                 # SdmBuilderMessage attributes:
                 {'timestamp': '%.12f' % time.Time.now().mjd,
@@ -110,8 +131,8 @@ def makesdm(startTime, endTime, datasetId, data):
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
     logger.info("Building SDM for datasetId {0} and bdf {1}"
                 .format(datasetId, uid))
-    sdmb = SDMBuilder(datasetId, uid, dataSize, nint, startTime,
-                      endTime)
+    sdmb = SDMBuilder(datasetId=datasetId, uid=uid, dataSize=dataSize, 
+                      numIntegrations=nint, startTime=startTime, endTime=endTime)
     try:
         sdmb.send()
         return sdmb.location
