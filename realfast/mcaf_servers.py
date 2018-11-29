@@ -43,7 +43,7 @@ class SDMBuilder(object):
                  host=_host, path=_sdmpath):
         self.datasetId = datasetId
         if outputDatasetId is None:
-            self.outputDatasetId = datasetId + '-realfast'
+            self.outputDatasetId = 'realfast_' + datasetId
         else:
             self.outputDatasetId = outputDatasetId
         self.uid = uid
@@ -76,7 +76,7 @@ class SDMBuilder(object):
                 self._E.annotation(
                     self._E.sValue(json.dumps(self.annotation)),
                     # annotation attributes:
-                    {'issue': 'REALFAST_METADATA', 
+                    {'issue': 'REALFAST_METADATA',
                         'details': 'Realfast candidate metadata'}
                     ),
                 # SdmBuilderMessage attributes:
