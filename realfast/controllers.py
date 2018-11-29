@@ -855,26 +855,15 @@ def createproducts(candcollection, data, sdmdir='.',
                     .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut)
-        if sdmloc is not None:
-            if sdmdir is not None:
-                uid = ('uid:///evla/realfastbdf/{0}'
-                       .format(int(time.Time(startTime,
-                                             format='mjd').unix*1e3)))
-                if 'sdm-builder' in sdmloc:  # remove default name suffix
-                    sdmlocbase = '-'.join(sdmloc.rsplit('-')[:-3])
-                else:
-                    sdmlocbase = sdmloc
-                newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
-                                         .format(os.path.basename(sdmlocbase),
-                                                 uid.rsplit('/')[-1]))
-                assert not os.path.exists(newsdmloc), "newsdmloc {0} already exists".format(newsdmloc)
-                shutil.move(sdmloc, newsdmloc)
-                sdmlocs.append(newsdmloc)
-            else:
-                sdmlocs.append(sdmloc)
+        annotation = {}
+        uid = ('uid:///evla/realfastbdf/{0}'
+               .format(int(time.Time(startTime,
+                                     format='mjd').unix*1e3)))
+        outputDatasetId = 'realfast_{0}_{1}'.format(os.path.basename(sdmlocbase), uid.rsplit('/')[-1])
 
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
+                                      data_cut, outputDatasetId, annotation=annotation)
+        if sdmloc is not None:
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)

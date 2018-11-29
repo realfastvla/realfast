@@ -112,7 +112,8 @@ class SDMBuilder(object):
             return None
 
 
-def makesdm(startTime, endTime, datasetId, data):
+def makesdm(startTime, endTime, datasetId, data, outputDatasetId,
+            annotation={}):
     """ Generates call to sdm builder server for a single candidate.
     Generates a unique id for the bdf from the startTime.
     Uses datasetId and data to create call signature to server with:
@@ -120,6 +121,7 @@ def makesdm(startTime, endTime, datasetId, data):
     Returns location of newly created SDM.
     Data refers to cut out visibilities from startTime to endTime with
     shape of (nint, nbl, nspw, numBin, nchan, npol).
+    annotation is a dict that is made into json and attached to SDM.
     """
 
     assert data.ndim == 6, ("data must have 6 dimensions: "
@@ -131,8 +133,9 @@ def makesdm(startTime, endTime, datasetId, data):
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
     logger.info("Building SDM for datasetId {0} and bdf {1}"
                 .format(datasetId, uid))
-    sdmb = SDMBuilder(datasetId=datasetId, uid=uid, dataSize=dataSize, 
-                      numIntegrations=nint, startTime=startTime, endTime=endTime)
+    sdmb = SDMBuilder(datasetId=datasetId, uid=uid, dataSize=dataSize,
+                      numIntegrations=nint, startTime=startTime, endTime=endTime,
+                      outputDatasetId=outputDatasetId, annotation=annotation)
     try:
         sdmb.send()
         return sdmb.location
