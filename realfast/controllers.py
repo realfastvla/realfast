@@ -448,7 +448,6 @@ class realfast_controller(Controller):
                 seg, data, cc, acc = futures
 
                 ncands, mocks = acc.result()
-                logger.info("{0} {1} {2} {3}".format(scanId, seg, ncands, mocks))
                 if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
                                                  indexprefix=self.indexprefix)
