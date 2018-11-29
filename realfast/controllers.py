@@ -855,14 +855,10 @@ def createproducts(candcollection, data, sdmdir='.',
                     .format(nint, i, startTime))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
+        # TODO: fill in annotation dict as defined in confluence doc on realfast collections
         annotation = {}
-        uid = ('uid:///evla/realfastbdf/{0}'
-               .format(int(time.Time(startTime,
-                                     format='mjd').unix*1e3)))
-        outputDatasetId = 'realfast_{0}_{1}'.format(os.path.basename(sdmlocbase), uid.rsplit('/')[-1])
-
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut, outputDatasetId, annotation=annotation)
+                                      data_cut, annotation=annotation)
         if sdmloc is not None:
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
