@@ -106,7 +106,7 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         return True
     except:
         import traceback
-        traceback.print_tb(sys.exc_info()[2] )
+        traceback.print_tb(sys.exc_info()[2])
         logger.warn("State did not validate")
         return False
 
