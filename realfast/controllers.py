@@ -108,7 +108,7 @@ class realfast_controller(Controller):
                             .format(self.preffile))
 
                 # TODO: see if this improves start time for new submissions
-                _ = rfc.client.run(rfpipe.preferences.parsepreffile, self.preffile)
+                _ = self.client.run(preferences.parsepreffile, self.preffile)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
