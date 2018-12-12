@@ -6,7 +6,6 @@ from io import open
 import pickle
 import os.path
 import glob
-import shutil
 import subprocess
 from datetime import date
 import random
@@ -32,7 +31,8 @@ logger = logging.getLogger('realfast_controller')
 _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
+#_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
+_distributed_host = '10.80.200.201'  # for ib0 on rfnode021
 _candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
 _candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
@@ -906,13 +906,8 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
     candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
                           .format(workdir, scanId, segment))
     for candplot in candplots:
-#        try:
-#            shutil.move(candplot, destination)
         success = rsync(candplot, destination)
         nplots += success
-#        except shutil.Error:
-#            logger.warn("Plot {0} already exists at {1}. Skipping..."
-#                        .format(candplot, destination))
 
     # move summary plot too
     summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
