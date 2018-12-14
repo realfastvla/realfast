@@ -9,6 +9,7 @@ from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
 from realfast import heuristics
+from realfast.controllers import rsync
 import pickle
 import logging
 from numpy import degrees
@@ -185,7 +186,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         # create id
         uniqueid = candid(canddict)
         candidate_png = 'cands_{0}.png'.format(uniqueid)
-        canddict['png_url'] = os.path.join(url_prefix, candidate_png)
+        canddict['png_url'] = os.path.join(url_prefix, indexprefix, candidate_png)
 
 #        assert os.path.exists(os.path.join(prefs.workdir, candidate_png)), "Expected png {0} for candidate.".format(candidate_png)
         res += pushdata(canddict, index=index,
@@ -453,6 +454,16 @@ def move_docs(indexprefix1='new', indexprefix2='final',
             # set tags field
             update_field(indexprefix2+'cands', 'tags',
                          consensus[candId]['tags'], Id=candId)
+
+            # update png_url to new prefix and move plot
+            png_url = get_doc(index=indexprefix1+'cands', Id=candId)['png_url']
+            update_field(indexprefix2+'cands', 'png_url',
+                         png_url.replace(indexprefix1, indexprefix2), Id=candId)
+            candplot1 = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                        .format(indexprefix1, candId)
+            candplot2 = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                        .format(indexprefix2, candId)
+            success = rsync(candplot1, candplot2)
 
             # if no candIds remain, then move remaining docs
             if len(docids[indexprefix1+'cands']) == 0:

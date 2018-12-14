@@ -476,7 +476,9 @@ class realfast_controller(Controller):
                                                  scanId,
                                                  priority=5).result()
                         nplots_fut = self.client.submit(moveplots, cc, scanId,
-                                                        destination=_candplot_dir,
+                                                        destination='{0}/{1}'
+                                                                    .format(_candplot_dir,
+                                                                            self.indexprefix),
                                                         priority=5)
                         if res_fut.result() or nplots_fut.result() or msp:
                             logger.info('Indexed {0} cands to {1} and '
