@@ -9,8 +9,8 @@ from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
 from realfast import heuristics
-from realfast.controllers import rsync
 import pickle
+import subprocess
 import logging
 from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
@@ -459,11 +459,17 @@ def move_docs(indexprefix1='new', indexprefix2='final',
             png_url = get_doc(index=indexprefix1+'cands', Id=candId)['png_url']
             update_field(indexprefix2+'cands', 'png_url',
                          png_url.replace(indexprefix1, indexprefix2), Id=candId)
-            candplot1 = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                        .format(indexprefix1, candId)
-            candplot2 = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                        .format(indexprefix2, candId)
+            candplot1 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                         .format(indexprefix1, candId))
+            candplot2 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                         .format(indexprefix2, candId))
             success = rsync(candplot1, candplot2)
+            if success:
+                logger.info("Updated png_url field for {0} from {1} to {2}"
+                            .format(candId, indexprefix1, indexprefix2))
+            else:
+                logger.warn("Could not update png_url field for {0} from {1} to {2}"
+                            .format(candId, indexprefix1, indexprefix2))
 
             # if no candIds remain, then move remaining docs
             if len(docids[indexprefix1+'cands']) == 0:
@@ -642,7 +648,8 @@ def create_indices(indexprefix):
     body_preferences = body.copy()
     body_preferences['mappings'] = {indexprefix+"preference": {
                                      "properties": {
-                                       "flaglist": {"type":  "text"}
+                                       "flaglist": {"type":  "text"},
+                                       "calcfeatures": {"type":  "text"}
                                        }
                                      }
                                     }
@@ -689,3 +696,15 @@ def reset_indices(indexprefix, deleteindices=False):
                     logger.info("Removed {0} index".format(index))
             except TransportError:
                 logger.info("Index {0} does not exist".format(index))
+
+
+def rsync(original, new):
+    """ Uses subprocess.call to rsync from 'filename' to 'new'
+    If new is directory, copies original in.
+    If new is new file, copies original to that name.
+    """
+
+    assert os.path.exists(original), 'Need original file!'
+    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
+
+    return int(res == 0)
