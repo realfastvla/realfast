@@ -432,6 +432,8 @@ class realfast_controller(Controller):
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
+        nc_futs = []
+        sdm_futs = []
         for scanId in self.futures:
 
             # check on finished
@@ -447,8 +449,6 @@ class realfast_controller(Controller):
                                         errors=self.errors[scanId])
 
             # TODO: make robust to lost jobs
-            nc_futs = []
-            sdm_futs = []
             for futures in finishedlist:
                 seg, data, cc, acc = futures
                 ncands, mocks = acc.result()
@@ -502,15 +502,16 @@ class realfast_controller(Controller):
                 self.futures[scanId].remove(futures)
                 removed += 1
 
-            for fut in distributed.as_completed(nc_futs):
-                cindexed += fut.result()
-                logger.info("{0} candidates indexed".format(fut.result()))
+        # check on cand indexing and sdm jobs
+        for fut in distributed.as_completed(nc_futs):
+            cindexed += fut.result()
+            logger.info("{0} candidates indexed".format(fut.result()))
 
-            for fut in distributed.as_completed(sdm_futs):
-                sdms += fut.result()
-                logger.info("SDM created at {0}".format(fut.result()))
+        for fut in distributed.as_completed(sdm_futs):
+            sdms += fut.result()
+            logger.info("SDM created at {0}".format(fut.result()))
 
-        # after scanId loop, clean up self.futures
+        # clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if (len(self.futures[scanId]) == 0) and (scanId != keep)]
         if removeids:
