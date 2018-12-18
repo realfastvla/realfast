@@ -145,11 +145,11 @@ def makesdm(startTime, endTime, datasetId, data, annotation={}, returnbuilder=Fa
         sdmb.send()
         ret = sdmb.location
     except HTTPError:
-        logger.warn("HTTPError in SDM builder server: {0}"
-                    .format(sys.exc_info()))
+        logger.warn("HTTPError in SDM builder for XML: {0}"
+                    .format(sdmb.xml))
         ret = None
 
-    if returnbulider:
+    if returnbuilder:
         return sdmb
     else:
         return ret
