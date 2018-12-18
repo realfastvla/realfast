@@ -112,7 +112,7 @@ class SDMBuilder(object):
             return None
 
 
-def makesdm(startTime, endTime, datasetId, data, annotation={}):
+def makesdm(startTime, endTime, datasetId, data, annotation={}, returnbuilder=False):
     """ Generates call to sdm builder server for a single candidate.
     Generates a unique id for the bdf from the startTime.
     Uses datasetId and data to create call signature to server with:
@@ -123,6 +123,7 @@ def makesdm(startTime, endTime, datasetId, data, annotation={}):
     annotation is a dict that is made into json and attached to SDM.
     output sdm naming convention is "realfast_datasetId_uid",
     where uid is startTime in unix milliseconds (as used for BDF).
+    returnbuilder can be used to get SDMBuilder object.
     """
 
     assert data.ndim == 6, ("data must have 6 dimensions: "
@@ -142,11 +143,16 @@ def makesdm(startTime, endTime, datasetId, data, annotation={}):
                       annotation=annotation)
     try:
         sdmb.send()
-        return sdmb.location
+        ret = sdmb.location
     except HTTPError:
         logger.warn("HTTPError in SDM builder server: {0}"
                     .format(sys.exc_info()))
-        return None
+        ret = None
+
+    if returnbulider:
+        return sdmb
+    else:
+        return ret
 
 
 def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
