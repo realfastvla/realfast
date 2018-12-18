@@ -447,60 +447,21 @@ class realfast_controller(Controller):
                                         errors=self.errors[scanId])
 
             # TODO: make robust to lost jobs
+            nc_futs = []
+            sdm_futs = []
             for futures in finishedlist:
                 seg, data, cc, acc = futures
-
                 ncands, mocks = acc.result()
+
                 if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
-                                                 indexprefix=self.indexprefix)
+                                                 indexprefix=indexprefix)
                     if mindexed:
-                        logger.info("Indexed {0} mock transient to {1}."
-                                    .format(mindexed, self.indexprefix+"mocks"))
+                        logger.info("Indexed {0} mock transient from scanId {1} to index {2}."
+                                    .format(mindexed, scanId, self.indexprefix+"mocks"))
                     else:
                         logger.info("Could not index mock transient.")
-
-                if ncands:
-                    if self.indexresults:
-                        tags = self.tags
-                        res_fut = self.client.submit(elastic.indexcands,
-                                                     cc, scanId, tags=tags,
-                                                     url_prefix=_candplot_url_prefix,
-                                                     indexprefix=self.indexprefix,
-                                                     priority=5)
-                        # TODO: makesumaryplot logs cands in all segments
-                        # this is confusing when only one segment being handled here
-                        workdir = self.states[scanId].prefs.workdir
-                        msp = self.client.submit(makesummaryplot,
-                                                 workdir,
-                                                 scanId,
-                                                 priority=5).result()
-                        nplots_fut = self.client.submit(moveplots, cc, scanId,
-                                                        destination='{0}/{1}'
-                                                                    .format(_candplot_dir,
-                                                                            self.indexprefix),
-                                                        priority=5)
-                        if res_fut.result() or nplots_fut.result() or msp:
-                            logger.info('Indexed {0} cands to {1} and '
-                                        'moved {2} plots and summarized {3} '
-                                        'to {4} for scanId {5}'
-                                        .format(res_fut.result(),
-                                                self.indexprefix+'cands',
-                                                nplots_fut.result(),
-                                                msp,
-                                                _candplot_dir,
-                                                scanId))
-                        else:
-                            logger.info('No candidates or plots found.')
-
-                        cindexed += res_fut.result()
-                    else:
-                        logger.info("Not indexing cands found in scanId {0}"
-                                    .format(scanId))
-                else:
-                    logger.debug('No candidates for a segment from scanId {0}'
-                                 .format(scanId))
-
+                
                 # index noises
                 noisefile = self.states[scanId].noisefile
                 if os.path.exists(noisefile):
@@ -518,28 +479,36 @@ class realfast_controller(Controller):
                 else:
                     logger.debug('No noisefile found, no noises indexed.')
 
+                # index cands
+                if ncands:
+                    if self.indexresults:
+                        workdir = self.states[scanId].prefs.workdir
+                        nc_futs.append(self.client.submit(indexcands, cc, scanId, self.tags, self.indexprefix, workdir, priority=5))
+                    else:
+                        logger.info("Not indexing cands found in scanId {0}"
+                                    .format(scanId))
+                else:
+                    logger.debug('No candidates for a segment from scanId {0}'
+                                 .format(scanId))
+
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    newsdms_fut = self.client.submit(createproducts, cc, data,
-                                                     priority=5)
-                    try:
-                        sdms += len(newsdms_fut.result())
-                        if len(newsdms_fut.result()):
-                            logger.info("Created new SDMs at: {0}"
-                                        .format(newsdms_fut.result()))
-                        else:
-                            logger.info("No new SDMs created")
-                        if self.archiveproducts:
-                            runingest(newsdms_fut.result())  # TODO: implement this
-                    except distributed.scheduler.KilledWorker:
-                        logger.warn("Lost SDM generation due to killed worker.")                       
-
+                    sdm_futs.append(self.client.submit(createproducts, cc, data,
+                                                       self.archiveproducts, priority=5))
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
                 self.futures[scanId].remove(futures)
                 removed += 1
+
+            for fut in distributed.as_completed(nc_futs):
+                cindexed += fut.result()
+                logger.info("{0} candidates indexed".format(fut.result()))
+
+            for fut in distributed.as_completed(sdm_futs):
+                sdms += fut.result()
+                logger.info("SDM created at {0}".format(fut.result()))
 
         # after scanId loop, clean up self.futures
         removeids = [scanId for scanId in self.futures
@@ -818,6 +787,27 @@ def summarize(config):
                     "Proceeding.")
 
 
+def indexcands(cc, scanId, tags, indexprefix, workdir):
+    """
+    """
+
+    nc = elastic.indexcands(cc, scanId, tags=tags, url_prefix=_candplot_url_prefix,
+                                 indexprefix=indexprefix)
+
+    # TODO: makesumaryplot logs cands in all segments
+    # this is confusing when only one segment being handled here
+    msp = makesummaryplot(workdir, scanId)
+    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir, indexprefix))
+
+    if nc or npl or msp:
+        logger.info('Indexed {0} cands to {1} and moved {2} plots and summarized {3} to {4} for scanId {5}'
+                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir, scanId))
+    else:
+        logger.info('No candidates or plots found.')
+
+    return nc
+
+
 def createproducts(candcollection, data, sdmdir='.',
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
@@ -864,9 +854,17 @@ def createproducts(candcollection, data, sdmdir='.',
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
                                       data_cut, annotation=annotation)
         if sdmloc is not None:
+            logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)
+            # try archiving it
+            try:
+                if archiveproducts:
+                    runingest(sdmloc)  # TODO: implement this
+                
+            except distributed.scheduler.KilledWorker:
+                logger.warn("Lost SDM generation due to killed worker.")                       
         else:
             logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}"
                         .format(metadata.datasetId, startTime, endTime))
