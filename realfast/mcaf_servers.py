@@ -7,7 +7,6 @@ from future.moves.urllib.request import urlopen
 from future.moves.urllib.error import HTTPError
 
 import os.path
-import sys
 from lxml import etree, objectify
 import json
 from astropy import time
@@ -39,11 +38,12 @@ class SDMBuilder(object):
     def __init__(self, datasetId=None, outputDatasetId=None,
                  uid=None, dataSize=None,
                  numIntegrations=None, startTime=None, endTime=None,
-                 calScanNumber=0, annotation={},
+                 calScanTime=None, annotation={},
                  host=_host, path=_sdmpath):
         self.datasetId = datasetId
         if outputDatasetId is None:
-            self.outputDatasetId = 'realfast_' + datasetId
+            self.outputDatasetId = 'realfast_{0}_{1}'.format(datasetId,
+                                                             uid.rsplit('/')[-1])
         else:
             self.outputDatasetId = outputDatasetId
         self.uid = uid
@@ -51,10 +51,7 @@ class SDMBuilder(object):
         self.numIntegrations = numIntegrations
         self.startTime = startTime
         self.endTime = endTime
-        # Note, calScanNumber is here as a placeholder, but the syntax will
-        # likely change and we don't have this information readily available
-        # anyways.
-        self.calScanNumber = calScanNumber
+        self.calScanTime = calScanTime
         self.annotation = annotation
         self.host = host
         self.path = path
@@ -70,8 +67,7 @@ class SDMBuilder(object):
                     self._E.numIntegrations(self.numIntegrations),
                     self._E.startTime(repr(self.startTime)),
                     self._E.endTime(repr(self.endTime)),
-                    # Don't send it because we don't have valid info:
-                    #self._E.calScanNumber(self.calScanNumber),
+                    self._E.calScanTime(repr(self.calScanTime)),
                     ),
                 self._E.annotation(
                     self._E.sValue(json.dumps(self.annotation)),
@@ -112,7 +108,8 @@ class SDMBuilder(object):
             return None
 
 
-def makesdm(startTime, endTime, datasetId, data, annotation={}, returnbuilder=False):
+def makesdm(startTime, endTime, datasetId, data, calScanTime=None, annotation={},
+            returnbuilder=False):
     """ Generates call to sdm builder server for a single candidate.
     Generates a unique id for the bdf from the startTime.
     Uses datasetId and data to create call signature to server with:
@@ -140,7 +137,7 @@ def makesdm(startTime, endTime, datasetId, data, annotation={}, returnbuilder=Fa
     sdmb = SDMBuilder(datasetId=datasetId, uid=uid, dataSize=dataSize,
                       numIntegrations=nint, startTime=startTime,
                       endTime=endTime, outputDatasetId=outputDatasetId,
-                      annotation=annotation)
+                      calScanTime=calScanTime, annotation=annotation)
     try:
         sdmb.send()
         ret = sdmb.location

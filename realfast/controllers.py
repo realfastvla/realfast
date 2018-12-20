@@ -15,7 +15,7 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates, util, metadata
+from rfpipe import state, preferences, candidates, util, metadata, calibration
 from realfast import pipeline, elastic, mcaf_servers, heuristics
 
 import logging
@@ -493,8 +493,10 @@ class realfast_controller(Controller):
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    sdm_futs.append(self.client.submit(createproducts, cc, data,
-                                                       self.archiveproducts, priority=5))
+                    sdm_futs.append(self.client.submit(createproducts, cc,
+                                                       data,
+                                                       self.archiveproducts,
+                                                       priority=5))
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
 
@@ -809,12 +811,11 @@ def indexcands(cc, scanId, tags, indexprefix, workdir):
     return nc
 
 
-def createproducts(candcollection, data, sdmdir='.',
+def createproducts(candcollection, data, archiveproducts=False,
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
     This uses the mcaf_servers module, which calls the sdm builder server.
-    sdmdir will move and rename output file to "realfast_<obsid>_<uid>".
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
@@ -852,8 +853,15 @@ def createproducts(candcollection, data, sdmdir='.',
 
         # TODO: fill in annotation dict as defined in confluence doc on realfast collections
         annotation = {}
+        calScanTime = np.unique(calibration.getsols(st)['mjd'])
+        if len(calScanTime) > 1:
+            logger.warn("Using first of multiple cal times: {0}."
+                        .format(calScanTime))
+        calScanTime = calScanTime[0]
+
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut, annotation=annotation)
+                                      data_cut, calScanTime,
+                                      annotation=annotation)
         if sdmloc is not None:
             logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
