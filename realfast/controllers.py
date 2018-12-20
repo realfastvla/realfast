@@ -824,6 +824,8 @@ def createproducts(candcollection, data, archiveproducts=False,
     if isinstance(data, distributed.Future):
         data = data.result()
 
+    assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
+
     if len(candcollection.array) == 0:
         logger.info('No candidates to generate products for.')
         return []
@@ -863,6 +865,7 @@ def createproducts(candcollection, data, archiveproducts=False,
                                       data_cut, calScanTime,
                                       annotation=annotation)
         if sdmloc is not None:
+            sdmlocs.append(sdmloc)
             logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
@@ -871,9 +874,9 @@ def createproducts(candcollection, data, archiveproducts=False,
             try:
                 if archiveproducts:
                     runingest(sdmloc)  # TODO: implement this
-                
+
             except distributed.scheduler.KilledWorker:
-                logger.warn("Lost SDM generation due to killed worker.")                       
+                logger.warn("Lost SDM generation due to killed worker.")
         else:
             logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}"
                         .format(metadata.datasetId, startTime, endTime))
