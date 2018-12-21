@@ -229,10 +229,10 @@ def indexmock(scanId, mocks, indexprefix='new'):
                    command='index')
 
     if res >= 1:
-        logger.debug('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
+        logger.info('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
                                                                index))
     else:
-        logger.debug('No mocks indexed for {0}'.format(scanId))
+        logger.info('No mocks indexed for {0}'.format(scanId))
 
     return res
 

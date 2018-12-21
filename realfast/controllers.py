@@ -455,12 +455,9 @@ class realfast_controller(Controller):
 
                 if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
-                                                 indexprefix=indexprefix)
-                    if mindexed:
-                        logger.info("Indexed {0} mock transient from scanId {1} to index {2}."
-                                    .format(mindexed, scanId, self.indexprefix+"mocks"))
-                    else:
-                        logger.info("Could not index mock transient.")
+                                                 indexprefix=self.indexprefix)
+                else:
+                    logger.debug("Not indexing mock transient(s).")
                 
                 # index noises
                 noisefile = self.states[scanId].noisefile
@@ -789,17 +786,21 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     """
     """
 
-    nc = elastic.indexcands(cc, scanId, tags=tags, url_prefix=_candplot_url_prefix,
-                                 indexprefix=indexprefix)
+    nc = elastic.indexcands(cc, scanId, tags=tags,
+                            url_prefix=_candplot_url_prefix,
+                            indexprefix=indexprefix)
 
     # TODO: makesumaryplot logs cands in all segments
     # this is confusing when only one segment being handled here
     msp = makesummaryplot(workdir, scanId)
-    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir, indexprefix))
+    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
+                                                             indexprefix))
 
     if nc or npl or msp:
-        logger.info('Indexed {0} cands to {1} and moved {2} plots and summarized {3} to {4} for scanId {5}'
-                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir, scanId))
+        logger.info('Indexed {0} cands to {1} and moved {2} plots and '
+                    'summarized {3} to {4} for scanId {5}'
+                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir,
+                            scanId))
     else:
         logger.info('No candidates or plots found.')
 
@@ -808,16 +809,23 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
 def indexcandsfile(candsfile, indexprefix, tags=None):
     """ Use candsfile to index cands, scans, prefs, mocks, and noises.
+    Should produce identical index results as real-time operation.
     """
 
-    for cc in rfpipe.candidates.iter_cands(candsfile):
+    nc = []
+    nn = []
+    nm = []
+    for cc in candidates.iter_cands(candsfile):
         st = cc.state
         scanId = st.metadata.scanId
         workdir = st.prefs.workdir
+        mocks = st.prefs.simulated_transient
 
         elastic.indexscan(inmeta=st.metadata, preferences=st.prefs, indexprefix=indexprefix)
-        _ = indexcands_and_plots(cc, scanId, tags, indexprefix, workdir)
-        _ = elastic.indexnoises(cc.noisefile, scanId, indexprefix=indexprefix)
+        nc.append(indexcands_and_plots(cc, scanId, tags, indexprefix, workdir))
+        nn.append(elastic.indexnoises(cc.noisefile, scanId, indexprefix=indexprefix))
+        nm.append(elastic.indexmock(scanId, mocks, indexprefix=indexprefix))
+    return nc, nn, nm
 
 
 def createproducts(candcollection, data, archiveproducts=False,
