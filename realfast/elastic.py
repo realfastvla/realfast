@@ -268,10 +268,10 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
                               command='index')
 
     if count:
-        logger.debug('Indexed {0} noises for {1} to {2}'
+        logger.info('Indexed {0} noises for {1} to {2}'
                      .format(count, scanId, index))
     else:
-        logger.debug('No noises indexed for {0}'.format(scanId))
+        logger.info('No noises indexed for {0}'.format(scanId))
 
     return count
 

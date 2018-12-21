@@ -468,11 +468,6 @@ class realfast_controller(Controller):
                     if self.indexresults:
                         res = elastic.indexnoises(noisefile, scanId,
                                                   indexprefix=self.indexprefix)
-                        if res:
-                            logger.info("Indexed {0} noises to {1} for scanId "
-                                        "{2}".format(res,
-                                                     self.indexprefix+"noise",
-                                                     scanId))
                     else:
                         logger.debug("Not indexing noises for scanId {0}."
                                      .format(scanId))
@@ -483,7 +478,7 @@ class realfast_controller(Controller):
                 if ncands:
                     if self.indexresults:
                         workdir = self.states[scanId].prefs.workdir
-                        nc_futs.append(self.client.submit(indexcands, cc, scanId, self.tags, self.indexprefix, workdir, priority=5))
+                        nc_futs.append(self.client.submit(indexcands_and_plots, cc, scanId, self.tags, self.indexprefix, workdir, priority=5))
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
@@ -790,7 +785,7 @@ def summarize(config):
                     "Proceeding.")
 
 
-def indexcands(cc, scanId, tags, indexprefix, workdir):
+def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     """
     """
 
@@ -809,6 +804,20 @@ def indexcands(cc, scanId, tags, indexprefix, workdir):
         logger.info('No candidates or plots found.')
 
     return nc
+
+
+def indexcandsfile(candsfile, indexprefix, tags=None):
+    """ Use candsfile to index cands, scans, prefs, mocks, and noises.
+    """
+
+    for cc in rfpipe.candidates.iter_cands(candsfile):
+        st = cc.state
+        scanId = st.metadata.scanId
+        workdir = st.prefs.workdir
+
+        elastic.indexscan(inmeta=st.metadata, preferences=st.prefs, indexprefix=indexprefix)
+        _ = indexcands_and_plots(cc, scanId, tags, indexprefix, workdir)
+        _ = elastic.indexnoises(cc.noisefile, scanId, indexprefix=indexprefix)
 
 
 def createproducts(candcollection, data, archiveproducts=False,
