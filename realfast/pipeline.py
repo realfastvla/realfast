@@ -78,7 +78,9 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #    if st.fftmode == 'cuda':
 #        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
 
+    phasecenters = None  # TODO: calculate list [(startmjd, stopmjd, l1, m1), ...]
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
+                               phasecenters=phasecenters,
                                resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1)
 
