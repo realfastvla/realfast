@@ -823,8 +823,9 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
 
         elastic.indexscan(inmeta=st.metadata, preferences=st.prefs, indexprefix=indexprefix)
         nc.append(indexcands_and_plots(cc, scanId, tags, indexprefix, workdir))
-        nn.append(elastic.indexnoises(cc.noisefile, scanId, indexprefix=indexprefix))
-        nm.append(elastic.indexmock(scanId, mocks, indexprefix=indexprefix))
+        nn.append(elastic.indexnoises(cc.state.noisefile, scanId, indexprefix=indexprefix))
+        if mocks is not None:
+            nm.append(elastic.indexmock(scanId, mocks, indexprefix=indexprefix))
     return nc, nn, nm
 
 
