@@ -69,7 +69,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
                      fifo_timeout='0s', priority=-1)
 
-    _ = cl.submit(data_logger, st, segment, data, fifo_timeout='0s', priority=-1)
+    distributed.fire_and_forget(cl.submit(data_logger, st, segment, data, fifo_timeout='0s', priority=-1))
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1
