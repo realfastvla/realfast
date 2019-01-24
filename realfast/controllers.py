@@ -333,6 +333,13 @@ class realfast_controller(Controller):
             nsegment = 0
 
             for segment in segments:
+                endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
+                nowtime = time.Time.now().unix
+                if endtime < nowtime:
+                    logging.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
+                                 .format(segment, endtime, nowtime))
+                    continue
+
                 # submit if cluster ready and telcal available
                 if (heuristics.reader_memory_ok(self.client, w_memlim) and
                    heuristics.readertotal_memory_ok(self.client, tot_memlim) and
