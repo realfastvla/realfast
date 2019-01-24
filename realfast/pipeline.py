@@ -119,7 +119,11 @@ def data_logger(st, segment, data):
 
     t0 = st.segmenttimes[segment][0]
     timearr = ','.join((st.metadata.inttime*(np.arange(st.readints)+0.49)).astype(str))
-    results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))
+
+    if data.ndim == 4:
+        results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))
+    else:
+        results = 'None'
 
     with fileLock.FileLock(filename, timeout=10):
         with open(filename, "a") as fp:

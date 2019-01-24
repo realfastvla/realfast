@@ -132,8 +132,11 @@ class realfast_controller(Controller):
             self.daskdir = _default_daskdir
 
     def __repr__(self):
+        nseg = len([seg for (scanId, futurelist) in iteritems(self.futures)
+                    for seg, data, cc, acc in futurelist])
+
         return ('realfast controller with {0} jobs'
-                .format(len(self.statuses)))
+                .format(nseg))
 
     @property
     def statuses(self):
