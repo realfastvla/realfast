@@ -137,9 +137,17 @@ class realfast_controller(Controller):
 
     @property
     def statuses(self):
-        return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.status, cc.status)
-                for (scanId, futurelist) in iteritems(self.futures)
-                for seg, data, cc, acc in futurelist]
+        for (scanId, futurelist) in iteritems(self.futures):
+            for seg, data, cc, acc in futurelist:
+                if len(self.client.who_has()[data.key]):
+                    dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    logger.info('{0}, {1}: {2}, {3}, {4}. Data on {5}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status, dataloc))
+                else:
+                    logger.info('{0}, {1}: {2}, {3}, {4}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status))
 
     @property
     def exceptions(self):
