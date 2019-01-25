@@ -117,7 +117,8 @@ class realfast_controller(Controller):
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix', 'daskdir', 'requirecalibration']:
+                     'indexprefix', 'daskdir', 'requirecalibration',
+                     'data_logging']:
             setattr(self, attr, None)
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
@@ -367,6 +368,14 @@ class realfast_controller(Controller):
                                                     mem_search=2*st.vismem*1e9,
                                                     mockseg=mockseg)
 
+                    if self.data_logging:
+                        for (segment, data, cc, acc) in futures:
+                            distributed.fire_and_forget(self.client.submit(data_logger,
+                                                                           st,
+                                                                           segment,
+                                                                           data,
+                                                                           fifo_timeout='0s',
+                                                                           priority=-1))
                     self.futures[scanId].append(futures)
                     nsegment += 1
                     if self.indexresults:
@@ -420,6 +429,15 @@ class realfast_controller(Controller):
                                                  mem_search=2*st.vismem*1e9,
                                                  throttle=self.throttle,
                                                  mockseg=mockseg)
+
+                if self.data_logging:
+                    for (segment, data, cc, acc) in futures:
+                        distributed.fire_and_forget(self.client.submit(data_logger,
+                                                                       st,
+                                                                       segment,
+                                                                       data,
+                                                                       fifo_timeout='0s',
+                                                                       priority=-1))
 
                 if len(futures):
                     self.futures[scanId] = futures
@@ -987,6 +1005,26 @@ def makesummaryplot(workdir, scanId):
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
     ncands = candidates.makesummaryplot(candsfile)
     return ncands
+
+
+def data_logger(st, segment, data):
+    """ Function that inspects read data and writes results to file.
+    """
+
+    filename = os.path.join(st.prefs.workdir,
+                            "data_" + st.fileroot + ".txt")
+
+    t0 = st.segmenttimes[segment][0]
+    timearr = ','.join((t0+st.metadata.inttime*np.arange(st.readints)).astype(str))
+
+    if data.ndim == 4:
+        results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))
+    else:
+        results = 'None'
+
+    with fileLock.FileLock(filename, timeout=10):
+        with open(filename, "a") as fp:
+            fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr, results))
 
 
 class config_controller(Controller):

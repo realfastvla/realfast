@@ -69,8 +69,6 @@ def pipeline_seg(st, segment, cl, cfile=None,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
                      fifo_timeout='0s', priority=-1)
 
-    distributed.fire_and_forget(cl.submit(data_logger, st, segment, data, fifo_timeout='0s', priority=-1))
-
     if segment == mockseg:
         st.prefs.simulated_transient = 1
     else:
@@ -108,26 +106,6 @@ def analyze_cc(cc):
     else:
         simulated_transient = None
     return len(cc), simulated_transient
-
-
-def data_logger(st, segment, data):
-    """ Function that inspects read data and writes results to file.
-    """
-
-    filename = os.path.join(st.prefs.workdir,
-                            "data_" + st.fileroot + ".txt")
-
-    t0 = st.segmenttimes[segment][0]
-    timearr = ','.join((t0+st.metadata.inttime*np.arange(st.readints)).astype(str))
-
-    if data.ndim == 4:
-        results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))
-    else:
-        results = 'None'
-
-    with fileLock.FileLock(filename, timeout=10):
-        with open(filename, "a") as fp:
-            fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr, results))
 
 
 def read_segment(st, segment, cfile, vys_timeout):
