@@ -118,7 +118,7 @@ def data_logger(st, segment, data):
                             "data_" + st.fileroot + ".txt")
 
     t0 = st.segmenttimes[segment][0]
-    timearr = ','.join((st.metadata.inttime*np.arange(st.readints)).astype(str))
+    timearr = ','.join((t0+st.metadata.inttime*np.arange(st.readints)).astype(str))
 
     if data.ndim == 4:
         results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))

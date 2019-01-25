@@ -107,8 +107,7 @@ class realfast_controller(Controller):
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
 
-                # TODO: see if this improves start time for new submissions
-                _ = self.client.run(preferences.parsepreffile, self.preffile)
+                _ = self.client.run(preferences.parsepreffile, self.preffile, asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
