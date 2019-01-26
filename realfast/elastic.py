@@ -456,7 +456,7 @@ def move_docs(indexprefix1='new', indexprefix2='final',
                          consensus[candId]['tags'], Id=candId)
 
             # update png_url to new prefix and move plot
-            png_url = get_doc(index=indexprefix1+'cands', Id=candId)['png_url']
+            png_url = get_doc(index=indexprefix1+'cands', Id=candId)['_source']['png_url']
             update_field(indexprefix2+'cands', 'png_url',
                          png_url.replace(indexprefix1, indexprefix2), Id=candId)
             candplot1 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
