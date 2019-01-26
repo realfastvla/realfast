@@ -15,7 +15,7 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates, util, metadata, calibration
+from rfpipe import state, preferences, candidates, util, metadata, calibration, fileLock
 from realfast import pipeline, elastic, mcaf_servers, heuristics
 
 import logging
@@ -369,13 +369,12 @@ class realfast_controller(Controller):
                                                     mockseg=mockseg)
 
                     if self.data_logging:
-                        for (segment, data, cc, acc) in futures:
-                            distributed.fire_and_forget(self.client.submit(data_logger,
-                                                                           st,
-                                                                           segment,
-                                                                           data,
-                                                                           fifo_timeout='0s',
-                                                                           priority=-1))
+                        segment, data, cc, acc = futures
+                        distributed.fire_and_forget(self.client.submit(data_logger,
+                                                                       st, segment,
+                                                                       data,
+                                                                       fifo_timeout='0s',
+                                                                       priority=-1))
                     self.futures[scanId].append(futures)
                     nsegment += 1
                     if self.indexresults:
