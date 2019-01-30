@@ -529,6 +529,34 @@ def find_docids(indexprefix, candId=None, scanId=None):
     return docids
 
 
+def move_dataset(indexprefix1, indexprefix2, datasetId):
+    """ Given two index prefixes, move a datasetId and all associated docs over.
+    """
+
+    Ids = elastic.get_ids(indexprefix1 + 'cands', datasetId=datasetId)
+    for Id in Ids:
+        iddict = elastic.find_docids(indexprefix1, candId=Id)
+        for k, v in iddict.items():
+            for Id0 in v:
+                elastic.copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
+
+        # update png_url to new prefix and move plot
+        png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+        update_field(indexprefix2+'cands', 'png_url',
+                     png_url.replace(indexprefix1, indexprefix2), Id=Id)
+        candplot1 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                     .format(indexprefix1, Id))
+        candplot2 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
+                     .format(indexprefix2, Id))
+        success = rsync(candplot1, candplot2)
+        if success:
+            logger.info("Updated png_url field for {0} from {1} to {2}"
+                        .format(Id, indexprefix1, indexprefix2))
+        else:
+            logger.warn("Could not update png_url field for {0} from {1} to {2}"
+                        .format(Id, indexprefix1, indexprefix2))
+
+
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
                   res='consensus', newtags=None):
     """ Get candidtes with consensus over at least nop user tag fields.
