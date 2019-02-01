@@ -268,8 +268,8 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
                               command='index')
 
     if count:
-        logger.info('Indexed {0} noises for {1} to {2}'
-                     .format(count, scanId, index))
+        logger.info('Indexed {0} noises for {1}, segment {2}, to {3}'
+                    .format(count, scanId, segment, index))
     else:
         logger.info('No noises indexed for {0}'.format(scanId))
 
@@ -533,12 +533,12 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     """ Given two index prefixes, move a datasetId and all associated docs over.
     """
 
-    Ids = elastic.get_ids(indexprefix1 + 'cands', datasetId=datasetId)
+    Ids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
     for Id in Ids:
-        iddict = elastic.find_docids(indexprefix1, candId=Id)
+        iddict = find_docids(indexprefix1, candId=Id)
         for k, v in iddict.items():
             for Id0 in v:
-                elastic.copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
+                copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
 
         # update png_url to new prefix and move plot
         png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
