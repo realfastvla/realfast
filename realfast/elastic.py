@@ -12,6 +12,7 @@ from realfast import heuristics
 import pickle
 import subprocess
 import logging
+import shutil
 from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
@@ -429,8 +430,8 @@ def get_doc(index, Id):
 # Migrating docs from 'new' to 'final' after tagging
 ###
 
-def move_docs(indexprefix1='new', indexprefix2='final',
-              consensustype='majority', nop=3, newtags=None):
+def move_consensus(indexprefix1='new', indexprefix2='final',
+                   consensustype='majority', nop=3, newtags=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
@@ -441,52 +442,78 @@ def move_docs(indexprefix1='new', indexprefix2='final',
 
     for candId, tags in iteritems(consensus):
         # check remaining docs
-        docids = find_docids(indexprefix=indexprefix1, candId=candId)
+        iddict = copy_candid_docs(indexprefix1, indexprefix2, candId)
 
-        # move candId
-        result = copy_doc(indexprefix1+'cands', indexprefix2+'cands', candId,
-                          deleteorig=True)
+        # set tags field
+        update_field(indexprefix2+'cands', 'tags',
+                     consensus[candId]['tags'], Id=candId)
 
-        if result:
-            logger.info("Moved candId {0} from {1} to {2}"
-                        .format(candId, indexprefix1, indexprefix2))
 
-            # set tags field
-            update_field(indexprefix2+'cands', 'tags',
-                         consensus[candId]['tags'], Id=candId)
+def move_dataset(indexprefix1, indexprefix2, datasetId):
+    """ Given two index prefixes, move a datasetId and all associated docs over.
+    This will delete the original document in indexprefix1.
+    """
+
+    Ids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
+    for Id in Ids:
+        iddict = copy_candid_docs(indexprefix1, indexprefix2, Id)
+
+    # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
+
+
+def copy_candid_docs(indexprefix1, indexprefix2, Id):
+    """ Given candidate with Id moved from one indexprefix to another.
+    Moves associated documents (e.g., scanId, preferences, etc.)
+    """
+
+    logger.info("Copying docs for candId {0}".format(Id))
+    iddict = find_docids(indexprefix1, candId=Id)
+    for k, v in iddict.items():
+        for Id0 in v:
+            result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
 
             # update png_url to new prefix and move plot
-            png_url = get_doc(index=indexprefix1+'cands', Id=candId)['_source']['png_url']
-            update_field(indexprefix2+'cands', 'png_url',
-                         png_url.replace(indexprefix1, indexprefix2), Id=candId)
-            candplot1 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                         .format(indexprefix1, candId))
-            candplot2 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                         .format(indexprefix2, candId))
-            success = rsync(candplot1, candplot2)
-            if success:
-                logger.info("Updated png_url field for {0} from {1} to {2}"
-                            .format(candId, indexprefix1, indexprefix2))
-            else:
-                logger.warn("Could not update png_url field for {0} from {1} to {2}"
-                            .format(candId, indexprefix1, indexprefix2))
+            if k == indexprefix1+'cands':
+                if result:
+                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                    update_field(indexprefix2+'cands', 'png_url',
+                                 png_url.replace(indexprefix1, indexprefix2), Id=Id)
+                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix1, Id))
+                    candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix2, Id))
+                    if os.path.exists(candplot1):
+                        success = shutil.move(candplot1, candplot2)
+                        if success:
+                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                        .format(Id, indexprefix1, indexprefix2))
+                        else:
+                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+                                        .format(Id, indexprefix1, indexprefix2))
+                else:
+                    logger.info("Failed move of CandId {0} from {1} to {2}"
+                                .format(Id, indexprefix1, indexprefix2))
+    return iddict
 
-            # if no candIds remain, then move remaining docs
-            if len(docids[indexprefix1+'cands']) == 0:
-                scanId = docids[indexprefix1+'scans']
-                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
-                            .format(candId, scanId))
-                for index1, idlist in docids:
-                    index2 = index1.replace(indexprefix1, indexprefix2)
-                    for Id0 in idlist:
-                        result += copy_doc(index1, index2, Id0, deleteorig=True)
 
-                logger.info("Moved {0} documents from {1} to {2}"
-                            .format(result, indexprefix1, indexprefix2))
+def clean_index(indexprefix):
+    """ TBD: define a function to check that all candids have scanids, etc.scanids
+    May also use this to clean up residuals after moving from one prefix to another.
+    """
 
-        else:
-            logger.info("Failed move of CandId {0} from {1} to {2}"
-                        .format(candId, indexprefix1, indexprefix2))
+#            # if no candIds remain, then move remaining docs
+#            if len(docids[indexprefix1+'cands']) == 0:
+#                scanId = docids[indexprefix1+'scans']
+#                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
+#                            .format(candId, scanId))
+#                for index1, idlist in docids:
+#                    index2 = index1.replace(indexprefix1, indexprefix2)
+#                    for Id0 in idlist:
+#                        result += copy_doc(index1, index2, Id0, deleteorig=True)
+
+#                logger.info("Moved {0} documents from {1} to {2}"
+#                            .format(result, indexprefix1, indexprefix2))
+    pass
 
 
 def find_docids(indexprefix, candId=None, scanId=None):
@@ -527,34 +554,6 @@ def find_docids(indexprefix, candId=None, scanId=None):
         docids[index] = [prefsname]
 
     return docids
-
-
-def move_dataset(indexprefix1, indexprefix2, datasetId):
-    """ Given two index prefixes, move a datasetId and all associated docs over.
-    """
-
-    Ids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
-    for Id in Ids:
-        iddict = find_docids(indexprefix1, candId=Id)
-        for k, v in iddict.items():
-            for Id0 in v:
-                copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
-
-        # update png_url to new prefix and move plot
-        png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
-        update_field(indexprefix2+'cands', 'png_url',
-                     png_url.replace(indexprefix1, indexprefix2), Id=Id)
-        candplot1 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                     .format(indexprefix1, Id))
-        candplot2 = ('claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}.png'
-                     .format(indexprefix2, Id))
-        success = rsync(candplot1, candplot2)
-        if success:
-            logger.info("Updated png_url field for {0} from {1} to {2}"
-                        .format(Id, indexprefix1, indexprefix2))
-        else:
-            logger.warn("Could not update png_url field for {0} from {1} to {2}"
-                        .format(Id, indexprefix1, indexprefix2))
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
