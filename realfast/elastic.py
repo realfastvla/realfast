@@ -55,8 +55,8 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     scandict['subscanNo'] = int(meta.subscan)
     scandict['source'] = meta.source
     ra, dec = degrees(meta.radec)
-    scandict['ra_deg'] = float(ra)
-    scandict['dec_deg'] = float(dec)
+    scandict['ra'] = float(ra)
+    scandict['dec'] = float(dec)
     scandict['startTime'] = float(meta.starttime_mjd)
     scandict['stopTime'] = float(meta.endtime_mjd)
     scandict['datasource'] = meta.datasource
@@ -159,6 +159,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     cluster = candcollection.cluster
     clustersize = candcollection.clustersize
     snrtot = candcollection.snrtot
+    ra_ctr, dec_ctr = degrees(candcollection.metadata.radec)
 
     res = 0
     for i in range(len(candarr)):
@@ -179,12 +180,15 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['cluster'] = int(cluster[i])
         canddict['clustersize'] = int(clustersize[i])
         canddict['snrtot'] = float(snrtot[i])
+        canddict['ra'] = ra_ctr + degrees(canddict['l1'])
+        canddict['dec'] = dec_ctr + degrees(canddict['m1'])
         canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
 
         # create id
         uniqueid = candid(canddict)
+        canddict['candId'] = uniqueid
         candidate_png = 'cands_{0}.png'.format(uniqueid)
         canddict['png_url'] = os.path.join(url_prefix, indexprefix, candidate_png)
 
