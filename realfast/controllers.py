@@ -381,7 +381,8 @@ class realfast_controller(Controller):
                         elastic.indexscanstatus(scanId, nsegment=nsegment,
                                                 pending=self.pending[scanId],
                                                 finished=self.finished[scanId],
-                                                errors=self.errors[scanId])
+                                                errors=self.errors[scanId],
+                                                indexprefix=self.indexprefix)
 
                 else:
                     if not heuristics.reader_memory_ok(self.client, w_memlim):

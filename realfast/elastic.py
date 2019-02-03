@@ -3,7 +3,7 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-import os.path
+import os
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.candidates import calc_cluster_rank
@@ -12,7 +12,6 @@ from realfast import heuristics
 import pickle
 import subprocess
 import logging
-import shutil
 from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
@@ -455,8 +454,10 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     """
 
     Ids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
+    Ids2 = get_ids(indexprefix2 + 'cands', datasetId=datasetId)
     for Id in Ids:
-        iddict = copy_candid_docs(indexprefix1, indexprefix2, Id)
+        if Id not in Ids2:
+            iddict = copy_candid_docs(indexprefix1, indexprefix2, Id)
 
     # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
 
@@ -483,7 +484,8 @@ def copy_candid_docs(indexprefix1, indexprefix2, Id):
                     candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
                                  .format(indexprefix2, Id))
                     if os.path.exists(candplot1):
-                        success = shutil.move(candplot1, candplot2)
+                        success = os.rename(candplot1, candplot2)
+                        # TODO: move html files
                         if success:
                             logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
                                         .format(Id, indexprefix1, indexprefix2))
