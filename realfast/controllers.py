@@ -447,7 +447,8 @@ class realfast_controller(Controller):
                         elastic.indexscanstatus(scanId, nsegment=len(futures),
                                                 pending=self.pending[scanId],
                                                 finished=self.finished[scanId],
-                                                errors=self.errors[scanId])
+                                                errors=self.errors[scanId],
+                                                indexprefix=self.indexprefix)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
@@ -481,7 +482,8 @@ class realfast_controller(Controller):
             if self.indexresults:
                 elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                         finished=self.finished[scanId],
-                                        errors=self.errors[scanId])
+                                        errors=self.errors[scanId],
+                                        indexprefix=self.indexprefix)
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
