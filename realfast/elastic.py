@@ -369,26 +369,28 @@ def update_field(index, field, value, Id=None, **kwargs):
     return resp['_shards']['successful']
 
 
-def remove_ids(index, **kwargs):
+def remove_ids(index, Ids=None, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
     Can optionally pass key-value pairs of field-string to search.
     Must match exactly (e.g., "scanId"="test.1.1")
     """
 
-    if not len(kwargs):
-        logger.warn("No query kwargs provided. Will clear all Ids in {0}"
-                    .format(index))
-        confirm = input("Press any key to confirm removal.")
-        if confirm:
-            logger.info("Removing...")
+    if Ids is None:
+        if not len(kwargs):
+            logger.warn("No Ids or query kwargs. Clearing all Ids in {0}"
+                        .format(index))
+        Ids = get_ids(index, **kwargs)
 
-    Ids = get_ids(index, **kwargs)
-    res = 0
-    for Id in Ids:
-        res += pushdata({}, index, Id, command='delete')
+    confirm = input("Press any key to confirm removal of {0} ids from {1}."
+                    .format(len(Ids), index))
+    if confirm:
+        logger.info("Removing...")
+        res = 0
+        for Id in Ids:
+            res += pushdata({}, index, Id, command='delete')
 
-    logger.info("Removed {0} docs from index {1}".format(res, index))
+        logger.info("Removed {0} docs from index {1}".format(res, index))
 
 
 def get_ids(index, **kwargs):
@@ -452,19 +454,28 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
 
 def move_dataset(indexprefix1, indexprefix2, datasetId):
     """ Given two index prefixes, move a datasetId and all associated docs over.
-    This will delete the original document in indexprefix1.
+    This will delete the original documents in indexprefix1.
     """
 
-    Ids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
-    Ids2 = get_ids(indexprefix2 + 'cands', datasetId=datasetId)
-    for Id in Ids:
-        if Id not in Ids2:
-            iddict = copy_candid_docs(indexprefix1, indexprefix2, Id)
+    iddict0 = {indexprefix1+'cands': [], indexprefix1+'scans': [],
+               indexprefix1+'mocks': [], indexprefix1+'noises': [],
+               indexprefix1+'preferences': []}
+
+    candids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
+    for candid in candids:
+        iddict = copy_candid_docs(indexprefix1, indexprefix2, candid)
+        for k, v in iddict.items():
+            for Id in v:
+                if Id not in iddict0[k]:
+                    iddict0[k].append(Id)
+
+    for k, v in iddict0.items():
+        remove_ids(k, v)
 
     # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
 
 
-def copy_candid_docs(indexprefix1, indexprefix2, candid, deleteorig=False):
+def copy_candid_docs(indexprefix1, indexprefix2, candid):
     """ Given candidate candid moved from one indexprefix to another.
     Moves associated documents (e.g., scanId, preferences, etc.)
     """
@@ -474,14 +485,15 @@ def copy_candid_docs(indexprefix1, indexprefix2, candid, deleteorig=False):
     for k, v in iddict.items():
         for Id in v:
             if (k != indexprefix1+'cands') or (Id == candid):
-                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id, deleteorig=deleteorig)
+                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
 
             # update png_url to new prefix and move plot
             if Id == candid:
                 if result:
                     png_url = get_doc(index=indexprefix1+'cands', Id=candid)['_source']['png_url']
                     update_field(indexprefix2+'cands', 'png_url',
-                                 png_url.replace(indexprefix1, indexprefix2), Id=candid)
+                                 png_url.replace(indexprefix1, indexprefix2),
+                                 Id=candid)
                     candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
                                  .format(indexprefix1, candid))
                     candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
@@ -491,10 +503,12 @@ def copy_candid_docs(indexprefix1, indexprefix2, candid, deleteorig=False):
 
                         if success:
                             logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(candid, indexprefix1, indexprefix2))
+                                        .format(candid, indexprefix1,
+                                                indexprefix2))
                         else:
                             logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(candid, indexprefix1, indexprefix2))
+                                        .format(candid, indexprefix1,
+                                                indexprefix2))
                 else:
                     logger.info("Did not copy {0} from {1} to {2}"
                                 .format(Id, indexprefix1, indexprefix2))
