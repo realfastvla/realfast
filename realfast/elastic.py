@@ -6,10 +6,9 @@ from io import open
 import os
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
-from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
+from rfpipe.candidates import iter_noise
 from realfast import heuristics
-import pickle
 import subprocess
 import logging
 from numpy import degrees
@@ -251,12 +250,9 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
 
-    noises = []
-    with open(noisefile, 'rb') as pkl:
-        noises += pickle.load(pkl)
-
     count = 0
-    for noise in noises:
+    segments = []
+    for noise in iter_noise(noisefile):
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
         if not es.exists(index=index, doc_type=doc_type, id=Id):
@@ -270,12 +266,13 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
 
             count += pushdata(noisedict, Id=Id, index=index,
                               command='index')
+            segments.append(segment)
 
     if count:
-        logger.info('Indexed {0} noises for {1}, segment {2}, to {3}'
-                    .format(count, scanId, segment, index))
+        logger.info('Indexed {0} noises for {1}, segments {2}, to {3}'
+                    .format(count, scanId, ','.join(segments), index))
     else:
-        logger.info('No noises indexed for {0}'.format(scanId))
+        logger.debug('No noises indexed for {0}'.format(scanId))
 
     return count
 
@@ -466,7 +463,7 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
 
 
-def copy_candid_docs(indexprefix1, indexprefix2, Id):
+def copy_candid_docs(indexprefix1, indexprefix2, Id, deleteorig=False):
     """ Given candidate with Id moved from one indexprefix to another.
     Moves associated documents (e.g., scanId, preferences, etc.)
     """
@@ -475,7 +472,7 @@ def copy_candid_docs(indexprefix1, indexprefix2, Id):
     iddict = find_docids(indexprefix1, candId=Id)
     for k, v in iddict.items():
         for Id0 in v:
-            result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0)
+            result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0, deleteorig=deleteorig)
 
             # update png_url to new prefix and move plot
             if k == indexprefix1+'cands':
