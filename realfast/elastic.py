@@ -3,13 +3,14 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-import os
+import os.path
+import subprocess
+import shutil
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.metadata import make_metadata
 from rfpipe.candidates import iter_noise
 from realfast import heuristics
-import subprocess
 import logging
 from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
@@ -463,39 +464,49 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
 
 
-def copy_candid_docs(indexprefix1, indexprefix2, Id, deleteorig=False):
-    """ Given candidate with Id moved from one indexprefix to another.
+def copy_candid_docs(indexprefix1, indexprefix2, candid, deleteorig=False):
+    """ Given candidate candid moved from one indexprefix to another.
     Moves associated documents (e.g., scanId, preferences, etc.)
     """
 
-    logger.info("Copying docs for candId {0}".format(Id))
-    iddict = find_docids(indexprefix1, candId=Id)
+    logger.info("Copying docs for candId {0}".format(candid))
+    iddict = find_docids(indexprefix1, candId=candid)
     for k, v in iddict.items():
-        for Id0 in v:
-            result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id0, deleteorig=deleteorig)
+        for Id in v:
+            if (k != indexprefix1+'cands') or (Id == candid):
+                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id, deleteorig=deleteorig)
 
             # update png_url to new prefix and move plot
-            if k == indexprefix1+'cands':
+            if Id == candid:
                 if result:
-                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                    png_url = get_doc(index=indexprefix1+'cands', Id=candid)['_source']['png_url']
                     update_field(indexprefix2+'cands', 'png_url',
-                                 png_url.replace(indexprefix1, indexprefix2), Id=Id)
+                                 png_url.replace(indexprefix1, indexprefix2), Id=candid)
                     candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix1, Id))
+                                 .format(indexprefix1, candid))
                     candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix2, Id))
+                                 .format(indexprefix2, candid))
                     if os.path.exists(candplot1):
-                        success = os.rename(candplot1, candplot2)
-                        # TODO: move html files
+                        success = shutil.copy(candplot1, candplot2)
+
                         if success:
                             logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(Id, indexprefix1, indexprefix2))
+                                        .format(candid, indexprefix1, indexprefix2))
                         else:
                             logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(Id, indexprefix1, indexprefix2))
+                                        .format(candid, indexprefix1, indexprefix2))
                 else:
-                    logger.info("Failed move of CandId {0} from {1} to {2}"
+                    logger.info("Did not copy {0} from {1} to {2}"
                                 .format(Id, indexprefix1, indexprefix2))
+
+            # copy summary html file
+            if k == indexprefix1+'scans':
+                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix1, v[0]))
+                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix2, v[0]))
+                success = shutil.copy(summary1, summary2)
+
     return iddict
 
 
