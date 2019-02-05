@@ -270,8 +270,8 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
             segments.append(segment)
 
     if count:
-        logger.info('Indexed {0} noises for {1}, segments {2}, to {3}'
-                    .format(count, scanId, ','.join(segments), index))
+        logger.info('Indexed {0} noises for {1} to {2}'
+                    .format(count, scanId, index))
     else:
         logger.debug('No noises indexed for {0}'.format(scanId))
 
@@ -432,27 +432,8 @@ def get_doc(index, Id):
 
 
 ###
-# Migrating docs from 'new' to 'final' after tagging
+# Managing docs between indexprefixes
 ###
-
-def move_consensus(indexprefix1='new', indexprefix2='final',
-                   consensustype='majority', nop=3, newtags=None):
-    """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
-    newtags will append to the new "tags" field for all moved candidates.
-    Default tags field will contain the user consensus tag.
-    """
-
-    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
-                              consensustype=consensustype, newtags=newtags)
-
-    for candId, tags in iteritems(consensus):
-        # check remaining docs
-        iddict = copy_candid_docs(indexprefix1, indexprefix2, candId)
-
-        # set tags field
-        update_field(indexprefix2+'cands', 'tags',
-                     consensus[candId]['tags'], Id=candId)
-
 
 def move_dataset(indexprefix1, indexprefix2, datasetId):
     """ Given two index prefixes, move a datasetId and all associated docs over.
@@ -463,9 +444,9 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                indexprefix1+'mocks': [], indexprefix1+'noises': [],
                indexprefix1+'preferences': []}
 
-    candids = get_ids(indexprefix1 + 'cands', datasetId=datasetId)
-    for candid in candids:
-        iddict = copy_candid_docs(indexprefix1, indexprefix2, candid)
+    scanids = get_ids(indexprefix1 + 'scans', datasetId=datasetId)
+    for scanId in scanids:
+        iddict = copy_all_docs(indexprefix1, indexprefix2, scanId=scanId)
         for k, v in iddict.items():
             for Id in v:
                 if Id not in iddict0[k]:
@@ -488,41 +469,46 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     # TODO: remove png and html files after last move
 
 
-def copy_candid_docs(indexprefix1, indexprefix2, candid):
-    """ Given candidate candid moved from one indexprefix to another.
-    Moves associated documents (e.g., scanId, preferences, etc.)
+def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
+    """ Given scanId or candId, move all associated docs from 1 to 2.
+    Associated docs include scanId, preferences, mocks, etc.
+    If scanId provided, all docs moved.
+    If candId provided, only that one will be selected from all in scanId.
     """
 
-    logger.info("Copying docs for candId {0}".format(candid))
-    iddict = find_docids(indexprefix1, candId=candid)
+    if candId is not None:
+        logger.info("Copying docs for candId {0}".format(candId))
+    elif scanId is not None:
+        logger.info("Copying docs for scanId {0}".format(scanId))
+
+    iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
     for k, v in iddict.items():
         for Id in v:
-            if (k != indexprefix1+'cands') or (Id == candid):
+            if (candId is None) or (candId == Id):
                 result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
 
-            # update png_url to new prefix and move plot
-            if Id == candid:
-                if result:
-                    png_url = get_doc(index=indexprefix1+'cands', Id=candid)['_source']['png_url']
+                # update png_url to new prefix and move plot
+                if (k == indexprefix1+'cands') and result:
+                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
                     update_field(indexprefix2+'cands', 'png_url',
                                  png_url.replace(indexprefix1, indexprefix2),
-                                 Id=candid)
+                                 Id=Id)
                     candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix1, candid))
+                                 .format(indexprefix1, Id))
                     candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix2, candid))
+                                 .format(indexprefix2, Id))
                     if os.path.exists(candplot1):
                         success = shutil.copy(candplot1, candplot2)
 
                         if success:
                             logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(candid, indexprefix1,
+                                        .format(Id, indexprefix1,
                                                 indexprefix2))
                         else:
                             logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(candid, indexprefix1,
+                                        .format(Id, indexprefix1,
                                                 indexprefix2))
-                else:
+                elif not result:
                     logger.info("Did not copy {0} from {1} to {2}"
                                 .format(Id, indexprefix1, indexprefix2))
 
@@ -535,26 +521,6 @@ def copy_candid_docs(indexprefix1, indexprefix2, candid):
                 success = shutil.copy(summary1, summary2)
 
     return iddict
-
-
-def clean_index(indexprefix):
-    """ TBD: define a function to check that all candids have scanids, etc.scanids
-    May also use this to clean up residuals after moving from one prefix to another.
-    """
-
-#            # if no candIds remain, then move remaining docs
-#            if len(docids[indexprefix1+'cands']) == 0:
-#                scanId = docids[indexprefix1+'scans']
-#                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
-#                            .format(candId, scanId))
-#                for index1, idlist in docids:
-#                    index2 = index1.replace(indexprefix1, indexprefix2)
-#                    for Id0 in idlist:
-#                        result += copy_doc(index1, index2, Id0, deleteorig=True)
-
-#                logger.info("Moved {0} documents from {1} to {2}"
-#                            .format(result, indexprefix1, indexprefix2))
-    pass
 
 
 def find_docids(indexprefix, candId=None, scanId=None):
@@ -591,6 +557,45 @@ def find_docids(indexprefix, candId=None, scanId=None):
         docids[index] = [prefsname]
 
     return docids
+
+
+def clean_index(indexprefix):
+    """ TBD: define a function to check that all candids have scanids, etc.scanids
+    May also use this to clean up residuals after moving from one prefix to another.
+    """
+
+#            # if no candIds remain, then move remaining docs
+#            if len(docids[indexprefix1+'cands']) == 0:
+#                scanId = docids[indexprefix1+'scans']
+#                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
+#                            .format(candId, scanId))
+#                for index1, idlist in docids:
+#                    index2 = index1.replace(indexprefix1, indexprefix2)
+#                    for Id0 in idlist:
+#                        result += copy_doc(index1, index2, Id0, deleteorig=True)
+
+#                logger.info("Moved {0} documents from {1} to {2}"
+#                            .format(result, indexprefix1, indexprefix2))
+    pass
+
+
+def move_consensus(indexprefix1='new', indexprefix2='final',
+                   consensustype='majority', nop=3, newtags=None):
+    """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
+    newtags will append to the new "tags" field for all moved candidates.
+    Default tags field will contain the user consensus tag.
+    """
+
+    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
+                              consensustype=consensustype, newtags=newtags)
+
+    for candId, tags in iteritems(consensus):
+        # check remaining docs
+        iddict = copy_all_docs(indexprefix1, indexprefix2, candId)
+
+        # set tags field
+        update_field(indexprefix2+'cands', 'tags',
+                     consensus[candId]['tags'], Id=candId)
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
