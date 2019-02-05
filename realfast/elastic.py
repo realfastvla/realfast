@@ -392,6 +392,8 @@ def remove_ids(index, Ids=None, **kwargs):
 
         logger.info("Removed {0} docs from index {1}".format(res, index))
 
+    return res
+
 
 def get_ids(index, **kwargs):
     """ Gets Ids from an index
@@ -469,10 +471,21 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                 if Id not in iddict0[k]:
                     iddict0[k].append(Id)
 
+    # first remove Ids
     for k, v in iddict0.items():
-        remove_ids(k, v)
+        if k != indexprefix1 + 'preferences':
+            remove_ids(k, v)
 
-    # TODO: check indexprefix1 for iddict values. if no references remaining, remove them
+    # test whether other scans are using prefsname
+    prefsnames = iddict0[indexprefix1 + 'preferences']
+    for prefsname in prefsnames:
+        if not len(get_ids(indexprefix1 + 'scans', prefsname=prefsname)):
+            remove_ids(indexprefix1 + 'preferences', [prefsname])
+        else:
+            logger.info("prefsname {0} is referred to in {1}. Not deleting"
+                        .format(Id, k))
+
+    # TODO: remove png and html files after last move
 
 
 def copy_candid_docs(indexprefix1, indexprefix2, candid):
@@ -560,11 +573,7 @@ def find_docids(indexprefix, candId=None, scanId=None):
 
     # option 1: give a candId to get scanId and then other docs
     if candId is not None and scanId is None:
-        index = indexprefix + 'cands'
-        doc_type = index.rstrip('s')
-
-        doc = es.get(index=index, doc_type=doc_type, id=candId)
-        scanId = doc['_source']['scanId']
+        scanId = candId.split("_seg")[0]
 
     # option 2: use scanId given as argument or from above
     if scanId is not None:
@@ -737,20 +746,10 @@ def reset_indices(indexprefix, deleteindices=False):
     for index in [indexprefix+'noises', indexprefix+'mocks',
                   indexprefix+'cands', indexprefix+'scans',
                   indexprefix+'preferences']:
-        confirm = input("Confirm removal of {0} entries"
-                        .format(index))
-        res = 0
-        if confirm:
-            try:
-                Ids = get_ids(index)
-                for Id in Ids:
-                    res += pushdata({}, index, Id, command='delete')
-                logger.info("Removed {0} docs from index {1}".format(res, index))
-                if deleteindices:
-                    es.indices.delete(index)
-                    logger.info("Removed {0} index".format(index))
-            except TransportError:
-                logger.info("Index {0} does not exist".format(index))
+        res = remove_ids(index)
+        if deleteindices:
+            es.indices.delete(index)
+            logger.info("Removed {0} index".format(index))
 
 
 def rsync(original, new):
