@@ -539,8 +539,9 @@ class realfast_controller(Controller):
             logger.info("{0} candidates indexed".format(fut.result()))
 
         for fut in distributed.as_completed(sdm_futs):
-            sdms += fut.result()
-            logger.info("SDM created at {0}".format(fut.result()))
+            sdmnames = fut.result()
+            sdms += len(sdmnames)
+            logger.info("SDMs created at {0}".format(sdmnames))
 
         # clean up self.futures
         removeids = [scanId for scanId in self.futures
