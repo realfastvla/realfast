@@ -336,8 +336,8 @@ class realfast_controller(Controller):
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
                 nowtime = time.Time.now().unix
                 if endtime < nowtime:
-                    logging.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                 .format(segment, endtime, nowtime))
+                    logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
+                                .format(segment, endtime, nowtime))
                     continue
 
                 # submit if cluster ready and telcal available
@@ -512,7 +512,11 @@ class realfast_controller(Controller):
                 if ncands:
                     if self.indexresults:
                         workdir = self.states[scanId].prefs.workdir
-                        nc_futs.append(self.client.submit(indexcands_and_plots, cc, scanId, self.tags, self.indexprefix, workdir, priority=5))
+                        nc_futs.append(self.client.submit(indexcands_and_plots,
+                                                          cc, scanId,
+                                                          self.tags,
+                                                          self.indexprefix,
+                                                          workdir, priority=5))
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
@@ -547,7 +551,8 @@ class realfast_controller(Controller):
         removeids = [scanId for scanId in self.futures
                      if (len(self.futures[scanId]) == 0) and (scanId != keep)]
         if removeids:
-            logstr = ("No jobs left for scanIds: {0}.".format(', '.join(removeids)))
+            logstr = ("No jobs left for scanIds: {0}."
+                      .format(', '.join(removeids)))
             if keep is not None:
                 logstr += (". Cleaning state and futures dicts (keeping {0})"
                            .format(keep))
