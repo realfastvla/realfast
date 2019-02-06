@@ -4,8 +4,105 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import numpy as np
+import glob
+import os.path
+import subprocess
+from rfpipe import candidates
+from realfast import elastic
+
 import logging
 logger = logging.getLogger(__name__)
+
+_candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
+_candplot_url_prefix = 'http://realfast.nrao.edu/plots'
+
+
+def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
+    """
+    """
+
+    nc = elastic.indexcands(cc, scanId, tags=tags,
+                            url_prefix=_candplot_url_prefix,
+                            indexprefix=indexprefix)
+
+    # TODO: makesumaryplot logs cands in all segments
+    # this is confusing when only one segment being handled here
+    msp = makesummaryplot(workdir, scanId)
+    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
+                                                             indexprefix))
+
+    if nc or npl or msp:
+        logger.info('Indexed {0} cands to {1} and moved {2} plots and '
+                    'summarized {3} to {4} for scanId {5}'
+                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir,
+                            scanId))
+    else:
+        logger.info('No candidates or plots found.')
+
+    return nc
+
+
+def makesummaryplot(workdir, scanId):
+    """ Create summary plot for a given scanId and move it
+    """
+
+    candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
+    ncands = candidates.makesummaryplot(candsfile)
+    return ncands
+
+
+def moveplots(candcollection, scanId, destination=_candplot_dir):
+    """ For given fileroot, move candidate plots to public location
+    """
+
+    workdir = candcollection.prefs.workdir
+    segment = candcollection.segment
+
+    logger.info("Moving plots for scanId {0} segment {1} to {2}"
+                .format(scanId, segment, destination))
+
+    nplots = 0
+    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
+                          .format(workdir, scanId, segment))
+    for candplot in candplots:
+        success = rsync(candplot, destination)
+        nplots += success
+
+    # move summary plot too
+    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
+    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
+    if os.path.exists(summaryplot):
+#        shutil.move(summaryplot, summaryplotdest)
+        success = rsync(summaryplot, summaryplotdest)
+    else:
+        logger.warn("No summary plot {0} found".format(summaryplot))
+
+    return nplots
+
+
+def indexcandsfile(candsfile, indexprefix, tags=None):
+    """ Use candsfile to index cands, scans, prefs, mocks, and noises.
+    Should produce identical index results as real-time operation.
+    """
+
+    nc = []
+    nn = []
+    nm = []
+    for cc in candidates.iter_cands(candsfile):
+        st = cc.state
+        scanId = st.metadata.scanId
+        workdir = st.prefs.workdir
+        mocks = st.prefs.simulated_transient
+
+        elastic.indexscan(inmeta=st.metadata, preferences=st.prefs,
+                          indexprefix=indexprefix)
+        nc.append(indexcands_and_plots(cc, scanId, tags, indexprefix, workdir))
+        nn.append(elastic.indexnoises(cc.state.noisefile, scanId,
+                                      indexprefix=indexprefix))
+        if mocks is not None:
+            nm.append(elastic.indexmock(scanId, mocks,
+                                        indexprefix=indexprefix))
+    return nc, nn, nm
 
 
 def data_logging_report(filename):
@@ -26,3 +123,15 @@ def data_logging_report(filename):
                 logger.info("{0}".format(filled))
             else:
                 logger.info("Segment {0}: no data".format(segment))
+
+
+def rsync(original, new):
+    """ Uses subprocess.call to rsync from 'filename' to 'new'
+    If new is directory, copies original in.
+    If new is new file, copies original to that name.
+    """
+
+    assert os.path.exists(original), 'Need original file!'
+    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
+
+    return int(res == 0)

@@ -5,8 +5,6 @@ from io import open
 
 import pickle
 import os.path
-import glob
-import subprocess
 from datetime import date
 import random
 import distributed
@@ -15,8 +13,8 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates, util, metadata, calibration, fileLock
-from realfast import pipeline, elastic, mcaf_servers, heuristics
+from rfpipe import state, preferences, metadata, calibration, fileLock
+from realfast import pipeline, elastic, mcaf_servers, heuristics, util
 
 import logging
 import matplotlib
@@ -33,8 +31,6 @@ _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test 
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 #_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
 _distributed_host = '10.80.200.201'  # for ib0 on rfnode021
-_candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
-_candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
 
 
@@ -334,10 +330,10 @@ class realfast_controller(Controller):
 
             for segment in segments:
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                nowtime = time.Time.now().unix
-                if endtime < nowtime:
+                segsubtime = time.Time.now().unix
+                if endtime < segsubtime:
                     logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                .format(segment, endtime, nowtime))
+                                .format(segment, endtime, segsubtime))
                     continue
 
                 # submit if cluster ready and telcal available
@@ -402,13 +398,19 @@ class realfast_controller(Controller):
                                     .format(scanId))
 
                 self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+
+                # check timeout and wait time for next segment
                 elapsedtime = time.Time.now().unix - t0
                 if elapsedtime > timeout:
                     logger.info("Submission timed out. Submitted {0} segments of "
                                 "ScanId {1}".format(nsegment, scanId))
                     break
                 else:
-                    sleep(sleeptime)
+                    dt = time.Time.now().unix - segsubtime
+                    if dt < sleeptime:
+                        logger.info("Waiting {0}s to submit next segment."
+                                    .format(sleeptime-dt))
+                        sleep(sleeptime-dt)
 
         else:
             logger.info('Submitting all segments for scanId {0}'
@@ -512,7 +514,7 @@ class realfast_controller(Controller):
                 if ncands:
                     if self.indexresults:
                         workdir = self.states[scanId].prefs.workdir
-                        nc_futs.append(self.client.submit(indexcands_and_plots,
+                        nc_futs.append(self.client.submit(util.indexcands_and_plots,
                                                           cc, scanId,
                                                           self.tags,
                                                           self.indexprefix,
@@ -769,20 +771,6 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     return prefsname
 
 
-def make_transient_params(st, data=None, segment=None):
-    """ Select from read data and calc transient params
-    """
-
-    # take pols of interest
-    takepol = [st.metadata.pols_orig.index(pol) for pol in st.pols]
-    logger.debug('Selecting pols {0} and chans {1}'.format(st.pols, st.chans))
-
-    datap = np.nan_to_num(data.take(takepol, axis=3).take(st.chans, axis=2),
-                          copy=True)
-
-    return util.make_transient_params(st, data=datap, ntr=1, segment=segment)
-
-
 def summarize(config):
     """ Print summary info for config
     """
@@ -823,53 +811,6 @@ def summarize(config):
     except:
         logger.warn("Failed to fully parse config to print summary."
                     "Proceeding.")
-
-
-def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
-    """
-    """
-
-    nc = elastic.indexcands(cc, scanId, tags=tags,
-                            url_prefix=_candplot_url_prefix,
-                            indexprefix=indexprefix)
-
-    # TODO: makesumaryplot logs cands in all segments
-    # this is confusing when only one segment being handled here
-    msp = makesummaryplot(workdir, scanId)
-    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
-                                                             indexprefix))
-
-    if nc or npl or msp:
-        logger.info('Indexed {0} cands to {1} and moved {2} plots and '
-                    'summarized {3} to {4} for scanId {5}'
-                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir,
-                            scanId))
-    else:
-        logger.info('No candidates or plots found.')
-
-    return nc
-
-
-def indexcandsfile(candsfile, indexprefix, tags=None):
-    """ Use candsfile to index cands, scans, prefs, mocks, and noises.
-    Should produce identical index results as real-time operation.
-    """
-
-    nc = []
-    nn = []
-    nm = []
-    for cc in candidates.iter_cands(candsfile):
-        st = cc.state
-        scanId = st.metadata.scanId
-        workdir = st.prefs.workdir
-        mocks = st.prefs.simulated_transient
-
-        elastic.indexscan(inmeta=st.metadata, preferences=st.prefs, indexprefix=indexprefix)
-        nc.append(indexcands_and_plots(cc, scanId, tags, indexprefix, workdir))
-        nn.append(elastic.indexnoises(cc.state.noisefile, scanId, indexprefix=indexprefix))
-        if mocks is not None:
-            nm.append(elastic.indexmock(scanId, mocks, indexprefix=indexprefix))
-    return nc, nn, nm
 
 
 def createproducts(candcollection, data, archiveproducts=False,
@@ -963,56 +904,6 @@ def runingest(sdms):
 
     NotImplementedError
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
-
-
-def moveplots(candcollection, scanId, destination=_candplot_dir):
-    """ For given fileroot, move candidate plots to public location
-    """
-
-    workdir = candcollection.prefs.workdir
-    segment = candcollection.segment
-
-    logger.info("Moving plots for scanId {0} segment {1} to {2}"
-                .format(scanId, segment, destination))
-
-    nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
-                          .format(workdir, scanId, segment))
-    for candplot in candplots:
-        success = rsync(candplot, destination)
-        nplots += success
-
-    # move summary plot too
-    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
-    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
-    if os.path.exists(summaryplot):
-#        shutil.move(summaryplot, summaryplotdest)
-        success = rsync(summaryplot, summaryplotdest)
-    else:
-        logger.warn("No summary plot {0} found".format(summaryplot))
-
-    return nplots
-
-
-def rsync(original, new):
-    """ Uses subprocess.call to rsync from 'filename' to 'new'
-    If new is directory, copies original in.
-    If new is new file, copies original to that name.
-    """
-
-    assert os.path.exists(original), 'Need original file!'
-    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
-
-    return int(res == 0)
-
-
-def makesummaryplot(workdir, scanId):
-    """ Create summary plot for a given scanId and move it
-    """
-
-    candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    ncands = candidates.makesummaryplot(candsfile)
-    return ncands
 
 
 def data_logger(st, segment, data):
