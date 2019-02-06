@@ -366,7 +366,7 @@ class realfast_controller(Controller):
 
                     if self.data_logging:
                         segment, data, cc, acc = futures
-                        distributed.fire_and_forget(self.client.submit(data_logger,
+                        distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                        st, segment,
                                                                        data,
                                                                        fifo_timeout='0s',
@@ -397,7 +397,12 @@ class realfast_controller(Controller):
                         logger.info("No telcalfile available for {0}"
                                     .format(scanId))
 
-                self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                # periodically check on submissions. always, if memory limited.
+                if not (segment % 2) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+                                             heuristics.readertotal_memory_ok(self.client, tot_memlim) and
+                                             heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                                          daskdir=self.daskdir)):
+                    self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
 
                 # check timeout and wait time for next segment
                 elapsedtime = time.Time.now().unix - t0
@@ -434,7 +439,7 @@ class realfast_controller(Controller):
 
                 if self.data_logging:
                     for (segment, data, cc, acc) in futures:
-                        distributed.fire_and_forget(self.client.submit(data_logger,
+                        distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                        st,
                                                                        segment,
                                                                        data,
@@ -470,7 +475,6 @@ class realfast_controller(Controller):
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
-        nc_futs = []
         sdm_futs = []
         for scanId in self.futures:
 
@@ -514,11 +518,15 @@ class realfast_controller(Controller):
                 if ncands:
                     if self.indexresults:
                         workdir = self.states[scanId].prefs.workdir
-                        nc_futs.append(self.client.submit(util.indexcands_and_plots,
-                                                          cc, scanId,
-                                                          self.tags,
-                                                          self.indexprefix,
-                                                          workdir, priority=5))
+                        # TODO: check on error handling for fire_and_forget
+                        distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
+                                                                       cc,
+                                                                       scanId,
+                                                                       self.tags,
+                                                                       self.indexprefix,
+                                                                       workdir,
+                                                                       priority=5))
+                        cindexed += ncands
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
@@ -528,6 +536,7 @@ class realfast_controller(Controller):
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
+                    # TODO: be sure this does not slow loop too much
                     sdm_futs.append(self.client.submit(createproducts, cc,
                                                        data,
                                                        self.archiveproducts,
@@ -539,11 +548,12 @@ class realfast_controller(Controller):
                 self.futures[scanId].remove(futures)
                 removed += 1
 
-        # check on cand indexing and sdm jobs
-        for fut in distributed.as_completed(nc_futs):
-            cindexed += fut.result()
-            logger.info("{0} candidates indexed".format(fut.result()))
-
+# TODO: confirm that removing this improves speed
+#        # check on cand indexing and sdm jobs
+#        for fut in distributed.as_completed(nc_futs):
+#            cindexed += fut.result()
+#            logger.info("{0} candidates indexed".format(fut.result()))
+#
         for fut in distributed.as_completed(sdm_futs):
             sdmnames = fut.result()
             sdms += len(sdmnames)
@@ -741,7 +751,8 @@ def search_config(config, preffile=None, inprefs={},
     # 7) only if some fast sampling is done
     t_fast = 0.5
     if not any([inttime < t_fast for inttime in inttimes]):
-        logger.warn("No subband has integration time faster than {0} s".format(t_fast))
+        logger.warn("No subband has integration time faster than {0} s"
+                    .format(t_fast))
         return False
 
     return True
@@ -839,7 +850,7 @@ def createproducts(candcollection, data, archiveproducts=False,
                     .format(segment))
     st = candcollection.state
 
-    candranges = gencandranges(candcollection)  # finds time windows to save from segment
+    candranges = util.gencandranges(candcollection)  # finds time windows to save from segment
     logger.info('Getting data for candidate time ranges {0}.'
                 .format(candranges))
 
@@ -886,17 +897,6 @@ def createproducts(candcollection, data, archiveproducts=False,
     return sdmlocs
 
 
-def gencandranges(candcollection):
-    """ Given a candcollection, define a list of candidate time ranges.
-    """
-
-    segment = candcollection.segment
-    st = candcollection.state
-
-    # save whole segment
-    return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
-
-
 def runingest(sdms):
     """ Call archive tool or move data to trigger archiving of sdms.
     This function will ultimately be triggered by candidate portal.
@@ -904,26 +904,6 @@ def runingest(sdms):
 
     NotImplementedError
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
-
-
-def data_logger(st, segment, data):
-    """ Function that inspects read data and writes results to file.
-    """
-
-    filename = os.path.join(st.prefs.workdir,
-                            "data_" + st.fileroot + ".txt")
-
-    t0 = st.segmenttimes[segment][0]
-    timearr = ','.join((t0+st.metadata.inttime*np.arange(st.readints)).astype(str))
-
-    if data.ndim == 4:
-        results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1).astype(str))
-    else:
-        results = 'None'
-
-    with fileLock.FileLock(filename, timeout=10):
-        with open(filename, "a") as fp:
-            fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr, results))
 
 
 class config_controller(Controller):

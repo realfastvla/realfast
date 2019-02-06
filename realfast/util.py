@@ -7,7 +7,7 @@ import numpy as np
 import glob
 import os.path
 import subprocess
-from rfpipe import candidates
+from rfpipe import candidates, fileLock
 from realfast import elastic
 
 import logging
@@ -105,6 +105,29 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
     return nc, nn, nm
 
 
+def data_logger(st, segment, data):
+    """ Function that inspects read data and writes results to file.
+    """
+
+    filename = os.path.join(st.prefs.workdir,
+                            "data_" + st.fileroot + ".txt")
+
+    t0 = st.segmenttimes[segment][0]
+    timearr = ','.join((t0+st.metadata.inttime*np.arange(st.readints))
+                       .astype(str))
+
+    if data.ndim == 4:
+        results = ','.join(data.mean(axis=3).mean(axis=2).any(axis=1)
+                           .astype(str))
+    else:
+        results = 'None'
+
+    with fileLock.FileLock(filename, timeout=10):
+        with open(filename, "a") as fp:
+            fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr,
+                                                 results))
+
+
 def data_logging_report(filename):
     """ Read and summarize data logging file
     """
@@ -123,6 +146,17 @@ def data_logging_report(filename):
                 logger.info("{0}".format(filled))
             else:
                 logger.info("Segment {0}: no data".format(segment))
+
+
+def gencandranges(candcollection):
+    """ Given a candcollection, define a list of candidate time ranges.
+    """
+
+    segment = candcollection.segment
+    st = candcollection.state
+
+    # save whole segment
+    return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
 def rsync(original, new):
