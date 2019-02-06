@@ -108,8 +108,8 @@ class SDMBuilder(object):
             return None
 
 
-def makesdm(startTime, endTime, datasetId, data, calScanTime=None, annotation={},
-            returnbuilder=False):
+def makesdm(startTime, endTime, datasetId, data, calScanTime=None,
+            annotation={}, returnbuilder=False):
     """ Generates call to sdm builder server for a single candidate.
     Generates a unique id for the bdf from the startTime.
     Uses datasetId and data to create call signature to server with:
