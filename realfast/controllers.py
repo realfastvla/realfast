@@ -118,7 +118,7 @@ class realfast_controller(Controller):
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
-                setattr(self, attr, 1)
+                setattr(self, attr, 0.8) # submit relative to realtime
             else:
                 setattr(self, attr, None)
 
@@ -132,6 +132,9 @@ class realfast_controller(Controller):
         assert self.indexprefix in ['new', 'test', 'aws'], "indexprefix must be None, 'new', 'test' or 'aws'."
         if self.daskdir is None:
             self.daskdir = _default_daskdir
+
+        # TODO: set defaults for these
+        assert self.read_overhead and self.read_totfrac and self.spill_limit
 
     def __repr__(self):
         nseg = len([seg for (scanId, futurelist) in iteritems(self.futures)
@@ -314,154 +317,156 @@ class realfast_controller(Controller):
             logger.info("Mock set for scanId {0} in segment {1}"
                         .format(scanId, mockseg))
 
-        # submit, with optional throttling
-        futures = []
-        if self.throttle:
-            assert self.read_overhead and self.read_totfrac and self.spill_limit
-            timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
-            sleeptime = self.throttle*0.8*timeout/st.nsegment  # bit shorter than sum
-            logger.info('Submitting segments for scanId {0} throttled by sleeptime {1}'
-                        'read_overhead {2}, read_totfrac {3}, and '
-                        'spill_limit {4} with timeout {5}s'
-                        .format(scanId, sleeptime, self.read_overhead, self.read_totfrac,
-                                self.spill_limit, timeout))
+        # vys data means realtime operations must timeout within a scan time
+        if st.metadata.datasource == 'vys':
+            timeout = 0.9*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
+        else:
+            timeout = 0
+        throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
+        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f}'
+                    'read_overhead {2}, read_totfrac {3}, and '
+                    'spill_limit {4} with timeout {5}s'
+                    .format(scanId, throttletime, self.read_overhead, self.read_totfrac,
+                            self.spill_limit, timeout))
 
-            tot_memlim = self.read_totfrac*sum([v['memory_limit']
-                                                for v in itervalues(self.client.scheduler_info()['workers'])
-                                                if 'READER' in v['resources']])
+        tot_memlim = self.read_totfrac*sum([v['memory_limit']
+                                            for v in itervalues(self.client.scheduler_info()['workers'])
+                                            if 'READER' in v['resources']])
 
-            t0 = time.Time.now().unix
-            elapsedtime = 0
-            nsegment = 0
+        # submit segments
+        t0 = time.Time.now().unix
+        elapsedtime = 0
+        nsegment = 0
+        for segment in segments:
+            segsubtime = time.Time.now().unix
 
-            for segment in segments:
+            if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                segsubtime = time.Time.now().unix
                 if endtime < segsubtime:
                     logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
                                 .format(segment, endtime, segsubtime))
                     continue
 
-                # submit if cluster ready and telcal available
-                if (heuristics.reader_memory_ok(self.client, w_memlim) and
-                   heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-                   heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                daskdir=self.daskdir) and
-                   (self.set_telcalfile(scanId)
-                    if self.requirecalibration else True)):
+            # submit if cluster ready and telcal available
+            if (heuristics.reader_memory_ok(self.client, w_memlim) and
+                heuristics.readertotal_memory_ok(self.client, tot_memlim) and
+                heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                             daskdir=self.daskdir) and
+                (self.set_telcalfile(scanId)
+                 if self.requirecalibration else True)):
 
-                    # first time initialize scan
-                    if scanId not in self.futures:
-                        self.futures[scanId] = []
-                        self.errors[scanId] = 0
-                        self.finished[scanId] = 0
-                        if self.indexresults:
-                            elastic.indexscan(inmeta=self.states[scanId].metadata,
-                                              preferences=self.states[scanId].prefs,
-                                              indexprefix=self.indexprefix)
-                        else:
-                            logger.info("Not indexing scan or prefs.")
-
-                    futures = pipeline.pipeline_seg(st, segment,
-                                                    cl=self.client,
-                                                    cfile=cfile,
-                                                    vys_timeout=vys_timeout,
-                                                    mem_read=w_memlim,
-                                                    mem_search=2*st.vismem*1e9,
-                                                    mockseg=mockseg)
-
-                    if self.data_logging:
-                        segment, data, cc, acc = futures
-                        distributed.fire_and_forget(self.client.submit(util.data_logger,
-                                                                       st, segment,
-                                                                       data,
-                                                                       fifo_timeout='0s',
-                                                                       priority=-1))
-                    self.futures[scanId].append(futures)
-                    nsegment += 1
-                    if self.indexresults:
-                        elastic.indexscanstatus(scanId, nsegment=nsegment,
-                                                pending=self.pending[scanId],
-                                                finished=self.finished[scanId],
-                                                errors=self.errors[scanId],
-                                                indexprefix=self.indexprefix)
-
-                else:
-                    if not heuristics.reader_memory_ok(self.client, w_memlim):
-                        logger.info("No reader available with required memory {0}"
-                                    .format(w_memlim))
-                    elif not heuristics.readertotal_memory_ok(self.client,
-                                                              tot_memlim):
-                        logger.info("Total reader memory exceeds limit of {0}"
-                                    .format(tot_memlim))
-                    elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                          daskdir=self.daskdir):
-                        logger.info("Spilled memory exceeds limit of {0}"
-                                    .format(self.spill_limit))
-                    elif not (self.set_telcalfile(scanId)
-                              if self.requirecalibration else True):
-                        logger.info("No telcalfile available for {0}"
-                                    .format(scanId))
-
-                # periodically check on submissions. always, if memory limited.
-                if not (segment % 2) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
-                                             heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-                                             heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                                          daskdir=self.daskdir)):
-                    self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
-
-                # check timeout and wait time for next segment
-                elapsedtime = time.Time.now().unix - t0
-                if elapsedtime > timeout:
-                    logger.info("Submission timed out. Submitted {0} segments of "
-                                "ScanId {1}".format(nsegment, scanId))
-                    break
-                else:
-                    dt = time.Time.now().unix - segsubtime
-                    if dt < sleeptime:
-                        logger.info("Waiting {0}s to submit next segment."
-                                    .format(sleeptime-dt))
-                        sleep(sleeptime-dt)
-
-        else:
-            logger.info('Submitting all segments for scanId {0}'
-                        .format(scanId))
-
-            if self.indexresults:
-                elastic.indexscan(inmeta=self.states[scanId].metadata,
-                                  preferences=self.states[scanId].prefs,
-                                  indexprefix=self.indexprefix)
-            else:
-                logger.info("Not indexing scan or prefs.")
-
-            if (self.set_telcalfile(scanId) if self.requirecalibration else True):
-                futures = pipeline.pipeline_scan(st, segments=segments,
-                                                 cl=self.client, cfile=cfile,
-                                                 vys_timeout=vys_timeout,
-                                                 mem_read=w_memlim,
-                                                 mem_search=2*st.vismem*1e9,
-                                                 throttle=self.throttle,
-                                                 mockseg=mockseg)
-
-                if self.data_logging:
-                    for (segment, data, cc, acc) in futures:
-                        distributed.fire_and_forget(self.client.submit(util.data_logger,
-                                                                       st,
-                                                                       segment,
-                                                                       data,
-                                                                       fifo_timeout='0s',
-                                                                       priority=-1))
-
-                if len(futures):
-                    self.futures[scanId] = futures
+                # first time initialize scan
+                if scanId not in self.futures:
+                    self.futures[scanId] = []
                     self.errors[scanId] = 0
                     self.finished[scanId] = 0
                     if self.indexresults:
-                        elastic.indexscanstatus(scanId, nsegment=len(futures),
-                                                pending=self.pending[scanId],
-                                                finished=self.finished[scanId],
-                                                errors=self.errors[scanId],
-                                                indexprefix=self.indexprefix)
+                        elastic.indexscan(inmeta=self.states[scanId].metadata,
+                                          preferences=self.states[scanId].prefs,
+                                          indexprefix=self.indexprefix)
+                    else:
+                        logger.info("Not indexing scan or prefs.")
+
+                futures = pipeline.pipeline_seg(st, segment, cl=self.client,
+                                                cfile=cfile,
+                                                vys_timeout=vys_timeout,
+                                                mem_read=w_memlim,
+                                                mem_search=2*st.vismem*1e9,
+                                                mockseg=mockseg)
+                self.futures[scanId].append(futures)
+                nsegment += 1
+
+                if self.data_logging:
+                    segment, data, cc, acc = futures
+                    distributed.fire_and_forget(self.client.submit(util.data_logger,
+                                                                   st, segment,
+                                                                   data,
+                                                                   fifo_timeout='0s',
+                                                                   priority=-1))
+                if self.indexresults:
+                    elastic.indexscanstatus(scanId, nsegment=nsegment,
+                                            pending=self.pending[scanId],
+                                            finished=self.finished[scanId],
+                                            errors=self.errors[scanId],
+                                            indexprefix=self.indexprefix)
+
+            else:
+                if not heuristics.reader_memory_ok(self.client, w_memlim):
+                    logger.info("No reader available with required memory {0}"
+                                .format(w_memlim))
+                elif not heuristics.readertotal_memory_ok(self.client,
+                                                          tot_memlim):
+                    logger.info("Total reader memory exceeds limit of {0}"
+                                .format(tot_memlim))
+                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                      daskdir=self.daskdir):
+                    logger.info("Spilled memory exceeds limit of {0}"
+                                .format(self.spill_limit))
+                elif not (self.set_telcalfile(scanId)
+                          if self.requirecalibration else True):
+                    logger.info("No telcalfile available for {0}"
+                                .format(scanId))
+
+            # periodically check on submissions. always, if memory limited.
+            if not (segment % 2) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+                                         heuristics.readertotal_memory_ok(self.client, tot_memlim) and
+                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                                      daskdir=self.daskdir)):
+                self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+
+            # check timeout and wait time for next segment
+            elapsedtime = time.Time.now().unix - t0
+            if elapsedtime > timeout and timeout:
+                logger.info("Submission timed out. Submitted {0} segments of "
+                            "ScanId {1}".format(nsegment, scanId))
+                break
+            else:
+                dt = time.Time.now().unix - segsubtime
+                if dt < throttletime:
+                    logger.info("Waiting {0}s to submit next segment."
+                                .format(throttletime-dt))
+                    sleep(throttletime-dt)
+
+## not needed with "always throttle" as default
+#        else:
+#            logger.info('Submitting all segments for scanId {0}'
+#                        .format(scanId))
+#
+#            if self.indexresults:
+#                elastic.indexscan(inmeta=self.states[scanId].metadata,
+#                                  preferences=self.states[scanId].prefs,
+#                                  indexprefix=self.indexprefix)
+#            else:
+#                logger.info("Not indexing scan or prefs.")
+#
+#            if (self.set_telcalfile(scanId) if self.requirecalibration else True):
+#                futures = pipeline.pipeline_scan(st, segments=segments,
+#                                                 cl=self.client, cfile=cfile,
+#                                                 vys_timeout=vys_timeout,
+#                                                 mem_read=w_memlim,
+#                                                 mem_search=2*st.vismem*1e9,
+#                                                 throttle=self.throttle,
+#                                                 mockseg=mockseg)
+#
+#                if self.data_logging:
+#                    for (segment, data, cc, acc) in futures:
+#                        distributed.fire_and_forget(self.client.submit(util.data_logger,
+#                                                                       st,
+#                                                                       segment,
+#                                                                       data,
+#                                                                       fifo_timeout='0s',
+#                                                                       priority=-1))
+#
+#                if len(futures):
+#                    self.futures[scanId] = futures
+#                    self.errors[scanId] = 0
+#                    self.finished[scanId] = 0
+#                    if self.indexresults:
+#                        elastic.indexscanstatus(scanId, nsegment=len(futures),
+#                                                pending=self.pending[scanId],
+#                                                finished=self.finished[scanId],
+#                                               errors=self.errors[scanId],
+#                                               indexprefix=self.indexprefix)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
