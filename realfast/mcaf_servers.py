@@ -92,9 +92,11 @@ class SDMBuilder(object):
         return url
 
     def send(self):
-        response_xml = urlopen(self._url).read()
+        response_xml = urlopen(self._url, timeout=10).read()
         if b'error' in response_xml:
             self.response = None
+            logger.warn("error in sdmbuilder response xml: {0}"
+                        .format(response_xml))
         else:
             self.response = objectify.fromstring(response_xml,
                                                  parser=_sdmbuilder_parser)
@@ -142,8 +144,8 @@ def makesdm(startTime, endTime, datasetId, data, calScanTime=None,
         sdmb.send()
         ret = sdmb.location
     except HTTPError:
-        logger.warn("HTTPError in SDM builder for XML: {0}"
-                    .format(sdmb.xml))
+        logger.warn("HTTPError in SDM builder. xml: {0}. respnose: {1}"
+                    .format(sdmb.xml, sdmb.response))
         ret = None
 
     if returnbuilder:

@@ -662,16 +662,23 @@ class realfast_controller(Controller):
                              (scanId0 == scanId)]
 
             self.errors[scanId] += len(removelist)
+            for removefuts in removelist:
+                (seg, data, cc, acc) = removefuts
+                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}"
+                            .format(scanId, seg, data.status, cc.status,
+                                    acc.status))
 
             # clean them up
-            errworkers = [(fut, self.client.who_has(fut)) for futs in removelist
+            errworkers = [(fut, self.client.who_has(fut))
+                          for futs in removelist
                           for fut in futs[1:] if fut.status == 'error']
             errworkerids = [(fut, self.workernames[worker[0][0]])
                             for fut, worker in errworkers
                             for ww in listvalues(worker) if ww]
             for i, errworkerid in enumerate(errworkerids):
                 fut, worker = errworkerid
-                logger.warn("Error on workers {0}: {1}".format(worker, fut.exception()))
+                logger.warn("Error on workers {0}: {1}"
+                            .format(worker, fut.exception()))
 
             for futures in removelist:
                 self.futures[scanId].remove(futures)
