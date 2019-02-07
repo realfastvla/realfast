@@ -423,7 +423,7 @@ class realfast_controller(Controller):
             else:
                 dt = time.Time.now().unix - segsubtime
                 if dt < throttletime:
-                    logger.info("Waiting {0}s to submit next segment."
+                    logger.info("Waiting {0:.1f}s to submit next segment."
                                 .format(throttletime-dt))
                     sleep(throttletime-dt)
 

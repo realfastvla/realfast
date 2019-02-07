@@ -67,7 +67,7 @@ realfast:
   read_overhead: 3  # scale reader memory higher than nominal vismem requirement
   read_totfrac: 0.3  # require total of readers memories usage
   spill_limit: 10  # limit spilled memory in GB
-  throttle: 1  # slow submission relative to realtime and conditional on cluster status
+  throttle: 0.7  # scale submission relative to realtime and conditional on cluster status
   requirecalibration: True  # must have calibration to submit
   mockprob: 1.0  # chance of injecting mock transient per scan
   indexprefix: 'new'  # save to production indices
