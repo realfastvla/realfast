@@ -65,9 +65,17 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #    resources = {}
 #    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
 
+    # set up worker node round robin based on segment
+    workers = [w['id']for w in itervalues(cl.scheduler_info()['workers'])]
+    nodes = list(set([w.split('g')[0] for w in workers]))
+    workerspernode = list(set([int(w.split('g')[1]) for w in workers]))
+    allowed = ['{0}g{1}'.format(node, segment % len(workerspernode))
+               for node in nodes]
+
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
-                     fifo_timeout='0s', priority=-1)
+                     fifo_timeout='0s', priority=-1, workers=allowed,
+                     allow_other_workers=True)
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1

@@ -115,7 +115,13 @@ class realfast_controller(Controller):
                      'read_overhead', 'read_totfrac', 'spill_limit',
                      'indexprefix', 'daskdir', 'requirecalibration',
                      'data_logging']:
-            setattr(self, attr, None)
+            if attr == 'indexprefix':
+                setattr(self, attr, 'new')
+            elif attr == 'throttle':
+                setattr(self, attr, True)
+            else:
+                setattr(self, attr, None)
+
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
             if attr in kwargs:
