@@ -18,7 +18,7 @@ vys_timeout_default = 10
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
                   vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                  throttle=False, mockseg=None):
+                  throttle=1, mockseg=None):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -34,16 +34,15 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
         segments = list(range(st.nsegment))
 
     futures = []
-    sleeptime = 0.8*st.nints*st.inttime/st.nsegment  # bit shorter than scan
+    sleeptime = throttle*0.8*st.nints*st.inttime/st.nsegment  # bit shorter than scan
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
                                     mem_search=mem_search, mockseg=mockseg))
         if throttle:
             sleep(sleeptime)
-            # TODO: start if segment starttime is close
 
-    return futures  # list of tuples of futures (seg, data, cc, ncands)
+    return futures  # list of tuples of futures (seg, data, cc, acc)
 
 
 def pipeline_seg(st, segment, cl, cfile=None,

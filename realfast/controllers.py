@@ -62,7 +62,7 @@ class realfast_controller(Controller):
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
         - archiveproducts, boolean defining archiving mini-sdm,
-        - throttle, boolean defining whether to slow pipeline submission,
+        - throttle, integer defining slowing pipeline submission relative to realtime,
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
         - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
@@ -118,7 +118,7 @@ class realfast_controller(Controller):
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
-                setattr(self, attr, True)
+                setattr(self, attr, 1)
             else:
                 setattr(self, attr, None)
 
@@ -319,11 +319,11 @@ class realfast_controller(Controller):
         if self.throttle:
             assert self.read_overhead and self.read_totfrac and self.spill_limit
             timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
-            sleeptime = 0.8*timeout/st.nsegment  # bit shorter than sum
-            logger.info('Submitting segments for scanId {0} throttled by '
-                        'read_overhead {1}, read_totfrac {2}, and '
-                        'spill_limit {3} with timeout {4}s'
-                        .format(scanId, self.read_overhead, self.read_totfrac,
+            sleeptime = self.throttle*0.8*timeout/st.nsegment  # bit shorter than sum
+            logger.info('Submitting segments for scanId {0} throttled by sleeptime {1}'
+                        'read_overhead {2}, read_totfrac {3}, and '
+                        'spill_limit {4} with timeout {5}s'
+                        .format(scanId, sleeptime, self.read_overhead, self.read_totfrac,
                                 self.spill_limit, timeout))
 
             tot_memlim = self.read_totfrac*sum([v['memory_limit']
