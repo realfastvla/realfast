@@ -562,7 +562,7 @@ def find_docids(indexprefix, candId=None, scanId=None):
 def audit_indexprefix(indexprefix):
     """ Confirm that all candids map to scanids, prefnames, and pngs.
     Confirm that scanids mocks, noises.
-    Also test that candids have plots and that scanids have summaryplots.
+    Also test that candids have plots and summaryplots.
     """
 
     import requests
@@ -594,8 +594,16 @@ def audit_indexprefix(indexprefix):
         png_url = doc['_source']['png_url']
         if requests.get(png_url).status_code != 200:
             failed += 1
-            logger.warn("candId {0} has png_url {1} that is not accessible"
+            logger.warn("candId {0} png_url {1} is not accessible"
                         .format(candId, png_url))
+
+        # 4) Does candId have summary plot?
+        summary_url = ('http://realfast.nrao.edu/plots/{0}/cands_{1}.html'
+                       .format(indexprefix, candIdscanId))
+        if requests.get(summary_url).status_code != 200:
+            failed += 1
+            logger.warn("candId {0} summary plot {1} is not accessible"
+                        .format(candId, summary_url))
 
     logger.info("{0} of {1} candIds have issues".format(failed, len(candIds)))
 
@@ -603,7 +611,7 @@ def audit_indexprefix(indexprefix):
     for scanId in scanIds:
         doc = get_doc(indexprefix+'scans', scanId)
 
-        # 4) Is scanId prefs indexed?
+        # 5) Is scanId prefs indexed?
         prefsname = doc['_source']['prefsname']
         if prefsname not in get_ids(indexprefix+'preferences'):
             failed += 1
@@ -616,7 +624,7 @@ def audit_indexprefix(indexprefix):
     for mockId in mockIds:
         doc = get_doc(indexprefix+'mocks', mockId)
 
-        # 5) is mockId tied to scanId?
+        # 6) is mockId tied to scanId?
         mockIdscanId = doc['_source']['scanId']
         if mockIdscanId not in scanIds:
             failed += 1
@@ -629,7 +637,7 @@ def audit_indexprefix(indexprefix):
     for noiseId in noiseIds:
         doc = get_doc(indexprefix+'noises', noiseId)
 
-        # 5) is noiseId tied to scanId?
+        # 7) is noiseId tied to scanId?
         noiseIdscanId = doc['_source']['scanId']
         if noiseIdscanId not in scanIds:
             failed += 1
