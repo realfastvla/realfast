@@ -636,7 +636,7 @@ def audit_indexprefix(indexprefix):
             logger.warn("noiseId {0} has scanId {1} that is not in {2}"
                         .format(noiseId, noiseIdscanId, indexprefix+'scans'))
 
-    logger.info("{0} of {1} mockIds have issues".format(failed, len(noiseIds)))
+    logger.info("{0} of {1} noiseIds have issues".format(failed, len(noiseIds)))
 
 
 def move_consensus(indexprefix1='new', indexprefix2='final',
