@@ -559,24 +559,84 @@ def find_docids(indexprefix, candId=None, scanId=None):
     return docids
 
 
-def clean_index(indexprefix):
-    """ TBD: define a function to check that all candids have scanids, etc.scanids
-    May also use this to clean up residuals after moving from one prefix to another.
+def audit_indexprefix(indexprefix):
+    """ Confirm that all candids map to scanids, prefnames, and pngs.
+    Confirm that scanids mocks, noises.
+    Also test that candids have plots and that scanids have summaryplots.
     """
 
-#            # if no candIds remain, then move remaining docs
-#            if len(docids[indexprefix1+'cands']) == 0:
-#                scanId = docids[indexprefix1+'scans']
-#                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
-#                            .format(candId, scanId))
-#                for index1, idlist in docids:
-#                    index2 = index1.replace(indexprefix1, indexprefix2)
-#                    for Id0 in idlist:
-#                        result += copy_doc(index1, index2, Id0, deleteorig=True)
+    import requests
 
-#                logger.info("Moved {0} documents from {1} to {2}"
-#                            .format(result, indexprefix1, indexprefix2))
-    pass
+    scanIds = get_ids(indexprefix+'scans')
+    candIds = get_ids(indexprefix+'cands')
+    mockIds = get_ids(indexprefix+'mocks')
+    noiseIds = get_ids(indexprefix+'noises')
+
+    failed = 0
+    for candId in candIds:
+        doc = get_doc(indexprefix+'cands', candId)
+
+        # 1) is candId tied to scanId?
+        candIdscanId = doc['_source']['scanId']
+        if candIdscanId not in scanIds:
+            failed += 1
+            logger.warn("candId {0} has scanId {1} that is not in {2}"
+                        .format(candId, candIdscanId, indexprefix+'scans'))
+
+        # 2) Is candId prefs indexed?
+        prefsname = doc['_source']['prefsname']
+        if prefsname not in get_ids(indexprefix+'preferences'):
+            failed += 1
+            logger.warn("candId {0} has prefsname {1} that is not in {2}"
+                        .format(candId, prefsname, indexprefix+'preferences'))
+
+        # 3) Is candId png_url in right place?
+        png_url = doc['_source']['png_url']
+        if requests.get(png_url).status_code != 200:
+            failed += 1
+            logger.warn("candId {0} has png_url {1} that is not accessible"
+                        .format(candId, png_url))
+
+    logger.info("{0} of {1} candIds have issues".format(failed, len(candIds)))
+
+    failed = 0
+    for scanId in scanIds:
+        doc = get_doc(indexprefix+'scans', scanId)
+
+        # 4) Is scanId prefs indexed?
+        prefsname = doc['_source']['prefsname']
+        if prefsname not in get_ids(indexprefix+'preferences'):
+            failed += 1
+            logger.warn("scanId {0} has prefsname {1} that is not in {2}"
+                        .format(scanId, prefsname, indexprefix+'preferences'))
+
+    logger.info("{0} of {1} scanIds have issues".format(failed, len(scanIds)))
+
+    failed = 0
+    for mockId in mockIds:
+        doc = get_doc(indexprefix+'mocks', mockId)
+
+        # 5) is mockId tied to scanId?
+        mockIdscanId = doc['_source']['scanId']
+        if mockIdscanId not in scanIds:
+            failed += 1
+            logger.warn("mockId {0} has scanId {1} that is not in {2}"
+                        .format(mockId, mockIdscanId, indexprefix+'scans'))
+
+    logger.info("{0} of {1} mockIds have issues".format(failed, len(mockIds)))
+
+    failed = 0
+    for noiseId in noiseIds:
+        doc = get_doc(indexprefix+'noises', noiseId)
+
+        # 5) is noiseId tied to scanId?
+        noiseIdscanId = doc['_source']['scanId']
+        if noiseIdscanId not in scanIds:
+            failed += 1
+            logger.warn("noiseId {0} has scanId {1} that is not in {2}"
+                        .format(noiseId, noiseIdscanId, indexprefix+'scans'))
+
+    logger.info("{0} of {1} mockIds have issues".format(failed, len(noiseIds)))
 
 
 def move_consensus(indexprefix1='new', indexprefix2='final',
