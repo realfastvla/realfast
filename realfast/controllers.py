@@ -323,7 +323,7 @@ class realfast_controller(Controller):
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
-        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f}'
+        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f} '
                     'read_overhead {2}, read_totfrac {3}, and '
                     'spill_limit {4} with timeout {5}s'
                     .format(scanId, throttletime, self.read_overhead, self.read_totfrac,
@@ -427,47 +427,6 @@ class realfast_controller(Controller):
                                 .format(throttletime-dt))
                     sleep(throttletime-dt)
 
-## not needed with "always throttle" as default
-#        else:
-#            logger.info('Submitting all segments for scanId {0}'
-#                        .format(scanId))
-#
-#            if self.indexresults:
-#                elastic.indexscan(inmeta=self.states[scanId].metadata,
-#                                  preferences=self.states[scanId].prefs,
-#                                  indexprefix=self.indexprefix)
-#            else:
-#                logger.info("Not indexing scan or prefs.")
-#
-#            if (self.set_telcalfile(scanId) if self.requirecalibration else True):
-#                futures = pipeline.pipeline_scan(st, segments=segments,
-#                                                 cl=self.client, cfile=cfile,
-#                                                 vys_timeout=vys_timeout,
-#                                                 mem_read=w_memlim,
-#                                                 mem_search=2*st.vismem*1e9,
-#                                                 throttle=self.throttle,
-#                                                 mockseg=mockseg)
-#
-#                if self.data_logging:
-#                    for (segment, data, cc, acc) in futures:
-#                        distributed.fire_and_forget(self.client.submit(util.data_logger,
-#                                                                       st,
-#                                                                       segment,
-#                                                                       data,
-#                                                                       fifo_timeout='0s',
-#                                                                       priority=-1))
-#
-#                if len(futures):
-#                    self.futures[scanId] = futures
-#                    self.errors[scanId] = 0
-#                    self.finished[scanId] = 0
-#                    if self.indexresults:
-#                        elastic.indexscanstatus(scanId, nsegment=len(futures),
-#                                                pending=self.pending[scanId],
-#                                                finished=self.finished[scanId],
-#                                               errors=self.errors[scanId],
-#                                               indexprefix=self.indexprefix)
-
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
         Scans futures, removes finished jobs, and pushes results to relevant indices.
@@ -548,27 +507,20 @@ class realfast_controller(Controller):
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
                     # TODO: be sure this does not slow loop too much
-                    sdm_futs.append(self.client.submit(createproducts, cc,
-                                                       data,
-                                                       self.archiveproducts,
-                                                       priority=5))
+                    distributed.fire_and_forget(self.client.submit(createproducts,
+                                                                   cc, data,
+                                                                   self.archiveproducts,
+                                                                   indexprefix=self.indexprefix,
+                                                                   priority=5))
+                    logger.info("SDM being created for {0}, segment {1}, with {2} candidates"
+                                .format(scanId, seg, ncands))
+                    sdms += 1
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
 
                 # remove job from list
                 self.futures[scanId].remove(futures)
                 removed += 1
-
-# TODO: confirm that removing this improves speed
-#        # check on cand indexing and sdm jobs
-#        for fut in distributed.as_completed(nc_futs):
-#            cindexed += fut.result()
-#            logger.info("{0} candidates indexed".format(fut.result()))
-#
-        for fut in distributed.as_completed(sdm_futs):
-            sdmnames = fut.result()
-            sdms += len(sdmnames)
-            logger.info("SDMs created at {0}".format(sdmnames))
 
         # clean up self.futures
         removeids = [scanId for scanId in self.futures
@@ -843,6 +795,7 @@ def summarize(config):
 
 
 def createproducts(candcollection, data, archiveproducts=False,
+                   indexprefix=None,
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
@@ -869,8 +822,8 @@ def createproducts(candcollection, data, archiveproducts=False,
     st = candcollection.state
 
     candranges = util.gencandranges(candcollection)  # finds time windows to save from segment
-    logger.info('Getting data for candidate time ranges {0}.'
-                .format(candranges))
+    logger.info('Getting data for candidate time ranges {0} in segment {1}.'
+                .format(candranges, segment))
 
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
@@ -880,8 +833,8 @@ def createproducts(candcollection, data, archiveproducts=False,
     for (startTime, endTime) in candranges:
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
-        logger.info("Cutting {0} ints from int {1} for candidate at {2}"
-                    .format(nint, i, startTime))
+        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
+                    .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         # TODO: fill in annotation dict as defined in confluence doc on realfast collections
@@ -896,6 +849,12 @@ def createproducts(candcollection, data, archiveproducts=False,
                                       data_cut, calScanTime,
                                       annotation=annotation)
         if sdmloc is not None:
+            # update index to link to new sdm
+            if indexprefix is not None:
+                candIds = elastic.candid(cc=candcollection)
+                for Id in candIds:
+                    elastic.update_field(indexprefix+'cands', 'sdmname', sdmloc, Id=Id)
+
             sdmlocs.append(sdmloc)
             logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready

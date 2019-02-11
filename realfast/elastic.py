@@ -187,7 +187,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
             canddict['prefsname'] = prefs.name
 
         # create id
-        uniqueid = candid(canddict)
+        uniqueid = candid(datadict=canddict)
         canddict['candId'] = uniqueid
         candidate_png = 'cands_{0}.png'.format(uniqueid)
         canddict['png_url'] = os.path.join(url_prefix, indexprefix, candidate_png)
@@ -330,15 +330,25 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
         logger.warn("ConnectionError during push to index. Elasticsearch down?")
 
 
-def candid(data):
+def candid(datadict=None, cc=None):
     """ Returns id string for given data dict
     Assumes scanId is defined as:
     datasetId dot scanNum dot subscanNum
     """
 
-    return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
-            .format(data['scanId'], data['segment'], data['integration'],
-                    data['dmind'], data['dtind']))
+    if datadict is not None and cc is None:
+        scanId = datadict['scanId']
+        segment = datadict['segment']
+        integration = datadict['integration']
+        dmind = datadict['dmind']
+        dtind = datadict['dtind']
+        return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
+                .format(scanId, segment, integration, dmind, dtind))
+    elif cc is not None and datadict is None:
+        scanId = cc.metadata.scanId
+        return ['{0}_seg{1}-i{2}-dm{3}-dt{4}'
+                .format(scanId, segment, integration, dmind, dtind)
+                for segment, integration, dmind, dtind, beamnum in cc.locs]
 
 
 def update_field(index, field, value, Id=None, **kwargs):

@@ -150,6 +150,7 @@ def data_logging_report(filename):
 
 def gencandranges(candcollection):
     """ Given a candcollection, define a list of candidate time ranges.
+    Currently saves the whole segment.
     """
 
     segment = candcollection.segment
