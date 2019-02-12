@@ -853,7 +853,8 @@ def createproducts(candcollection, data, archiveproducts=False,
             if indexprefix is not None:
                 candIds = elastic.candid(cc=candcollection)
                 for Id in candIds:
-                    elastic.update_field(indexprefix+'cands', 'sdmname', sdmloc, Id=Id)
+                    elastic.update_field(indexprefix+'cands', 'sdmname',
+                                         sdmloc, Id=Id)
 
             sdmlocs.append(sdmloc)
             logger.info("Created new SDMs at: {0}".format(sdmloc))

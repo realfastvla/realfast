@@ -10,6 +10,7 @@ from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
 from rfpipe.metadata import make_metadata
 from rfpipe.candidates import iter_noise
+from rfpipe.preferences import Preferences
 from realfast import heuristics
 import logging
 from numpy import degrees
@@ -439,6 +440,19 @@ def get_doc(index, Id):
     doc_type = index.rstrip('s')
     doc = es.get(index=index, doc_type=doc_type, id=Id)
     return doc
+
+
+###
+# Using index
+###
+
+def create_preference(index, Id):
+    """ Get doc from index with Id and create realfast preference object
+    """
+
+    doc = get_doc(index, Id)
+    prefs = doc['_source']
+    return Preferences(**prefs)
 
 
 ###
