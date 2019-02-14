@@ -199,15 +199,45 @@ class realfast_controller(Controller):
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config,
-                           inmeta={'datasource': 'vys'})
+            if config.otf:
+                self.handle_subscan(config, cfile=cfile)
+            else:
+                # for standard pointed mode, just set state and start pipeline
+                self.set_state(config.scanId, config=config,
+                               inmeta={'datasource': 'vys'})
 
-            self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
+                self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
+                                    phasecenters=phasecenters)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
         self.cleanup()
+
+    def handle_subscan(self, config, cfile=_vys_cfile_prod):
+        """ Triggered when subscan info is updated (e.g., OTF mode).
+        OTF requires more setup and management.
+        """
+
+        # set up OTF info
+        if config.nsubscan:
+            # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
+            phasecenters = []
+            endtime_mjd_ = 0
+            for ss in self.subscans:
+                if ss.stopTime is not None:
+                    if ss.stopTime > endtime_mjd_:
+                        endtime_mjd_ = ss.stopTime
+                    phasecenters.append((ss.startTime, ss.stopTime, ss.ra_deg, ss.dec_deg))
+
+            segments = ...  # submit search for complete segments
+
+        # pass in first subscan and overload end time
+        self.set_state(config.scanId, config=config.subscans[-1],
+                       inmeta={'datasource': 'vys', 'endtime_mjd_'=endtime_mjd_})
+
+        self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
+                            phasecenters=phasecenters)
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -273,7 +303,7 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None, segments=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None, phasecenters=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         segments arg can be used to select or slow segment submission.
@@ -348,7 +378,8 @@ class realfast_controller(Controller):
                                                     vys_timeout=vys_timeout,
                                                     mem_read=w_memlim,
                                                     mem_search=2*st.vismem*1e9,
-                                                    mockseg=mockseg)
+                                                    mockseg=mockseg,
+                                                    phasecenters=phasecenters)
 
                     self.futures[scanId].append(futures)
                     nsegment += 1
@@ -402,7 +433,8 @@ class realfast_controller(Controller):
                                                  mem_read=w_memlim,
                                                  mem_search=2*st.vismem*1e9,
                                                  throttle=self.throttle,
-                                                 mockseg=mockseg)
+                                                 mockseg=mockseg,
+                                                 phasecenters=phasecenters)
 
                 if len(futures):
                     self.futures[scanId] = futures
