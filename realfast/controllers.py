@@ -830,9 +830,10 @@ def createproducts(candcollection, data, archiveproducts=False,
     nspw = metadata.nspw_orig
 
     sdmlocs = []
-    for (startTime, endTime) in candranges:
+    # make sdm for each unique time range (e.g., segment)
+    for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
+        nint = np.round(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
         logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
