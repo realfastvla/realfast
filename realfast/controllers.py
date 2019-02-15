@@ -97,6 +97,7 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
+        self.submitted_segments = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -199,6 +200,7 @@ class realfast_controller(Controller):
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
+            # starting config of an OTF row will trigger subscan logic
             if config.otf:
                 self.handle_subscan(config, cfile=cfile)
             else:
@@ -206,8 +208,7 @@ class realfast_controller(Controller):
                 self.set_state(config.scanId, config=config,
                                inmeta={'datasource': 'vys'})
 
-                self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
-                                    phasecenters=phasecenters)
+                self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
@@ -220,7 +221,7 @@ class realfast_controller(Controller):
         """
 
         # set up OTF info
-        if config.nsubscan:
+        if config.nsubscan:  # is this needed?
             # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
             phasecenters = []
             endtime_mjd_ = 0
@@ -228,16 +229,27 @@ class realfast_controller(Controller):
                 if ss.stopTime is not None:
                     if ss.stopTime > endtime_mjd_:
                         endtime_mjd_ = ss.stopTime
-                    phasecenters.append((ss.startTime, ss.stopTime, ss.ra_deg, ss.dec_deg))
-
-            segments = ...  # submit search for complete segments
+                    phasecenters.append((ss.startTime, ss.stopTime,
+                                         ss.ra_deg, ss.dec_deg))
 
         # pass in first subscan and overload end time
         self.set_state(config.scanId, config=config.subscans[-1],
-                       inmeta={'datasource': 'vys', 'endtime_mjd_'=endtime_mjd_})
+                       inmeta={'datasource': 'vys',
+                               'endtime_mjd_': endtime_mjd_})
 
+        allsegments = list(range(self.states[config.scanId].nsegment))
+        if config.scanId not in self.submitted_segments:
+            self.submitted_segments[config.scanId] = []
+
+        # filter out submitted segments
+        segments = [seg for seg in allsegments
+                    if seg not in self.submitted_segments[config.scanId]]
         self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
                             phasecenters=phasecenters)
+        # now all (currently known segments) have been submitted
+        self.submitted_segments[config.scanId] = allsegments
+
+        self.cleanup(keep=config.scanId)  # do not remove keys of ongoing submission
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -437,11 +449,11 @@ class realfast_controller(Controller):
                                                  phasecenters=phasecenters)
 
                 if len(futures):
-                    self.futures[scanId] = futures
-                    self.errors[scanId] = 0
+                    self.futures[scanId] += futures
+                    self.errors[scanId] = 0    # TODO: is this ok for OTF mode?
                     self.finished[scanId] = 0
                     if self.indexresults:
-                        elastic.indexscanstatus(scanId, nsegment=len(futures),
+                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
                                                 pending=self.pending[scanId],
                                                 finished=self.finished[scanId],
                                                 errors=self.errors[scanId])
@@ -554,6 +566,7 @@ class realfast_controller(Controller):
                 _ = self.states.pop(scanId)
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
+                _ = self.submitted_segments.pop(scanId)
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
