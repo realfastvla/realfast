@@ -224,7 +224,8 @@ class realfast_controller(Controller):
                 self.set_state(config.scanId, config=config,
                                inmeta={'datasource': 'vys'})
 
-                self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
+                self.start_pipeline(config.scanId, cfile=cfile,
+                                    segments=segments)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
@@ -237,34 +238,36 @@ class realfast_controller(Controller):
         """
 
         # set up OTF info
-        if config.nsubscan:  # is this needed?
-            # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
-            phasecenters = []
-            endtime_mjd_ = 0
-            for ss in self.subscans:
-                if ss.stopTime is not None:
-                    if ss.stopTime > endtime_mjd_:
-                        endtime_mjd_ = ss.stopTime
-                    phasecenters.append((ss.startTime, ss.stopTime,
-                                         ss.ra_deg, ss.dec_deg))
+        # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
+        phasecenters = []
+        endtime_mjd_ = 0
+        for ss in config.subscans:
+            if ss.stopTime is not None:
+                if ss.stopTime > endtime_mjd_:
+                    endtime_mjd_ = ss.stopTime
+                phasecenters.append((ss.startTime, ss.stopTime,
+                                     ss.ra_deg, ss.dec_deg))
 
         # pass in first subscan and overload end time
         config0 = config.subscans[-1]  # all tracked by first config of scan
-        self.set_state(config0.scanId, config=config0,
-                       inmeta={'datasource': 'vys',
-                               'endtime_mjd_': endtime_mjd_})
+        if config0.is_complete:
+            self.set_state(config0.scanId, config=config0,
+                           inmeta={'datasource': 'vys',
+                                   'endtime_mjd_': endtime_mjd_})
 
-        allsegments = list(range(self.states[config0.scanId].nsegment))
-        if config0.scanId not in self.submitted_segments:
-            self.submitted_segments[config0.scanId] = []
+            allsegments = list(range(self.states[config0.scanId].nsegment))
+            if config0.scanId not in self.submitted_segments:
+                self.submitted_segments[config0.scanId] = []
 
-        # filter out submitted segments
-        segments = [seg for seg in allsegments
-                    if seg not in self.submitted_segments[config0.scanId]]
-        self.start_pipeline(config0.scanId, cfile=cfile, segments=segments,
-                            phasecenters=phasecenters)
-        # now all (currently known segments) have been submitted
-        self.submitted_segments[config0.scanId] = allsegments
+            # filter out submitted segments
+            segments = [seg for seg in allsegments
+                        if seg not in self.submitted_segments[config0.scanId]]
+            self.start_pipeline(config0.scanId, cfile=cfile, segments=segments,
+                                phasecenters=phasecenters)
+            # now all (currently known segments) have been submitted
+            self.submitted_segments[config0.scanId] = allsegments
+        else:
+            logger.info("Config is not complete. Continuing.")
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
