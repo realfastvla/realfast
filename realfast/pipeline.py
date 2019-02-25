@@ -5,10 +5,11 @@ from io import open
 
 import distributed
 from dask import array, delayed
-from rfpipe import source, pipeline
+from rfpipe import source, pipeline, fileLock
 from dask.base import tokenize
 import numpy as np
 from time import sleep
+import os.path
 
 import logging
 logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ vys_timeout_default = 10
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
                   vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                  throttle=False, mockseg=None):
+                  throttle=1, mockseg=None):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -33,16 +34,15 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
         segments = list(range(st.nsegment))
 
     futures = []
-    sleeptime = 0.8*st.nints*st.inttime/st.nsegment  # bit shorter than scan
+    sleeptime = throttle*0.8*st.nints*st.inttime/st.nsegment  # bit shorter than scan
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
                                     mem_search=mem_search, mockseg=mockseg))
         if throttle:
             sleep(sleeptime)
-            # TODO: start if segment starttime is close
 
-    return futures  # list of tuples of futures (seg, data, cc, ncands)
+    return futures  # list of tuples of futures (seg, data, cc, acc)
 
 
 def pipeline_seg(st, segment, cl, cfile=None,
@@ -64,9 +64,17 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #    resources = {}
 #    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
 
+    # set up worker node round robin based on segment
+    workers = [w['id']for w in itervalues(cl.scheduler_info()['workers'])]
+    nodes = list(set([w.split('g')[0] for w in workers]))
+    workerspernode = list(set([int(w.split('g')[1]) for w in workers]))
+    allowed = ['{0}g{1}'.format(node, segment % len(workerspernode))
+               for node in nodes]
+
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
-                     fifo_timeout='0s', priority=-1)
+                     fifo_timeout='0s', priority=-1, workers=allowed,
+                     allow_other_workers=True)
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1
@@ -80,11 +88,12 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
                                resources={'MEMORY': mem_search, 'GPU': 2},
-                               fifo_timeout='0s', priority=1)
+                               fifo_timeout='0s', priority=1, retries=1)
 
 #    acc = delayed(analyze_cc)(candcollection)
 
-    acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2)
+    acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2,
+                    retries=1)
 
 #    futures_seg = cl.compute((segment, data, candcollection, acc),
 #                             resources=resources, fifo_timeout='0s')

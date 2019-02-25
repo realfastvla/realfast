@@ -3,9 +3,8 @@
     <xs:element name="SdmBuilderMessage">
         <xs:complexType>
             <xs:sequence>
-
-                <xs:element name="datasetId" type="xs:string" minOccurs="0" maxOccurs="1" />
-
+                <xs:element name="datasetId" type="xs:string" minOccurs="0" maxOccurs="1" />                
+                <xs:element name="outputDatasetId" type="xs:string" minOccurs="0" maxOccurs="1" />                
                 <xs:element name="bdf" minOccurs="0" >
                     <xs:complexType>
                         <xs:sequence>
@@ -14,10 +13,12 @@
                             <xs:element name="numIntegrations" type="xs:int" />
                             <xs:element name="startTime" type="xs:double" />
                             <xs:element name="endTime" type="xs:double" />
+                            <xs:element name="calScanNumber" type="xs:int" minOccurs="0"/>
+                            <xs:element name="calScanTime" type="xs:double" minOccurs="0"/>
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
-
+                
                 <xs:element name="result" minOccurs="0" >
                     <xs:complexType>
                         <xs:sequence>
@@ -25,14 +26,14 @@
                         </xs:sequence>
                     </xs:complexType>
                 </xs:element>
-
+                
                 <xs:element name="scan" minOccurs="0" >
                     <xs:complexType>
                         <xs:attribute name="scanNumber" type="xs:int"/>
                         <xs:attribute name="subscanNumber" type="xs:int" />
                     </xs:complexType>
                 </xs:element>
-
+                
                 <xs:element name="error" minOccurs="0" maxOccurs="1" >
                     <xs:complexType>
                         <xs:sequence>
@@ -41,10 +42,20 @@
                     </xs:complexType>
                 </xs:element>
 
+                <xs:element name="annotation" minOccurs="0" maxOccurs="unbounded" >
+                    <xs:complexType>
+                        <xs:sequence>
+                            <xs:element name="sValue" type="xs:string" />
+                        </xs:sequence>
+                        <xs:attribute name="issue" type="xs:string" use="required" />
+                        <xs:attribute name="details" type="xs:string" use="required" />
+                    </xs:complexType>
+                </xs:element>
+                
             </xs:sequence>
             <xs:attribute name="timestamp" type="xs:double"/>
             <xs:attribute name="sender" type="xs:string" use="optional"/>
         </xs:complexType>
-
+        
     </xs:element>
 </xs:schema>

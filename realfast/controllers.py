@@ -5,9 +5,6 @@ from io import open
 
 import pickle
 import os.path
-import glob
-import shutil
-import subprocess
 from datetime import date
 import random
 import distributed
@@ -16,8 +13,8 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, candidates, util, metadata
-from realfast import pipeline, elastic, mcaf_servers, heuristics
+from rfpipe import state, preferences, metadata, calibration, fileLock
+from realfast import pipeline, elastic, mcaf_servers, heuristics, util
 
 import logging
 import matplotlib
@@ -32,9 +29,8 @@ logger = logging.getLogger('realfast_controller')
 _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
-_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
-_candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
-_candplot_url_prefix = 'http://realfast.nrao.edu/plots'
+#_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
+_distributed_host = '10.80.200.201'  # for ib0 on rfnode021
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
 
 
@@ -66,7 +62,7 @@ class realfast_controller(Controller):
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
         - archiveproducts, boolean defining archiving mini-sdm,
-        - throttle, boolean defining whether to slow pipeline submission,
+        - throttle, integer defining slowing pipeline submission relative to realtime,
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
         - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
@@ -106,6 +102,8 @@ class realfast_controller(Controller):
                 prefs = yaml.load(fp, Loader=PrettySafeLoader)['realfast']
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
+
+                _ = self.client.run(preferences.parsepreffile, self.preffile, asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
@@ -115,8 +113,15 @@ class realfast_controller(Controller):
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents', 'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
-                     'indexprefix', 'daskdir', 'requirecalibration']:
-            setattr(self, attr, None)
+                     'indexprefix', 'daskdir', 'requirecalibration',
+                     'data_logging']:
+            if attr == 'indexprefix':
+                setattr(self, attr, 'new')
+            elif attr == 'throttle':
+                setattr(self, attr, 0.8) # submit relative to realtime
+            else:
+                setattr(self, attr, None)
+
             if attr in prefs:
                 setattr(self, attr, prefs[attr])
             if attr in kwargs:
@@ -128,15 +133,29 @@ class realfast_controller(Controller):
         if self.daskdir is None:
             self.daskdir = _default_daskdir
 
+        # TODO: set defaults for these
+        assert self.read_overhead and self.read_totfrac and self.spill_limit
+
     def __repr__(self):
+        nseg = len([seg for (scanId, futurelist) in iteritems(self.futures)
+                    for seg, data, cc, acc in futurelist])
+
         return ('realfast controller with {0} jobs'
-                .format(len(self.statuses)))
+                .format(nseg))
 
     @property
     def statuses(self):
-        return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.status, cc.status)
-                for (scanId, futurelist) in iteritems(self.futures)
-                for seg, data, cc, acc in futurelist]
+        for (scanId, futurelist) in iteritems(self.futures):
+            for seg, data, cc, acc in futurelist:
+                if len(self.client.who_has()[data.key]):
+                    dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    logger.info('{0}, {1}: {2}, {3}, {4}. Data on {5}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status, dataloc))
+                else:
+                    logger.info('{0}, {1}: {2}, {3}, {4}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status))
 
     @property
     def exceptions(self):
@@ -298,118 +317,115 @@ class realfast_controller(Controller):
             logger.info("Mock set for scanId {0} in segment {1}"
                         .format(scanId, mockseg))
 
-        # submit, with optional throttling
-        futures = []
-        if self.throttle:
-            assert self.read_overhead and self.read_totfrac and self.spill_limit
-            timeout = 0.8*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
-            sleeptime = 0.8*timeout/st.nsegment  # bit shorter than sum
-            logger.info('Submitting segments for scanId {0} throttled by '
-                        'read_overhead {1}, read_totfrac {2}, and '
-                        'spill_limit {3} with timeout {4}s'
-                        .format(scanId, self.read_overhead, self.read_totfrac,
-                                self.spill_limit, timeout))
-
-            tot_memlim = self.read_totfrac*sum([v['memory_limit']
-                                                for v in itervalues(self.client.scheduler_info()['workers'])
-                                                if 'READER' in v['resources']])
-
-            t0 = time.Time.now().unix
-            elapsedtime = 0
-            nsegment = 0
-
-            for segment in segments:
-                # submit if cluster ready and telcal available
-                if (heuristics.reader_memory_ok(self.client, w_memlim) and
-                   heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-                   heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                daskdir=self.daskdir) and
-                   (self.set_telcalfile(scanId)
-                    if self.requirecalibration else True)):
-
-                    # first time initialize scan
-                    if scanId not in self.futures:
-                        self.futures[scanId] = []
-                        self.errors[scanId] = 0
-                        self.finished[scanId] = 0
-                        if self.indexresults:
-                            elastic.indexscan(inmeta=self.states[scanId].metadata,
-                                              preferences=self.states[scanId].prefs,
-                                              indexprefix=self.indexprefix)
-                        else:
-                            logger.info("Not indexing scan or prefs.")
-
-                    futures = pipeline.pipeline_seg(st, segment,
-                                                    cl=self.client,
-                                                    cfile=cfile,
-                                                    vys_timeout=vys_timeout,
-                                                    mem_read=w_memlim,
-                                                    mem_search=2*st.vismem*1e9,
-                                                    mockseg=mockseg)
-
-                    self.futures[scanId].append(futures)
-                    nsegment += 1
-                    if self.indexresults:
-                        elastic.indexscanstatus(scanId, nsegment=nsegment,
-                                                pending=self.pending[scanId],
-                                                finished=self.finished[scanId],
-                                                errors=self.errors[scanId])
-
-                else:
-                    if not heuristics.reader_memory_ok(self.client, w_memlim):
-                        logger.info("No reader available with required memory {0}"
-                                    .format(w_memlim))
-                    elif not heuristics.readertotal_memory_ok(self.client,
-                                                              tot_memlim):
-                        logger.info("Total reader memory exceeds limit of {0}"
-                                    .format(tot_memlim))
-                    elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                          daskdir=self.daskdir):
-                        logger.info("Spilled memory exceeds limit of {0}"
-                                    .format(self.spill_limit))
-                    elif not (self.set_telcalfile(scanId)
-                              if self.requirecalibration else True):
-                        logger.info("No telcalfile available for {0}"
-                                    .format(scanId))
-
-                self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
-                elapsedtime = time.Time.now().unix - t0
-                if elapsedtime > timeout:
-                    logger.info("Submission timed out. Submitted {0} segments of "
-                                "ScanId {1}".format(nsegment, scanId))
-                    break
-                else:
-                    sleep(sleeptime)
-
+        # vys data means realtime operations must timeout within a scan time
+        if st.metadata.datasource == 'vys':
+            timeout = 0.9*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
         else:
-            logger.info('Submitting all segments for scanId {0}'
-                        .format(scanId))
+            timeout = 0
+        throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
+        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f} '
+                    'read_overhead {2}, read_totfrac {3}, and '
+                    'spill_limit {4} with timeout {5}s'
+                    .format(scanId, throttletime, self.read_overhead, self.read_totfrac,
+                            self.spill_limit, timeout))
 
-            if self.indexresults:
-                elastic.indexscan(inmeta=self.states[scanId].metadata,
-                                  preferences=self.states[scanId].prefs,
-                                  indexprefix=self.indexprefix)
-            else:
-                logger.info("Not indexing scan or prefs.")
+        tot_memlim = self.read_totfrac*sum([v['memory_limit']
+                                            for v in itervalues(self.client.scheduler_info()['workers'])
+                                            if 'READER' in v['resources']])
 
-            if (self.set_telcalfile(scanId) if self.requirecalibration else True):
-                futures = pipeline.pipeline_scan(st, segments=segments,
-                                                 cl=self.client, cfile=cfile,
-                                                 vys_timeout=vys_timeout,
-                                                 mem_read=w_memlim,
-                                                 mem_search=2*st.vismem*1e9,
-                                                 throttle=self.throttle,
-                                                 mockseg=mockseg)
+        # submit segments
+        t0 = time.Time.now().unix
+        elapsedtime = 0
+        nsegment = 0
+        for segment in segments:
+            segsubtime = time.Time.now().unix
 
-                if len(futures):
-                    self.futures[scanId] = futures
+            if st.metadata.datasource == 'vys':
+                endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
+                if endtime < segsubtime:
+                    logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
+                                .format(segment, endtime, segsubtime))
+                    continue
+
+            # submit if cluster ready and telcal available
+            if (heuristics.reader_memory_ok(self.client, w_memlim) and
+                heuristics.readertotal_memory_ok(self.client, tot_memlim) and
+                heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                             daskdir=self.daskdir) and
+                (self.set_telcalfile(scanId)
+                 if self.requirecalibration else True)):
+
+                # first time initialize scan
+                if scanId not in self.futures:
+                    self.futures[scanId] = []
                     self.errors[scanId] = 0
                     self.finished[scanId] = 0
                     if self.indexresults:
-                        elastic.indexscanstatus(scanId, nsegment=len(futures),
-                                                pending=self.pending[scanId],
-                                                finished=self.finished[scanId],
-                                                errors=self.errors[scanId])
+                        elastic.indexscan(inmeta=self.states[scanId].metadata,
+                                          preferences=self.states[scanId].prefs,
+                                          indexprefix=self.indexprefix)
+                    else:
+                        logger.info("Not indexing scan or prefs.")
+
+                futures = pipeline.pipeline_seg(st, segment, cl=self.client,
+                                                cfile=cfile,
+                                                vys_timeout=vys_timeout,
+                                                mem_read=w_memlim,
+                                                mem_search=2*st.vismem*1e9,
+                                                mockseg=mockseg)
+                self.futures[scanId].append(futures)
+                nsegment += 1
+
+                if self.data_logging:
+                    segment, data, cc, acc = futures
+                    distributed.fire_and_forget(self.client.submit(util.data_logger,
+                                                                   st, segment,
+                                                                   data,
+                                                                   fifo_timeout='0s',
+                                                                   priority=-1))
+                if self.indexresults:
+                    elastic.indexscanstatus(scanId, nsegment=nsegment,
+                                            pending=self.pending[scanId],
+                                            finished=self.finished[scanId],
+                                            errors=self.errors[scanId],
+                                            indexprefix=self.indexprefix)
+
+            else:
+                if not heuristics.reader_memory_ok(self.client, w_memlim):
+                    logger.info("No reader available with required memory {0}"
+                                .format(w_memlim))
+                elif not heuristics.readertotal_memory_ok(self.client,
+                                                          tot_memlim):
+                    logger.info("Total reader memory exceeds limit of {0}"
+                                .format(tot_memlim))
+                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                      daskdir=self.daskdir):
+                    logger.info("Spilled memory exceeds limit of {0}"
+                                .format(self.spill_limit))
+                elif not (self.set_telcalfile(scanId)
+                          if self.requirecalibration else True):
+                    logger.info("No telcalfile available for {0}"
+                                .format(scanId))
+
+            # periodically check on submissions. always, if memory limited.
+            if not (segment % 2) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+                                         heuristics.readertotal_memory_ok(self.client, tot_memlim) and
+                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
+                                                                      daskdir=self.daskdir)):
+                self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+
+            # check timeout and wait time for next segment
+            elapsedtime = time.Time.now().unix - t0
+            if elapsedtime > timeout and timeout:
+                logger.info("Submission timed out. Submitted {0} segments of "
+                            "ScanId {1}".format(nsegment, scanId))
+                break
+            else:
+                dt = time.Time.now().unix - segsubtime
+                if dt < throttletime:
+                    logger.info("Waiting {0:.1f}s to submit next segment."
+                                .format(throttletime-dt))
+                    sleep(throttletime-dt)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
@@ -429,6 +445,7 @@ class realfast_controller(Controller):
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
+        sdm_futs = []
         for scanId in self.futures:
 
             # check on finished
@@ -441,54 +458,45 @@ class realfast_controller(Controller):
             if self.indexresults:
                 elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                         finished=self.finished[scanId],
-                                        errors=self.errors[scanId])
+                                        errors=self.errors[scanId],
+                                        indexprefix=self.indexprefix)
 
             # TODO: make robust to lost jobs
             for futures in finishedlist:
                 seg, data, cc, acc = futures
-
                 ncands, mocks = acc.result()
+
                 if self.indexresults and mocks:
                     mindexed = elastic.indexmock(scanId, mocks,
                                                  indexprefix=self.indexprefix)
-                    if mindexed:
-                        logger.info("Indexed {0} mock transient to {1}."
-                                    .format(mindexed, self.indexprefix+"mocks"))
+                else:
+                    logger.debug("Not indexing mock transient(s).")
+                
+                # index noises
+                noisefile = self.states[scanId].noisefile
+                if os.path.exists(noisefile):
+                    if self.indexresults:
+                        res = elastic.indexnoises(noisefile, scanId,
+                                                  indexprefix=self.indexprefix)
                     else:
-                        logger.info("Could not index mock transient.")
+                        logger.debug("Not indexing noises for scanId {0}."
+                                     .format(scanId))
+                else:
+                    logger.debug('No noisefile found, no noises indexed.')
 
+                # index cands
                 if ncands:
                     if self.indexresults:
-                        tags = self.tags
-                        res_fut = self.client.submit(elastic.indexcands,
-                                                     cc, scanId, tags=tags,
-                                                     url_prefix=_candplot_url_prefix,
-                                                     indexprefix=self.indexprefix,
-                                                     priority=5)
-                        # TODO: makesumaryplot logs cands in all segments
-                        # this is confusing when only one segment being handled here
                         workdir = self.states[scanId].prefs.workdir
-                        msp = self.client.submit(makesummaryplot,
-                                                 workdir,
-                                                 scanId,
-                                                 priority=5).result()
-                        nplots_fut = self.client.submit(moveplots, cc, scanId,
-                                                        destination=_candplot_dir,
-                                                        priority=5)
-                        if res_fut.result() or nplots_fut.result() or msp:
-                            logger.info('Indexed {0} cands to {1} and '
-                                        'moved {2} plots and summarized {3} '
-                                        'to {4} for scanId {5}'
-                                        .format(res_fut.result(),
-                                                self.indexprefix+'cands',
-                                                nplots_fut.result(),
-                                                msp,
-                                                _candplot_dir,
-                                                scanId))
-                        else:
-                            logger.info('No candidates or plots found.')
-
-                        cindexed += res_fut.result()
+                        # TODO: check on error handling for fire_and_forget
+                        distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
+                                                                       cc,
+                                                                       scanId,
+                                                                       self.tags,
+                                                                       self.indexprefix,
+                                                                       workdir,
+                                                                       priority=5))
+                        cindexed += ncands
                     else:
                         logger.info("Not indexing cands found in scanId {0}"
                                     .format(scanId))
@@ -496,39 +504,17 @@ class realfast_controller(Controller):
                     logger.debug('No candidates for a segment from scanId {0}'
                                  .format(scanId))
 
-                # index noises
-                noisefile = self.states[scanId].noisefile
-                if os.path.exists(noisefile):
-                    if self.indexresults:
-                        res = elastic.indexnoises(noisefile, scanId,
-                                                  indexprefix=self.indexprefix)
-                        if res:
-                            logger.info("Indexed {0} noises to {1} for scanId "
-                                        "{2}".format(res,
-                                                     self.indexprefix+"noise",
-                                                     scanId))
-                    else:
-                        logger.debug("Not indexing noises for scanId {0}."
-                                     .format(scanId))
-                else:
-                    logger.debug('No noisefile found, no noises indexed.')
-
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    newsdms_fut = self.client.submit(createproducts, cc, data,
-                                                     priority=5)
-                    try:
-                        sdms += len(newsdms_fut.result())
-                        if len(newsdms_fut.result()):
-                            logger.info("Created new SDMs at: {0}"
-                                        .format(newsdms_fut.result()))
-                        else:
-                            logger.info("No new SDMs created")
-                        if self.archiveproducts:
-                            runingest(newsdms_fut.result())  # TODO: implement this
-                    except distributed.scheduler.KilledWorker:
-                        logger.warn("Lost SDM generation due to killed worker.")                       
-
+                    # TODO: be sure this does not slow loop too much
+                    distributed.fire_and_forget(self.client.submit(createproducts,
+                                                                   cc, data,
+                                                                   self.archiveproducts,
+                                                                   indexprefix=self.indexprefix,
+                                                                   priority=5))
+                    logger.info("SDM being created for {0}, segment {1}, with {2} candidates"
+                                .format(scanId, seg, ncands))
+                    sdms += 1
                 else:
                     logger.debug("Not making new SDMs or moving candplots.")
 
@@ -536,11 +522,12 @@ class realfast_controller(Controller):
                 self.futures[scanId].remove(futures)
                 removed += 1
 
-        # after scanId loop, clean up self.futures
+        # clean up self.futures
         removeids = [scanId for scanId in self.futures
                      if (len(self.futures[scanId]) == 0) and (scanId != keep)]
         if removeids:
-            logstr = ("No jobs left for scanIds: {0}.".format(', '.join(removeids)))
+            logstr = ("No jobs left for scanIds: {0}."
+                      .format(', '.join(removeids)))
             if keep is not None:
                 logstr += (". Cleaning state and futures dicts (keeping {0})"
                            .format(keep))
@@ -632,16 +619,23 @@ class realfast_controller(Controller):
                              (scanId0 == scanId)]
 
             self.errors[scanId] += len(removelist)
+            for removefuts in removelist:
+                (seg, data, cc, acc) = removefuts
+                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}"
+                            .format(scanId, seg, data.status, cc.status,
+                                    acc.status))
 
             # clean them up
-            errworkers = [(fut, self.client.who_has(fut)) for futs in removelist
+            errworkers = [(fut, self.client.who_has(fut))
+                          for futs in removelist
                           for fut in futs[1:] if fut.status == 'error']
             errworkerids = [(fut, self.workernames[worker[0][0]])
                             for fut, worker in errworkers
                             for ww in listvalues(worker) if ww]
             for i, errworkerid in enumerate(errworkerids):
                 fut, worker = errworkerid
-                logger.warn("Error on workers {0}: {1}".format(worker, fut.exception()))
+                logger.warn("Error on workers {0}: {1}"
+                            .format(worker, fut.exception()))
 
             for futures in removelist:
                 self.futures[scanId].remove(futures)
@@ -727,7 +721,8 @@ def search_config(config, preffile=None, inprefs={},
     # 7) only if some fast sampling is done
     t_fast = 0.5
     if not any([inttime < t_fast for inttime in inttimes]):
-        logger.warn("No subband has integration time faster than {0} s".format(t_fast))
+        logger.warn("No subband has integration time faster than {0} s"
+                    .format(t_fast))
         return False
 
     return True
@@ -755,20 +750,6 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
         prefsname = 'default'
 
     return prefsname
-
-
-def make_transient_params(st, data=None, segment=None):
-    """ Select from read data and calc transient params
-    """
-
-    # take pols of interest
-    takepol = [st.metadata.pols_orig.index(pol) for pol in st.pols]
-    logger.debug('Selecting pols {0} and chans {1}'.format(st.pols, st.chans))
-
-    datap = np.nan_to_num(data.take(takepol, axis=3).take(st.chans, axis=2),
-                          copy=True)
-
-    return util.make_transient_params(st, data=datap, ntr=1, segment=segment)
 
 
 def summarize(config):
@@ -813,12 +794,12 @@ def summarize(config):
                     "Proceeding.")
 
 
-def createproducts(candcollection, data, sdmdir='.',
+def createproducts(candcollection, data, archiveproducts=False,
+                   indexprefix=None,
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
     This uses the mcaf_servers module, which calls the sdm builder server.
-    sdmdir will move and rename output file to "realfast_<obsid>_<uid>".
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
@@ -826,6 +807,8 @@ def createproducts(candcollection, data, sdmdir='.',
         candcollection = candcollection.result()
     if isinstance(data, distributed.Future):
         data = data.result()
+
+    assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
 
     if len(candcollection.array) == 0:
         logger.info('No candidates to generate products for.')
@@ -838,61 +821,59 @@ def createproducts(candcollection, data, sdmdir='.',
                     .format(segment))
     st = candcollection.state
 
-    candranges = gencandranges(candcollection)  # finds time windows to save from segment
-    logger.info('Getting data for candidate time ranges {0}.'
-                .format(candranges))
+    candranges = util.gencandranges(candcollection)  # finds time windows to save from segment
+    logger.info('Getting data for candidate time ranges {0} in segment {1}.'
+                .format(candranges, segment))
 
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
 
     sdmlocs = []
-    for (startTime, endTime) in candranges:
+    # make sdm for each unique time range (e.g., segment)
+    for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = (86400*(endTime-startTime)/metadata.inttime).astype(int)  # TODO: may be off by 1
-        logger.info("Cutting {0} ints from int {1} for candidate at {2}"
-                    .format(nint, i, startTime))
+        nint = np.round(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
+        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
+                    .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut)
-        if sdmloc is not None:
-            if sdmdir is not None:
-                uid = ('uid:///evla/realfastbdf/{0}'
-                       .format(int(time.Time(startTime,
-                                             format='mjd').unix*1e3)))
-                if 'sdm-builder' in sdmloc:  # remove default name suffix
-                    sdmlocbase = '-'.join(sdmloc.rsplit('-')[:-3])
-                else:
-                    sdmlocbase = sdmloc
-                newsdmloc = os.path.join(sdmdir, 'realfast_{0}_{1}'
-                                         .format(os.path.basename(sdmlocbase),
-                                                 uid.rsplit('/')[-1]))
-                assert not os.path.exists(newsdmloc), "newsdmloc {0} already exists".format(newsdmloc)
-                shutil.move(sdmloc, newsdmloc)
-                sdmlocs.append(newsdmloc)
-            else:
-                sdmlocs.append(sdmloc)
+        # TODO: fill in annotation dict as defined in confluence doc on realfast collections
+        annotation = {}
+        calScanTime = np.unique(calibration.getsols(st)['mjd'])
+        if len(calScanTime) > 1:
+            logger.warn("Using first of multiple cal times: {0}."
+                        .format(calScanTime))
+        calScanTime = calScanTime[0]
 
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
+                                      data_cut, calScanTime,
+                                      annotation=annotation)
+        if sdmloc is not None:
+            # update index to link to new sdm
+            if indexprefix is not None:
+                candIds = elastic.candid(cc=candcollection)
+                for Id in candIds:
+                    elastic.update_field(indexprefix+'cands', 'sdmname',
+                                         sdmloc, Id=Id)
+
+            sdmlocs.append(sdmloc)
+            logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)
+            # try archiving it
+            try:
+                if archiveproducts:
+                    runingest(sdmloc)  # TODO: implement this
+
+            except distributed.scheduler.KilledWorker:
+                logger.warn("Lost SDM generation due to killed worker.")
         else:
             logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}"
                         .format(metadata.datasetId, startTime, endTime))
 
     return sdmlocs
-
-
-def gencandranges(candcollection):
-    """ Given a candcollection, define a list of candidate time ranges.
-    """
-
-    segment = candcollection.segment
-    st = candcollection.state
-
-    # save whole segment
-    return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
 def runingest(sdms):
@@ -902,61 +883,6 @@ def runingest(sdms):
 
     NotImplementedError
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
-
-
-def moveplots(candcollection, scanId, destination=_candplot_dir):
-    """ For given fileroot, move candidate plots to public location
-    """
-
-    workdir = candcollection.prefs.workdir
-    segment = candcollection.segment
-
-    logger.info("Moving plots for scanId {0} segment {1} to {2}"
-                .format(scanId, segment, destination))
-
-    nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
-                          .format(workdir, scanId, segment))
-    for candplot in candplots:
-#        try:
-#            shutil.move(candplot, destination)
-        success = rsync(candplot, destination)
-        nplots += success
-#        except shutil.Error:
-#            logger.warn("Plot {0} already exists at {1}. Skipping..."
-#                        .format(candplot, destination))
-
-    # move summary plot too
-    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
-    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
-    if os.path.exists(summaryplot):
-#        shutil.move(summaryplot, summaryplotdest)
-        success = rsync(summaryplot, summaryplotdest)
-    else:
-        logger.warn("No summary plot {0} found".format(summaryplot))
-
-    return nplots
-
-
-def rsync(original, new):
-    """ Uses subprocess.call to rsync from 'filename' to 'new'
-    If new is directory, copies original in.
-    If new is new file, copies original to that name.
-    """
-
-    assert os.path.exists(original), 'Need original file!'
-    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
-
-    return int(res == 0)
-
-
-def makesummaryplot(workdir, scanId):
-    """ Create summary plot for a given scanId and move it
-    """
-
-    candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    ncands = candidates.makesummaryplot(candsfile)
-    return ncands
 
 
 class config_controller(Controller):

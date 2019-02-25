@@ -4,12 +4,14 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import os.path
+import subprocess
+import shutil
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
-from rfpipe.candidates import calc_cluster_rank
 from rfpipe.metadata import make_metadata
+from rfpipe.candidates import iter_noise
+from rfpipe.preferences import Preferences
 from realfast import heuristics
-import pickle
 import logging
 from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
@@ -54,8 +56,8 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     scandict['subscanNo'] = int(meta.subscan)
     scandict['source'] = meta.source
     ra, dec = degrees(meta.radec)
-    scandict['ra_deg'] = float(ra)
-    scandict['dec_deg'] = float(dec)
+    scandict['ra'] = float(ra)
+    scandict['dec'] = float(dec)
     scandict['startTime'] = float(meta.starttime_mjd)
     scandict['stopTime'] = float(meta.endtime_mjd)
     scandict['datasource'] = meta.datasource
@@ -158,6 +160,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     cluster = candcollection.cluster
     clustersize = candcollection.clustersize
     snrtot = candcollection.snrtot
+    ra_ctr, dec_ctr = degrees(candcollection.metadata.radec)
 
     res = 0
     for i in range(len(candarr)):
@@ -178,14 +181,17 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['cluster'] = int(cluster[i])
         canddict['clustersize'] = int(clustersize[i])
         canddict['snrtot'] = float(snrtot[i])
+        canddict['ra'] = ra_ctr + degrees(canddict['l1'])
+        canddict['dec'] = dec_ctr + degrees(canddict['m1'])
         canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
 
         # create id
-        uniqueid = candid(canddict)
+        uniqueid = candid(datadict=canddict)
+        canddict['candId'] = uniqueid
         candidate_png = 'cands_{0}.png'.format(uniqueid)
-        canddict['png_url'] = os.path.join(url_prefix, candidate_png)
+        canddict['png_url'] = os.path.join(url_prefix, indexprefix, candidate_png)
 
 #        assert os.path.exists(os.path.join(prefs.workdir, candidate_png)), "Expected png {0} for candidate.".format(candidate_png)
         res += pushdata(canddict, index=index,
@@ -228,10 +234,10 @@ def indexmock(scanId, mocks, indexprefix='new'):
                    command='index')
 
     if res >= 1:
-        logger.debug('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
+        logger.info('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
                                                                index))
     else:
-        logger.debug('No mocks indexed for {0}'.format(scanId))
+        logger.info('No mocks indexed for {0}'.format(scanId))
 
     return res
 
@@ -246,12 +252,9 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
 
-    noises = []
-    with open(noisefile, 'rb') as pkl:
-        noises += pickle.load(pkl)
-
     count = 0
-    for noise in noises:
+    segments = []
+    for noise in iter_noise(noisefile):
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
         if not es.exists(index=index, doc_type=doc_type, id=Id):
@@ -265,10 +268,11 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
 
             count += pushdata(noisedict, Id=Id, index=index,
                               command='index')
+            segments.append(segment)
 
     if count:
-        logger.debug('Indexed {0} noises for {1} to {2}'
-                     .format(count, scanId, index))
+        logger.info('Indexed {0} noises for {1} to {2}'
+                    .format(count, scanId, index))
     else:
         logger.debug('No noises indexed for {0}'.format(scanId))
 
@@ -327,15 +331,25 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
         logger.warn("ConnectionError during push to index. Elasticsearch down?")
 
 
-def candid(data):
+def candid(datadict=None, cc=None):
     """ Returns id string for given data dict
     Assumes scanId is defined as:
     datasetId dot scanNum dot subscanNum
     """
 
-    return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
-            .format(data['scanId'], data['segment'], data['integration'],
-                    data['dmind'], data['dtind']))
+    if datadict is not None and cc is None:
+        scanId = datadict['scanId']
+        segment = datadict['segment']
+        integration = datadict['integration']
+        dmind = datadict['dmind']
+        dtind = datadict['dtind']
+        return ('{0}_seg{1}-i{2}-dm{3}-dt{4}'
+                .format(scanId, segment, integration, dmind, dtind))
+    elif cc is not None and datadict is None:
+        scanId = cc.metadata.scanId
+        return ['{0}_seg{1}-i{2}-dm{3}-dt{4}'
+                .format(scanId, segment, integration, dmind, dtind)
+                for segment, integration, dmind, dtind, beamnum in cc.locs]
 
 
 def update_field(index, field, value, Id=None, **kwargs):
@@ -366,26 +380,30 @@ def update_field(index, field, value, Id=None, **kwargs):
     return resp['_shards']['successful']
 
 
-def remove_ids(index, **kwargs):
+def remove_ids(index, Ids=None, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
     Can optionally pass key-value pairs of field-string to search.
     Must match exactly (e.g., "scanId"="test.1.1")
     """
 
-    if not len(kwargs):
-        logger.warn("No query kwargs provided. Will clear all Ids in {0}"
-                    .format(index))
-        confirm = input("Press any key to confirm removal.")
-        if confirm:
-            logger.info("Removing...")
+    if Ids is None:
+        if not len(kwargs):
+            logger.warn("No Ids or query kwargs. Clearing all Ids in {0}"
+                        .format(index))
+        Ids = get_ids(index, **kwargs)
 
-    Ids = get_ids(index, **kwargs)
-    res = 0
-    for Id in Ids:
-        res += pushdata({}, index, Id, command='delete')
+    confirm = input("Press any key to confirm removal of {0} ids from {1}."
+                    .format(len(Ids), index))
+    if confirm:
+        logger.info("Removing...")
+        res = 0
+        for Id in Ids:
+            res += pushdata({}, index, Id, command='delete')
 
-    logger.info("Removed {0} docs from index {1}".format(res, index))
+        logger.info("Removed {0} docs from index {1}".format(res, index))
+
+    return res
 
 
 def get_ids(index, **kwargs):
@@ -425,51 +443,108 @@ def get_doc(index, Id):
 
 
 ###
-# Migrating docs from 'new' to 'final' after tagging
+# Using index
 ###
 
-def move_docs(indexprefix1='new', indexprefix2='final',
-              consensustype='majority', nop=3, newtags=None):
-    """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
-    newtags will append to the new "tags" field for all moved candidates.
-    Default tags field will contain the user consensus tag.
+def create_preference(index, Id):
+    """ Get doc from index with Id and create realfast preference object
     """
 
-    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
-                              consensustype=consensustype, newtags=newtags)
+    doc = get_doc(index, Id)
+    prefs = doc['_source']
+    return Preferences(**prefs)
 
-    for candId, tags in iteritems(consensus):
-        # check remaining docs
-        docids = find_docids(indexprefix=indexprefix1, candId=candId)
 
-        # move candId
-        result = copy_doc(indexprefix1+'cands', indexprefix2+'cands', candId,
-                          deleteorig=True)
+###
+# Managing docs between indexprefixes
+###
 
-        if result:
-            logger.info("Moved candId {0} from {1} to {2}"
-                        .format(candId, indexprefix1, indexprefix2))
+def move_dataset(indexprefix1, indexprefix2, datasetId):
+    """ Given two index prefixes, move a datasetId and all associated docs over.
+    This will delete the original documents in indexprefix1.
+    """
 
-            # set tags field
-            update_field(indexprefix2+'cands', 'tags',
-                         consensus[candId]['tags'], Id=candId)
+    iddict0 = {indexprefix1+'cands': [], indexprefix1+'scans': [],
+               indexprefix1+'mocks': [], indexprefix1+'noises': [],
+               indexprefix1+'preferences': []}
 
-            # if no candIds remain, then move remaining docs
-            if len(docids[indexprefix1+'cands']) == 0:
-                scanId = docids[indexprefix1+'scans']
-                logger.info("{0} is last candidate in its scan. Moving remainind docs for scanId {1}."
-                            .format(candId, scanId))
-                for index1, idlist in docids:
-                    index2 = index1.replace(indexprefix1, indexprefix2)
-                    for Id0 in idlist:
-                        result += copy_doc(index1, index2, Id0, deleteorig=True)
+    scanids = get_ids(indexprefix1 + 'scans', datasetId=datasetId)
+    for scanId in scanids:
+        iddict = copy_all_docs(indexprefix1, indexprefix2, scanId=scanId)
+        for k, v in iddict.items():
+            for Id in v:
+                if Id not in iddict0[k]:
+                    iddict0[k].append(Id)
 
-                logger.info("Moved {0} documents from {1} to {2}"
-                            .format(result, indexprefix1, indexprefix2))
+    # first remove Ids
+    for k, v in iddict0.items():
+        if k != indexprefix1 + 'preferences':
+            remove_ids(k, v)
 
+    # test whether other scans are using prefsname
+    prefsnames = iddict0[indexprefix1 + 'preferences']
+    for prefsname in prefsnames:
+        if not len(get_ids(indexprefix1 + 'scans', prefsname=prefsname)):
+            remove_ids(indexprefix1 + 'preferences', [prefsname])
         else:
-            logger.info("Failed move of CandId {0} from {1} to {2}"
-                        .format(candId, indexprefix1, indexprefix2))
+            logger.info("prefsname {0} is referred to in {1}. Not deleting"
+                        .format(Id, k))
+
+    # TODO: remove png and html files after last move
+
+
+def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
+    """ Given scanId or candId, move all associated docs from 1 to 2.
+    Associated docs include scanId, preferences, mocks, etc.
+    If scanId provided, all docs moved.
+    If candId provided, only that one will be selected from all in scanId.
+    """
+
+    if candId is not None:
+        logger.info("Copying docs for candId {0}".format(candId))
+    elif scanId is not None:
+        logger.info("Copying docs for scanId {0}".format(scanId))
+
+    iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
+    for k, v in iddict.items():
+        for Id in v:
+            if (candId is None) or (candId == Id):
+                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
+
+                # update png_url to new prefix and move plot
+                if (k == indexprefix1+'cands') and result:
+                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                    update_field(indexprefix2+'cands', 'png_url',
+                                 png_url.replace(indexprefix1, indexprefix2),
+                                 Id=Id)
+                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix1, Id))
+                    candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix2, Id))
+                    if os.path.exists(candplot1):
+                        success = shutil.copy(candplot1, candplot2)
+
+                        if success:
+                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                        .format(Id, indexprefix1,
+                                                indexprefix2))
+                        else:
+                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+                                        .format(Id, indexprefix1,
+                                                indexprefix2))
+                elif not result:
+                    logger.info("Did not copy {0} from {1} to {2}"
+                                .format(Id, indexprefix1, indexprefix2))
+
+            # copy summary html file
+            if k == indexprefix1+'scans':
+                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix1, v[0]))
+                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix2, v[0]))
+                success = shutil.copy(summary1, summary2)
+
+    return iddict
 
 
 def find_docids(indexprefix, candId=None, scanId=None):
@@ -488,11 +563,7 @@ def find_docids(indexprefix, candId=None, scanId=None):
 
     # option 1: give a candId to get scanId and then other docs
     if candId is not None and scanId is None:
-        index = indexprefix + 'cands'
-        doc_type = index.rstrip('s')
-
-        doc = es.get(index=index, doc_type=doc_type, id=candId)
-        scanId = doc['_source']['scanId']
+        scanId = candId.split("_seg")[0]
 
     # option 2: use scanId given as argument or from above
     if scanId is not None:
@@ -510,6 +581,113 @@ def find_docids(indexprefix, candId=None, scanId=None):
         docids[index] = [prefsname]
 
     return docids
+
+
+def audit_indexprefix(indexprefix):
+    """ Confirm that all candids map to scanids, prefnames, and pngs.
+    Confirm that scanids mocks, noises.
+    Also test that candids have plots and summaryplots.
+    """
+
+    import requests
+
+    scanIds = get_ids(indexprefix+'scans')
+    candIds = get_ids(indexprefix+'cands')
+    mockIds = get_ids(indexprefix+'mocks')
+    noiseIds = get_ids(indexprefix+'noises')
+
+    failed = 0
+    for candId in candIds:
+        doc = get_doc(indexprefix+'cands', candId)
+
+        # 1) is candId tied to scanId?
+        candIdscanId = doc['_source']['scanId']
+        if candIdscanId not in scanIds:
+            failed += 1
+            logger.warn("candId {0} has scanId {1} that is not in {2}"
+                        .format(candId, candIdscanId, indexprefix+'scans'))
+
+        # 2) Is candId prefs indexed?
+        prefsname = doc['_source']['prefsname']
+        if prefsname not in get_ids(indexprefix+'preferences'):
+            failed += 1
+            logger.warn("candId {0} has prefsname {1} that is not in {2}"
+                        .format(candId, prefsname, indexprefix+'preferences'))
+
+        # 3) Is candId png_url in right place?
+        png_url = doc['_source']['png_url']
+        if requests.get(png_url).status_code != 200:
+            failed += 1
+            logger.warn("candId {0} png_url {1} is not accessible"
+                        .format(candId, png_url))
+
+        # 4) Does candId have summary plot?
+        summary_url = ('http://realfast.nrao.edu/plots/{0}/cands_{1}.html'
+                       .format(indexprefix, candIdscanId))
+        if requests.get(summary_url).status_code != 200:
+            failed += 1
+            logger.warn("candId {0} summary plot {1} is not accessible"
+                        .format(candId, summary_url))
+
+    logger.info("{0} of {1} candIds have issues".format(failed, len(candIds)))
+
+    failed = 0
+    for scanId in scanIds:
+        doc = get_doc(indexprefix+'scans', scanId)
+
+        # 5) Is scanId prefs indexed?
+        prefsname = doc['_source']['prefsname']
+        if prefsname not in get_ids(indexprefix+'preferences'):
+            failed += 1
+            logger.warn("scanId {0} has prefsname {1} that is not in {2}"
+                        .format(scanId, prefsname, indexprefix+'preferences'))
+
+    logger.info("{0} of {1} scanIds have issues".format(failed, len(scanIds)))
+
+    failed = 0
+    for mockId in mockIds:
+        doc = get_doc(indexprefix+'mocks', mockId)
+
+        # 6) is mockId tied to scanId?
+        mockIdscanId = doc['_source']['scanId']
+        if mockIdscanId not in scanIds:
+            failed += 1
+            logger.warn("mockId {0} has scanId {1} that is not in {2}"
+                        .format(mockId, mockIdscanId, indexprefix+'scans'))
+
+    logger.info("{0} of {1} mockIds have issues".format(failed, len(mockIds)))
+
+    failed = 0
+    for noiseId in noiseIds:
+        doc = get_doc(indexprefix+'noises', noiseId)
+
+        # 7) is noiseId tied to scanId?
+        noiseIdscanId = doc['_source']['scanId']
+        if noiseIdscanId not in scanIds:
+            failed += 1
+            logger.warn("noiseId {0} has scanId {1} that is not in {2}"
+                        .format(noiseId, noiseIdscanId, indexprefix+'scans'))
+
+    logger.info("{0} of {1} noiseIds have issues".format(failed, len(noiseIds)))
+
+
+def move_consensus(indexprefix1='new', indexprefix2='final',
+                   consensustype='majority', nop=3, newtags=None):
+    """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
+    newtags will append to the new "tags" field for all moved candidates.
+    Default tags field will contain the user consensus tag.
+    """
+
+    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
+                              consensustype=consensustype, newtags=newtags)
+
+    for candId, tags in iteritems(consensus):
+        # check remaining docs
+        iddict = copy_all_docs(indexprefix1, indexprefix2, candId)
+
+        # set tags field
+        update_field(indexprefix2+'cands', 'tags',
+                     consensus[candId]['tags'], Id=candId)
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
@@ -631,7 +809,8 @@ def create_indices(indexprefix):
     body_preferences = body.copy()
     body_preferences['mappings'] = {indexprefix+"preference": {
                                      "properties": {
-                                       "flaglist": {"type":  "text"}
+                                       "flaglist": {"type":  "text"},
+                                       "calcfeatures": {"type":  "text"}
                                        }
                                      }
                                     }
@@ -664,17 +843,19 @@ def reset_indices(indexprefix, deleteindices=False):
     for index in [indexprefix+'noises', indexprefix+'mocks',
                   indexprefix+'cands', indexprefix+'scans',
                   indexprefix+'preferences']:
-        confirm = input("Confirm removal of {0} entries"
-                        .format(index))
-        res = 0
-        if confirm:
-            try:
-                Ids = get_ids(index)
-                for Id in Ids:
-                    res += pushdata({}, index, Id, command='delete')
-                logger.info("Removed {0} docs from index {1}".format(res, index))
-                if deleteindices:
-                    es.indices.delete(index)
-                    logger.info("Removed {0} index".format(index))
-            except TransportError:
-                logger.info("Index {0} does not exist".format(index))
+        res = remove_ids(index)
+        if deleteindices:
+            es.indices.delete(index)
+            logger.info("Removed {0} index".format(index))
+
+
+def rsync(original, new):
+    """ Uses subprocess.call to rsync from 'filename' to 'new'
+    If new is directory, copies original in.
+    If new is new file, copies original to that name.
+    """
+
+    assert os.path.exists(original), 'Need original file!'
+    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
+
+    return int(res == 0)
