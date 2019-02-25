@@ -395,9 +395,10 @@ def remove_ids(index, Ids=None, **kwargs):
 
     confirm = input("Press any key to confirm removal of {0} ids from {1}."
                     .format(len(Ids), index))
+
+    res = 0
     if confirm:
         logger.info("Removing...")
-        res = 0
         for Id in Ids:
             res += pushdata({}, index, Id, command='delete')
 
