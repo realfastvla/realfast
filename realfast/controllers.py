@@ -93,6 +93,7 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
+        self.submitted_segments = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -215,15 +216,56 @@ class realfast_controller(Controller):
                          searchintents=self.searchintents):
             logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config,
-                           inmeta={'datasource': 'vys'})
+            # starting config of an OTF row will trigger subscan logic
+            if config.otf:
+                self.handle_subscan(config, cfile=cfile)
+            else:
+                # for standard pointed mode, just set state and start pipeline
+                self.set_state(config.scanId, config=config,
+                               inmeta={'datasource': 'vys'})
 
-            self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
+                self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
         self.cleanup()
+
+    def handle_subscan(self, config, cfile=_vys_cfile_prod):
+        """ Triggered when subscan info is updated (e.g., OTF mode).
+        OTF requires more setup and management.
+        """
+
+        # set up OTF info
+        if config.nsubscan:  # is this needed?
+            # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
+            phasecenters = []
+            endtime_mjd_ = 0
+            for ss in self.subscans:
+                if ss.stopTime is not None:
+                    if ss.stopTime > endtime_mjd_:
+                        endtime_mjd_ = ss.stopTime
+                    phasecenters.append((ss.startTime, ss.stopTime,
+                                         ss.ra_deg, ss.dec_deg))
+
+        # pass in first subscan and overload end time
+        self.set_state(config.scanId, config=config.subscans[-1],
+                       inmeta={'datasource': 'vys',
+                               'endtime_mjd_': endtime_mjd_})
+
+        allsegments = list(range(self.states[config.scanId].nsegment))
+        if config.scanId not in self.submitted_segments:
+            self.submitted_segments[config.scanId] = []
+
+        # filter out submitted segments
+        segments = [seg for seg in allsegments
+                    if seg not in self.submitted_segments[config.scanId]]
+        self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
+                            phasecenters=phasecenters)
+        # now all (currently known segments) have been submitted
+        self.submitted_segments[config.scanId] = allsegments
+
+        self.cleanup(keep=config.scanId)  # do not remove keys of ongoing submission
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -289,7 +331,7 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None, segments=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None, phasecenters=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         segments arg can be used to select or slow segment submission.
@@ -360,6 +402,7 @@ class realfast_controller(Controller):
                     self.futures[scanId] = []
                     self.errors[scanId] = 0
                     self.finished[scanId] = 0
+
                     if self.indexresults:
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
@@ -372,7 +415,8 @@ class realfast_controller(Controller):
                                                 vys_timeout=vys_timeout,
                                                 mem_read=w_memlim,
                                                 mem_search=2*st.vismem*1e9,
-                                                mockseg=mockseg)
+                                                mockseg=mockseg,
+                                                phasecenters=phasecenters)
                 self.futures[scanId].append(futures)
                 nsegment += 1
 
@@ -540,6 +584,7 @@ class realfast_controller(Controller):
                 _ = self.states.pop(scanId)
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
+                _ = self.submitted_segments.pop(scanId)
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
