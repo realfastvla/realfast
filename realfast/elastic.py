@@ -500,6 +500,8 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     If candId provided, only that one will be selected from all in scanId.
     """
 
+    assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
+
     if candId is not None:
         logger.info("Copying docs for candId {0}".format(candId))
     elif scanId is not None:
@@ -532,6 +534,9 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
                             logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
                                         .format(Id, indexprefix1,
                                                 indexprefix2))
+                    else:
+                        logger.warn("Could not find file {0}".format(candplot1))
+
                 elif not result:
                     logger.info("Did not copy {0} from {1} to {2}"
                                 .format(Id, indexprefix1, indexprefix2))
@@ -542,7 +547,8 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
                             .format(indexprefix1, v[0]))
                 summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
                             .format(indexprefix2, v[0]))
-                success = shutil.copy(summary1, summary2)
+                if os.path.exists(summary1):
+                    success = shutil.copy(summary1, summary2)
 
     return iddict
 
