@@ -130,7 +130,7 @@ class realfast_controller(Controller):
 
         if self.indexprefix is None:
             self.indexprefix = 'new'
-        assert self.indexprefix in ['new', 'test', 'aws'], "indexprefix must be None, 'new', 'test' or 'aws'."
+        assert self.indexprefix in ['new', 'test', 'chime', 'aws'], "indexprefix must be None, 'new', 'test', 'chime', or 'aws'."
         if self.daskdir is None:
             self.daskdir = _default_daskdir
 
