@@ -249,23 +249,22 @@ class realfast_controller(Controller):
                                          ss.ra_deg, ss.dec_deg))
 
         # pass in first subscan and overload end time
-        self.set_state(config.scanId, config=config.subscans[-1],
+        config0 = config.subscans[-1]  # all tracked by first config of scan
+        self.set_state(config0.scanId, config=config0,
                        inmeta={'datasource': 'vys',
                                'endtime_mjd_': endtime_mjd_})
 
-        allsegments = list(range(self.states[config.scanId].nsegment))
-        if config.scanId not in self.submitted_segments:
-            self.submitted_segments[config.scanId] = []
+        allsegments = list(range(self.states[config0.scanId].nsegment))
+        if config0.scanId not in self.submitted_segments:
+            self.submitted_segments[config0.scanId] = []
 
         # filter out submitted segments
         segments = [seg for seg in allsegments
-                    if seg not in self.submitted_segments[config.scanId]]
-        self.start_pipeline(config.scanId, cfile=cfile, segments=segments,
+                    if seg not in self.submitted_segments[config0.scanId]]
+        self.start_pipeline(config0.scanId, cfile=cfile, segments=segments,
                             phasecenters=phasecenters)
         # now all (currently known segments) have been submitted
-        self.submitted_segments[config.scanId] = allsegments
-
-        self.cleanup(keep=config.scanId)  # do not remove keys of ongoing submission
+        self.submitted_segments[config0.scanId] = allsegments
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -331,7 +330,8 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None, segments=None, phasecenters=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None,
+                       phasecenters=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         segments arg can be used to select or slow segment submission.
@@ -584,7 +584,10 @@ class realfast_controller(Controller):
                 _ = self.states.pop(scanId)
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
-                _ = self.submitted_segments.pop(scanId)
+                try:
+                    _ = self.submitted_segments.pop(scanId)
+                except KeyError:
+                    pass
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
@@ -949,9 +952,9 @@ class config_controller(Controller):
         """
 
         logger.info('Received complete configuration for {0}, '
-                    'scan {1}, source {2}, intent {3}'
-                    .format(config.scanId, config.scanNo, config.source,
-                            config.scan_intent))
+                    'scan {1}, subscan {2}, source {3}, intent {4}'
+                    .format(config.scanId, config.scanNo, config.subscanNo,
+                            config.source, config.scan_intent))
 
         if self.pklfile:
             with open(self.pklfile, 'ab') as pkl:
