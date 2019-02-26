@@ -218,8 +218,10 @@ class realfast_controller(Controller):
 
             # starting config of an OTF row will trigger subscan logic
             if config.otf:
+                logger.info("OTF config: calling handle_subscan")
                 self.handle_subscan(config, cfile=cfile)
             else:
+                logger.info("Non-OTF config: setting state and starting pipeline")
                 # for standard pointed mode, just set state and start pipeline
                 self.set_state(config.scanId, config=config,
                                inmeta={'datasource': 'vys'})
@@ -247,27 +249,43 @@ class realfast_controller(Controller):
                     endtime_mjd_ = ss.stopTime
                 phasecenters.append((ss.startTime, ss.stopTime,
                                      ss.ra_deg, ss.dec_deg))
+        logger.info("Calculated phasecenters: {0}".format(phasecenters))
 
         # pass in first subscan and overload end time
         config0 = config.subscans[-1]  # all tracked by first config of scan
         if config0.is_complete:
-            self.set_state(config0.scanId, config=config0,
-                           inmeta={'datasource': 'vys',
-                                   'endtime_mjd_': endtime_mjd_})
+            logger.info("First config in subscan is complete. Setting state")
+            if config0.scanId in self.submitted_segments:
+                logger.info("Already submitted segments for scanId {0}. Submitting fast.".format(config0.scanId))
+                self.set_state(config0.scanId, config=config0, validate=False,
+                               summarize=False,
+                               inmeta={'datasource': 'vys',
+                                       'endtime_mjd_': endtime_mjd_})
+            else:
+                logger.info("No submitted segments for scanId {0}. Submitting slow.".format(config0.scanId))
+                self.set_state(config0.scanId, config=config0,
+                               inmeta={'datasource': 'vys',
+                                       'endtime_mjd_': endtime_mjd_})
 
             allsegments = list(range(self.states[config0.scanId].nsegment))
             if config0.scanId not in self.submitted_segments:
+                logger.info("Initializing submitted_segments with scanId {0}"
+                            .format(config0.scanId))
                 self.submitted_segments[config0.scanId] = []
 
             # filter out submitted segments
             segments = [seg for seg in allsegments
                         if seg not in self.submitted_segments[config0.scanId]]
+            logger.info("Starting pipeline for {0} with segments {1}"
+                        .format(config0.scanId, segments))
             self.start_pipeline(config0.scanId, cfile=cfile, segments=segments,
                                 phasecenters=phasecenters)
             # now all (currently known segments) have been submitted
+            logger.info("Updating submitted_segments for {0} to {1}"
+                        .format(config0.scanId, allsegments))
             self.submitted_segments[config0.scanId] = allsegments
         else:
-            logger.info("Config is not complete. Continuing.")
+            logger.info("First subscan config is not complete. Continuing.")
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -368,10 +386,10 @@ class realfast_controller(Controller):
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
-        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f} '
-                    'read_overhead {2}, read_totfrac {3}, and '
-                    'spill_limit {4} with timeout {5}s'
-                    .format(scanId, throttletime, self.read_overhead, self.read_totfrac,
+        logger.info('Submitting {0} segments for scanId {1} with throttletime {2:.1f} '
+                    'read_overhead {3}, read_totfrac {4}, and '
+                    'spill_limit {5} with timeout {6}s'
+                    .format(len(segments), scanId, throttletime, self.read_overhead, self.read_totfrac,
                             self.spill_limit, timeout))
 
         tot_memlim = self.read_totfrac*sum([v['memory_limit']
@@ -387,7 +405,7 @@ class realfast_controller(Controller):
 
             if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                if endtime < segsubtime:
+                if endtime < segsubtime+1:  # TODO: define buffer delay better
                     logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
                                 .format(segment, endtime, segsubtime))
                     continue
@@ -769,8 +787,8 @@ def search_config(config, preffile=None, inprefs={},
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
-    # 7) only if some fast sampling is done
-    t_fast = 0.5
+    # 7) only if some fast sampling is done (faster than VLASS final inttime)
+    t_fast = 0.4
     if not any([inttime < t_fast for inttime in inttimes]):
         logger.warn("No subband has integration time faster than {0} s"
                     .format(t_fast))
