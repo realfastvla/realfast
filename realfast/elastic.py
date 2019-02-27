@@ -14,9 +14,9 @@ from rfpipe.preferences import Preferences
 from realfast import heuristics
 import logging
 from numpy import degrees
-logging.getLogger('elasticsearch').setLevel(30)
+logging.getLogger('elasticsearch').setLevel(20)
 logger = logging.getLogger(__name__)
-logger.setLevel(10)
+logger.setLevel(20)
 
 # eventually should be updated to search.realfast.io/api with auth
 es = Elasticsearch(['realfast.nrao.edu:9200'])
