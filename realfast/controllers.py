@@ -402,7 +402,7 @@ class realfast_controller(Controller):
         elapsedtime = 0
         nsubmitted = 0
         segments = iter(segments)
-        segment = next(segment)
+        segment = next(segments)
         while True:
             segsubtime = time.Time.now().unix
 
