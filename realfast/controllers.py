@@ -104,7 +104,8 @@ class realfast_controller(Controller):
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
 
-                _ = self.client.run(preferences.parsepreffile, self.preffile, asynchronous=True)
+                _ = self.client.run(preferences.parsepreffile, self.preffile,
+                                    asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
@@ -119,7 +120,7 @@ class realfast_controller(Controller):
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
-                setattr(self, attr, 0.8) # submit relative to realtime
+                setattr(self, attr, 0.8)  # submit relative to realtime
             else:
                 setattr(self, attr, None)
 
@@ -399,8 +400,10 @@ class realfast_controller(Controller):
         # submit segments
         t0 = time.Time.now().unix
         elapsedtime = 0
-        nsegment = 0
-        for segment in segments:
+        nsubmitted = 0
+        segments = iter(segments)
+        segment = next(segment)
+        while True:
             segsubtime = time.Time.now().unix
 
             if st.metadata.datasource == 'vys':
@@ -428,6 +431,7 @@ class realfast_controller(Controller):
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
+                        elastic.indexscanstatus(scanId, nsegment=st.nsegment)
                     else:
                         logger.info("Not indexing scan or prefs.")
 
@@ -439,7 +443,7 @@ class realfast_controller(Controller):
                                                 mockseg=mockseg,
                                                 phasecenters=phasecenters)
                 self.futures[scanId].append(futures)
-                nsegment += 1
+                nsubmitted += 1
 
                 if self.data_logging:
                     segment, data, cc, acc = futures
@@ -449,11 +453,16 @@ class realfast_controller(Controller):
                                                                    fifo_timeout='0s',
                                                                    priority=-1))
                 if self.indexresults:
-                    elastic.indexscanstatus(scanId, nsegment=nsegment,
+                    elastic.indexscanstatus(scanId, nsubmitted=nsubmitted,
                                             pending=self.pending[scanId],
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId],
                                             indexprefix=self.indexprefix)
+
+                try:
+                    segment = next(segments)
+                except StopIteration:
+                    break
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
@@ -482,13 +491,14 @@ class realfast_controller(Controller):
             # check timeout and wait time for next segment
             elapsedtime = time.Time.now().unix - t0
             if elapsedtime > timeout and timeout:
-                logger.info("Submission timed out. Submitted {0} segments of "
-                            "ScanId {1}".format(nsegment, scanId))
+                logger.info("Submission timed out. Submitted {0}/{1} segments "
+                            "for ScanId {2}".format(nsubmitted, st.nsegment,
+                                                    scanId))
                 break
             else:
                 dt = time.Time.now().unix - segsubtime
                 if dt < throttletime:
-                    logger.info("Waiting {0:.1f}s to submit next segment."
+                    logger.info("Waiting {0:.1f}s to submit segment."
                                 .format(throttletime-dt))
                     sleep(throttletime-dt)
 

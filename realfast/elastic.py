@@ -86,8 +86,8 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         indexprefs(preferences, indexprefix=indexprefix)
 
 
-def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
-                    errors=None, indexprefix='new'):
+def indexscanstatus(scanId, nsegment=None, nsubmitted=None, pending=None,
+                    finished=None, errors=None, indexprefix='new'):
     """ Update status fields for scanId
     """
 
@@ -97,6 +97,10 @@ def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
         tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='nsegment', value=int(nsegment))
+    if nsubmitted is not None:
+        tried += 1
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='nsubmitted', value=int(nsubmitted))
     if pending is not None:
         tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
