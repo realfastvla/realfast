@@ -467,6 +467,7 @@ def create_preference(index, Id):
 def move_dataset(indexprefix1, indexprefix2, datasetId):
     """ Given two index prefixes, move a datasetId and all associated docs over.
     This will delete the original documents in indexprefix1.
+    If indexprefix2 is None, then datasetId is removed from indexprefix1.
     """
 
     iddict0 = {indexprefix1+'cands': [], indexprefix1+'scans': [],
@@ -503,6 +504,7 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     Associated docs include scanId, preferences, mocks, etc.
     If scanId provided, all docs moved.
     If candId provided, only that one will be selected from all in scanId.
+    If indexprefix2 is None, then the dict of all docs in indexprefix1 is returned.
     """
 
     assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
@@ -513,47 +515,48 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
         logger.info("Copying docs for scanId {0}".format(scanId))
 
     iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
-    for k, v in iddict.items():
-        for Id in v:
-            if (candId is None) or (candId == Id):
-                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
+    if indexprefix2 is not None:
+        for k, v in iddict.items():
+            for Id in v:
+                if (candId is None) or (candId == Id):
+                    result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
 
-                # update png_url to new prefix and move plot
-                if (k == indexprefix1+'cands') and result:
-                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
-                    update_field(indexprefix2+'cands', 'png_url',
-                                 png_url.replace(indexprefix1, indexprefix2),
-                                 Id=Id)
-                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix1, Id))
-                    candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix2, Id))
-                    if os.path.exists(candplot1):
-                        success = shutil.copy(candplot1, candplot2)
+                    # update png_url to new prefix and move plot
+                    if (k == indexprefix1+'cands') and result:
+                        png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                        update_field(indexprefix2+'cands', 'png_url',
+                                     png_url.replace(indexprefix1, indexprefix2),
+                                     Id=Id)
+                        candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                     .format(indexprefix1, Id))
+                        candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                     .format(indexprefix2, Id))
+                        if os.path.exists(candplot1):
+                            success = shutil.copy(candplot1, candplot2)
 
-                        if success:
-                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
+                            if success:
+                                logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                            .format(Id, indexprefix1,
+                                                    indexprefix2))
+                            else:
+                                logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+                                            .format(Id, indexprefix1,
+                                                    indexprefix2))
                         else:
-                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
-                    else:
-                        logger.warn("Could not find file {0}".format(candplot1))
+                            logger.warn("Could not find file {0}".format(candplot1))
 
-                elif not result:
-                    logger.info("Did not copy {0} from {1} to {2}"
-                                .format(Id, indexprefix1, indexprefix2))
+                    elif not result:
+                        logger.info("Did not copy {0} from {1} to {2}"
+                                    .format(Id, indexprefix1, indexprefix2))
 
-            # copy summary html file
-            if k == indexprefix1+'scans':
-                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                            .format(indexprefix1, v[0]))
-                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                            .format(indexprefix2, v[0]))
-                if os.path.exists(summary1):
-                    success = shutil.copy(summary1, summary2)
+                # copy summary html file
+                if k == indexprefix1+'scans':
+                    summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                                .format(indexprefix1, v[0]))
+                    summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                                .format(indexprefix2, v[0]))
+                    if os.path.exists(summary1):
+                        success = shutil.copy(summary1, summary2)
 
     return iddict
 
