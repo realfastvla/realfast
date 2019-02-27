@@ -14,7 +14,7 @@ from rfpipe.preferences import Preferences
 from realfast import heuristics
 import logging
 from numpy import degrees
-logging.getLogger('elasticsearch').setLevel(20)
+logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
 logger.setLevel(20)
 
@@ -507,8 +507,6 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     If indexprefix2 is None, then the dict of all docs in indexprefix1 is returned.
     """
 
-    assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
-
     if candId is not None:
         logger.info("Copying docs for candId {0}".format(candId))
     elif scanId is not None:
@@ -516,6 +514,7 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
 
     iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
     if indexprefix2 is not None:
+        assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
         for k, v in iddict.items():
             for Id in v:
                 if (candId is None) or (candId == Id):

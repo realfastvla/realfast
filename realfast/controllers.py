@@ -431,7 +431,8 @@ class realfast_controller(Controller):
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
-                        elastic.indexscanstatus(scanId, nsegment=st.nsegment)
+                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
+                                                indexprefix=self.indexprefix)
                     else:
                         logger.info("Not indexing scan or prefs.")
 
