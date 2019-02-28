@@ -253,7 +253,7 @@ class realfast_controller(Controller):
         logger.info("Calculated phasecenters: {0}".format(phasecenters))
 
         # pass in first subscan and overload end time
-        config0 = config.subscans[-1]  # all tracked by first config of scan
+        config0 = config.subscans[0]  # all tracked by first config of scan
         if config0.is_complete:
             logger.info("First config in subscan is complete. Setting state")
             if config0.scanId in self.submitted_segments:
@@ -408,10 +408,15 @@ class realfast_controller(Controller):
 
             if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                if endtime < segsubtime+1:  # TODO: define buffer delay better
-                    logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                .format(segment, endtime, segsubtime))
-                    continue
+                if endtime < segsubtime-1:  # TODO: define buffer delay better
+                    logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
+                                   .format(segment, endtime, segsubtime-1))
+                    try:
+                        segment = next(segments)
+                        continue
+                    except StopIteration:
+                        logger.info("No more segments for scanId {0}".format(scanId))
+                        break
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -463,6 +468,7 @@ class realfast_controller(Controller):
                 try:
                     segment = next(segments)
                 except StopIteration:
+                    logger.info("No more segments for scanId {0}".format(scanId))
                     break
 
             else:
