@@ -323,7 +323,7 @@ class realfast_controller(Controller):
         self.cleanup()
 
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
-                  sdmscan=None, bdfdir=None):
+                  sdmscan=None, bdfdir=None, validate=True):
         """ Given metadata source, define state for a scanId.
         Uses metadata to set preferences used in preffile (prefsname).
         Preferences are then overloaded with self.inprefs.
@@ -342,7 +342,7 @@ class realfast_controller(Controller):
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
-                         bdfdir=bdfdir)
+                         bdfdir=bdfdir, validate=validate)
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
