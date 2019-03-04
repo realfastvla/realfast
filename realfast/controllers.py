@@ -403,9 +403,9 @@ class realfast_controller(Controller):
         nsubmitted = 0
         segments = iter(segments)
         segment = next(segments)
+        telcalset = self.set_telcalfile(scanId)
         while True:
             segsubtime = time.Time.now().unix
-
             if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
                 if endtime < segsubtime-1:  # TODO: define buffer delay better
@@ -418,13 +418,16 @@ class realfast_controller(Controller):
                         logger.info("No more segments for scanId {0}".format(scanId))
                         break
 
+            # try setting telcal
+            if not telcalset:
+                telcalset = self.set_telcalfile(scanId)
+
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
                 heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                 heuristics.spilled_memory_ok(limit=self.spill_limit,
                                              daskdir=self.daskdir) and
-                (self.set_telcalfile(scanId)
-                 if self.requirecalibration else True)):
+                (telcalset if self.requirecalibration else True)):
 
                 # first time initialize scan
                 if scanId not in self.futures:
@@ -543,62 +546,59 @@ class realfast_controller(Controller):
                                         errors=self.errors[scanId],
                                         indexprefix=self.indexprefix)
 
-            # TODO: make robust to lost jobs
+            # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
                 seg, data, cc, acc = futures
                 ncands, mocks = acc.result()
 
+                # index mocks
                 if self.indexresults and mocks:
-                    mindexed = elastic.indexmock(scanId, mocks,
-                                                 indexprefix=self.indexprefix)
+                    distributed.fire_and_forget(self.client.submit(elastic.indexmock,
+                                                                   scanId,
+                                                                   mocks,
+                                                                   indexprefix=self.indexprefix))
                 else:
-                    logger.debug("Not indexing mock transient(s).")
+                    logger.debug("No mocks indexed from scanId {0}"
+                                 .format(scanId))
                 
                 # index noises
                 noisefile = self.states[scanId].noisefile
-                if os.path.exists(noisefile):
-                    if self.indexresults:
-                        res = elastic.indexnoises(noisefile, scanId,
-                                                  indexprefix=self.indexprefix)
-                    else:
-                        logger.debug("Not indexing noises for scanId {0}."
-                                     .format(scanId))
+                if self.indexresults and os.path.exists(noisefile):
+                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
+                                                                   noisefile,
+                                                                   scanId,
+                                                                   indexprefix=self.indexprefix))
                 else:
-                    logger.debug('No noisefile found, no noises indexed.')
+                    logger.debug("No noises indexed from scanId {0}."
+                                 .format(scanId))
 
                 # index cands
-                if ncands:
-                    if self.indexresults:
-                        workdir = self.states[scanId].prefs.workdir
-                        # TODO: check on error handling for fire_and_forget
-                        distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
-                                                                       cc,
-                                                                       scanId,
-                                                                       self.tags,
-                                                                       self.indexprefix,
-                                                                       workdir,
-                                                                       priority=5))
-                        cindexed += ncands
-                    else:
-                        logger.info("Not indexing cands found in scanId {0}"
-                                    .format(scanId))
+                if self.indexresults and ncands:
+                    workdir = self.states[scanId].prefs.workdir
+                    distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
+                                                                   cc,
+                                                                   scanId,
+                                                                   self.tags,
+                                                                   self.indexprefix,
+                                                                   workdir,
+                                                                   priority=5))
                 else:
-                    logger.debug('No candidates for a segment from scanId {0}'
+                    logger.debug("No cands indexed from scanId {0}"
                                  .format(scanId))
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    # TODO: be sure this does not slow loop too much
                     distributed.fire_and_forget(self.client.submit(createproducts,
                                                                    cc, data,
                                                                    self.archiveproducts,
                                                                    indexprefix=self.indexprefix,
                                                                    priority=5))
-                    logger.info("SDM being created for {0}, segment {1}, with {2} candidates"
+                    logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                                 .format(scanId, seg, ncands))
                     sdms += 1
                 else:
-                    logger.debug("Not making new SDMs or moving candplots.")
+                    logger.debug("No SDMs plots moved for scanId {0}."
+                                 .format(scanId))
 
                 # remove job from list
                 self.futures[scanId].remove(futures)
@@ -673,12 +673,12 @@ class realfast_controller(Controller):
                     gainfile = os.path.join(path, name)
 
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
-                logger.info("Found telcalfile {0} for scanId {1}."
+                logger.debug("Found telcalfile {0} for scanId {1}."
                             .format(gainfile, scanId))
                 st.prefs.gainfile = gainfile
                 return True
             else:
-                logger.warn("No telcalfile {0} found for scanId {1}."
+                logger.debug("No telcalfile {0} found for scanId {1}."
                             .format(gainfile, scanId))
                 return False
 
