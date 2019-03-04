@@ -255,11 +255,11 @@ class realfast_controller(Controller):
         # pass in first subscan and overload end time
         config0 = config.subscans[0]  # all tracked by first config of scan
         if config0.is_complete:
-            logger.info("First config in subscan is complete. Setting state")
+            logger.info("Scan has a complete subscan. Setting state.")
             if config0.scanId in self.submitted_segments:
                 logger.info("Already submitted segments for scanId {0}. Submitting fast.".format(config0.scanId))
                 self.set_state(config0.scanId, config=config0, validate=False,
-                               summarize=False,
+                               showsummary=False,
                                inmeta={'datasource': 'vys',
                                        'endtime_mjd_': endtime_mjd_})
             else:
@@ -277,14 +277,19 @@ class realfast_controller(Controller):
             # filter out submitted segments
             segments = [seg for seg in allsegments
                         if seg not in self.submitted_segments[config0.scanId]]
-            logger.info("Starting pipeline for {0} with segments {1}"
-                        .format(config0.scanId, segments))
-            self.start_pipeline(config0.scanId, cfile=cfile, segments=segments,
-                                phasecenters=phasecenters)
-            # now all (currently known segments) have been submitted
-            logger.info("Updating submitted_segments for {0} to {1}"
-                        .format(config0.scanId, allsegments))
-            self.submitted_segments[config0.scanId] = allsegments
+            if len(segments):
+                logger.info("Starting pipeline for {0} with segments {1}"
+                            .format(config0.scanId, segments))
+                self.start_pipeline(config0.scanId, cfile=cfile,
+                                    segments=segments,
+                                    phasecenters=phasecenters)
+                # now all (currently known segments) have been submitted
+                logger.info("Updating submitted_segments for {0} to {1}"
+                            .format(config0.scanId, allsegments))
+                self.submitted_segments[config0.scanId] = allsegments
+            else:
+                logger.info("No new segments to submit for {0}"
+                            .format(config0.scanId))
         else:
             logger.info("First subscan config is not complete. Continuing.")
 
@@ -323,7 +328,7 @@ class realfast_controller(Controller):
         self.cleanup()
 
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
-                  sdmscan=None, bdfdir=None, validate=True):
+                  sdmscan=None, bdfdir=None, validate=True, showsummary=True):
         """ Given metadata source, define state for a scanId.
         Uses metadata to set preferences used in preffile (prefsname).
         Preferences are then overloaded with self.inprefs.
@@ -342,7 +347,7 @@ class realfast_controller(Controller):
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
-                         bdfdir=bdfdir, validate=validate)
+                         bdfdir=bdfdir, validate=validate, showsummary=showsummary)
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
@@ -439,7 +444,7 @@ class realfast_controller(Controller):
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
-                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
+                        elastic.indexscanstatus(scanId, nsegment=len(segments),
                                                 indexprefix=self.indexprefix)
                     else:
                         logger.info("Not indexing scan or prefs.")
@@ -502,7 +507,7 @@ class realfast_controller(Controller):
             elapsedtime = time.Time.now().unix - t0
             if elapsedtime > timeout and timeout:
                 logger.info("Submission timed out. Submitted {0}/{1} segments "
-                            "for ScanId {2}".format(nsubmitted, st.nsegment,
+                            "for ScanId {2}".format(nsubmitted, len(segments),
                                                     scanId))
                 break
             else:
