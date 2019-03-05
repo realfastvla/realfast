@@ -508,9 +508,9 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     """
 
     if candId is not None:
-        logger.info("Copying docs for candId {0}".format(candId))
+        logger.info("Finding docs with candId {0}".format(candId))
     elif scanId is not None:
-        logger.info("Copying docs for scanId {0}".format(scanId))
+        logger.info("Finding docs with scanId {0}".format(scanId))
 
     iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
     if indexprefix2 is not None:

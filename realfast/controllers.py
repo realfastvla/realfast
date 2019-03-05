@@ -535,7 +535,6 @@ class realfast_controller(Controller):
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
-        sdm_futs = []
         for scanId in self.futures:
 
             # check on finished
@@ -565,7 +564,7 @@ class realfast_controller(Controller):
                 else:
                     logger.debug("No mocks indexed from scanId {0}"
                                  .format(scanId))
-                
+
                 # index noises
                 noisefile = self.states[scanId].noisefile
                 if self.indexresults and os.path.exists(noisefile):
