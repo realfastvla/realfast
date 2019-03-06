@@ -3,7 +3,6 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-from realfast import controllers, elastic
 import click
 
 import logging
@@ -29,6 +28,8 @@ def config_catcher(pklfile, preffile):
     Can be saved to pklfile and optionally attached to preferences from preffile.
     """
 
+    from realfast import controllers
+
     logger.info("Running config catcher with pklfile={0} and preffile={1}"
                 .format(pklfile, preffile))
     config = controllers.config_controller(pklfile=pklfile, preffile=preffile)
@@ -40,6 +41,8 @@ def config_catcher(pklfile, preffile):
 def run(preffile):
     """ Run realfast controller to catch scan configs and start rfpipe.
     """
+
+    from realfast import controllers
 
     try:
         rfc = controllers.realfast_controller(preffile=preffile)
@@ -61,6 +64,8 @@ def get_ids(index):
     """ Get ids in given index
     """
 
+    from realfast import elastic
+
     logger.info("Getting Ids in index {0}".format(index))
     elastic.get_ids(index)
 
@@ -73,6 +78,8 @@ def move_dataset(prefix1, prefix2, datasetid):
     """ Move datasetId from prefix1 to prefix2
     """
 
+    from realfast import elastic
+
     elastic.move_dataset(prefix1, prefix2, datasetid)
 
 
@@ -83,7 +90,7 @@ def move_consensus(prefix1, prefix2):
     """ Use consensus to move candidates from 1 to 2
     """
 
-    pass
+    from realfast import elastic
 
 
 @cli2.command()
@@ -92,6 +99,8 @@ def move_consensus(prefix1, prefix2):
 def remove_dataset(prefix, datasetid):
     """ Remove all data associated with given datasetid
     """
+
+    from realfast import elastic
 
     elastic.move_dataset(prefix, None, datasetid)
 
@@ -102,6 +111,8 @@ def audit_indexprefix(prefix):
     """ Audit all indices with given prefix
     """
 
+    from realfast import elastic
+
     elastic.audit_indexprefix(prefix)
 
 
@@ -110,5 +121,7 @@ def audit_indexprefix(prefix):
 def reset_indices(prefix):
     """ Reset all indices with given prefix
     """
+
+    from realfast import elastic
 
     elastic.reset_indices(prefix)

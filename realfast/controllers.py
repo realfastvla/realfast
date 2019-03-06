@@ -13,7 +13,6 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, metadata, calibration, fileLock
 from realfast import pipeline, elastic, mcaf_servers, heuristics, util
 
 import logging
@@ -71,6 +70,8 @@ class realfast_controller(Controller):
         """
 
         super(realfast_controller, self).__init__()
+
+        from rfpipe import state, preferences, metadata, calibration, fileLock
 
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
@@ -824,6 +825,8 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     Allows configuration of pipeline based on scan properties.
     (e.g., galactic/extragal, FRB/pulsar).
     """
+
+    from rfpipe import metadata
 
     meta = metadata.make_metadata(inmeta=inmeta, config=config,
                                   sdmfile=sdmfile, sdmscan=sdmscan,

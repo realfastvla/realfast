@@ -5,7 +5,6 @@ from io import open
 
 import distributed
 from dask import array, delayed
-from rfpipe import source, pipeline
 from dask.base import tokenize
 import numpy as np
 from time import sleep
@@ -54,6 +53,8 @@ def pipeline_seg(st, segment, cl, cfile=None,
     Uses distributed resources parameter to control scheduling of GPUs.
     memreq is required memory in bytes.
     """
+
+    from rfpipe import source, pipeline
 
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
@@ -122,6 +123,8 @@ def read_segment(st, segment, cfile, vys_timeout):
     thread pool
     """
 
+    from rfpipe import source
+
     logger.info("Reading datasetId {0}, segment {1} locally."
                 .format(st.metadata.scanId, segment))
 
@@ -140,6 +143,8 @@ def prep_and_search(st, segment, data):
     """ Wrapper for search.prep_and_search that secedes from worker
     thread pool
     """
+
+    from rfpipe import pipeline
 
     logger.info("Searching datasetId {0}, segment {1} locally."
                 .format(st.metadata.scanId, segment))
@@ -168,6 +173,8 @@ def lazy_read_segment(st, segment, cfile=None,
     equivalent to making delayed version of function and then:
     arr = dask.array.from_delayed(dd, st.datashape, np.complex64).
     """
+
+    from rfpipe import source
 
     shape = st.datashape
     chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))

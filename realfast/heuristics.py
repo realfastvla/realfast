@@ -5,8 +5,6 @@ from io import open
 
 import os.path
 import sys
-from math import log
-from rfpipe import state
 import logging
 logger = logging.getLogger(__name__)
 
@@ -97,6 +95,8 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                     bdfdir=None, preffile=None, prefsname=None, inprefs={}):
     """ Try to compile state
     """
+
+    from rfpipe import state
 
     try:
         st = state.State(inmeta=inmeta, config=config, preffile=preffile,
@@ -225,6 +225,8 @@ def total_compute_time(st):
     1.2e-3 s (2048x2048)
     3.8e-3 s (4096x4096)
     """
+
+    from math import log
 
     time_ref = 2.3e-4
     npix_ref = 512

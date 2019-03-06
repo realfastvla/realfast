@@ -8,12 +8,7 @@ import subprocess
 import shutil
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
-from rfpipe.metadata import make_metadata
-from rfpipe.candidates import iter_noise
-from rfpipe.preferences import Preferences
-from realfast import heuristics
 import logging
-from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
 logger.setLevel(20)
@@ -33,6 +28,10 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     Uses data source (config, sdm, etc.) to define metadata object.
 
     """
+
+    from rfpipe.metadata import make_metadata
+    from numpy import degrees
+    from realfast import heuristics
 
     meta = make_metadata(inmeta=inmeta, config=config, sdmfile=sdmfile,
                          sdmscan=sdmscan, bdfdir=bdfdir)
@@ -146,6 +145,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     Use indexprefix='new' for production.
     """
 
+    from numpy import degrees
+
     if tags is None:
         tags = ''
 
@@ -252,6 +253,8 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
     """
+
+    from rfpipe.candidates import iter_noise
 
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
@@ -454,6 +457,8 @@ def get_doc(index, Id):
 def create_preference(index, Id):
     """ Get doc from index with Id and create realfast preference object
     """
+
+    from rfpipe.preferences import Preferences
 
     doc = get_doc(index, Id)
     prefs = doc['_source']
