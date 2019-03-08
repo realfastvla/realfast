@@ -251,7 +251,7 @@ class realfast_controller(Controller):
                 phasecenters.append((ss.startTime, ss.stopTime,
                                      ss.ra_deg, ss.dec_deg))
         t0 = min([startTime for (startTime, _, _, _) in phasecenters])
-        t1 = max([startTime for (startTime, _, _, _) in phasecenters])
+        t1 = max([stopTime for (_, stopTime, _, _) in phasecenters])
         logger.info("Calculated {0} phasecenters from {1} to {2}"
                     .format(len(phasecenters), t0, t1))
 
