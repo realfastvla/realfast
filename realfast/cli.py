@@ -67,7 +67,20 @@ def get_ids(index):
     from realfast import elastic
 
     logger.info("Getting Ids in index {0}".format(index))
-    elastic.get_ids(index)
+    print(elastic.get_ids(index))
+
+
+@cli2.command()
+@click.argument('index')
+@click.argument('_id')
+def get_doc(index, _id):
+    """ Get doc with _id in given index
+    """
+
+    from realfast import elastic
+
+    logger.info("Getting Id {0} in index {1}".format(_id, index))
+    print(elastic.get_doc(index, _id))
 
 
 @cli2.command()

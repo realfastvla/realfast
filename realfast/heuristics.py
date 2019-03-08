@@ -13,9 +13,15 @@ def reader_memory_available(cl):
     """ Calc memory in use by READERs
     """
 
-    return [vals['memory_limit']-vals['metrics']['memory']
-            for vals in itervalues(cl.scheduler_info()['workers'])
-            if 'READER' in vals['resources']]
+    memories = []
+    for vals in itervalues(cl.scheduler_info()['workers']):
+        if 'READER' in vals['resources']:
+            if vals['resources']['MEMORY'] > 0:
+                memories.append(vals['resources']['MEMORY']-vals['metrics']['memory'])
+            else:
+                memories.append(0)
+
+    return memories
 
 
 def reader_memory_used(cl):
@@ -51,7 +57,7 @@ def reader_memory_ok(cl, memory_required):
     """
 
     for worker_memory in reader_memory_available(cl):
-        if worker_memory > memory_required:
+        if worker_memory and (worker_memory > memory_required):
             return True
 
     logger.info("No worker found with required memory of {0} GB"

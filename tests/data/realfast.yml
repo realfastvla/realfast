@@ -12,10 +12,12 @@ rfpipe:
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: True
-    savecands: True
+    savecandcollection: True
+    savecanddata: True
     saveplots: True
+    savesols: True
     selectpol: 'auto'
-    fftmode: 'cuda'
+    fftmode: 'fftw'
     clustercands: !!python/tuple [3, 5]
     memory_limit: 1 # in GB
   NRAOdefaultS:   # S-band 2-4 GHz, 16 spw, 2 MHz channels, 10 ms, 4 pols
@@ -31,8 +33,10 @@ rfpipe:
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: True
-    savecands: True
+    savecandcollection: True
+    savecanddata: False
     saveplots: True
+    savesols: True
     selectpol: 'auto'
     fftmode: 'cuda'
     clustercands: !!python/tuple [3, 5]
@@ -53,7 +57,8 @@ rfpipe:
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: True
-    savecands: True
+    savecandcollection: True
+    savecanddata: False
     saveplots: True
     selectpol: 'auto'
     fftmode: 'cuda'

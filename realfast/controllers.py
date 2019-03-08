@@ -71,7 +71,7 @@ class realfast_controller(Controller):
 
         super(realfast_controller, self).__init__()
 
-        from rfpipe import state, preferences, metadata, calibration, fileLock
+        from rfpipe import preferences
 
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
@@ -94,7 +94,7 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
-        self.submitted_segments = {}
+        self.known_segments = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -216,14 +216,13 @@ class realfast_controller(Controller):
         if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
                          nameincludes=self.nameincludes,
                          searchintents=self.searchintents):
-            logger.info('Config looks good. Generating rfpipe state...')
 
             # starting config of an OTF row will trigger subscan logic
             if config.otf:
-                logger.info("OTF config: calling handle_subscan")
+                logger.info("Good OTF config: calling handle_subscan")
                 self.handle_subscan(config, cfile=cfile)
             else:
-                logger.info("Non-OTF config: setting state and starting pipeline")
+                logger.info("Good Non-OTF config: setting state and starting pipeline")
                 # for standard pointed mode, just set state and start pipeline
                 self.set_state(config.scanId, config=config,
                                inmeta={'datasource': 'vys'})
@@ -251,43 +250,51 @@ class realfast_controller(Controller):
                     endtime_mjd_ = ss.stopTime
                 phasecenters.append((ss.startTime, ss.stopTime,
                                      ss.ra_deg, ss.dec_deg))
-        logger.info("Calculated phasecenters: {0}".format(phasecenters))
+        t0 = min([startTime for (startTime, _, _, _) in phasecenters])
+        t1 = max([startTime for (startTime, _, _, _) in phasecenters])
+        logger.info("Calculated {0} phasecenters from {1} to {2}"
+                    .format(len(phasecenters), t0, t1))
 
         # pass in first subscan and overload end time
         config0 = config.subscans[0]  # all tracked by first config of scan
         if config0.is_complete:
             logger.info("Scan has a complete subscan. Setting state.")
-            if config0.scanId in self.submitted_segments:
-                logger.info("Already submitted segments for scanId {0}. Submitting fast.".format(config0.scanId))
+            if config0.scanId in self.known_segments:
+                logger.info("Already submitted {0} segments for scanId {1}. "
+                            "Fast state calculation."
+                            .format(self.known_segments[config0.scanId.nsegment],
+                                    config0.scanId))
+#                self.states[config0.scanId].clearcache()  # force it to ignore past
                 self.set_state(config0.scanId, config=config0, validate=False,
                                showsummary=False,
                                inmeta={'datasource': 'vys',
                                        'endtime_mjd_': endtime_mjd_})
             else:
-                logger.info("No submitted segments for scanId {0}. Submitting slow.".format(config0.scanId))
+                logger.info("No submitted segments for scanId {0}. Submitting "
+                            "Slow state calculation.".format(config0.scanId))
                 self.set_state(config0.scanId, config=config0,
                                inmeta={'datasource': 'vys',
                                        'endtime_mjd_': endtime_mjd_})
 
             allsegments = list(range(self.states[config0.scanId].nsegment))
-            if config0.scanId not in self.submitted_segments:
-                logger.info("Initializing submitted_segments with scanId {0}"
-                            .format(config0.scanId))
-                self.submitted_segments[config0.scanId] = []
+            if config0.scanId not in self.known_segments:
+                logger.debug("Initializing known_segments with scanId {0}"
+                             .format(config0.scanId))
+                self.known_segments[config0.scanId] = []
 
-            # filter out submitted segments
+            # get new segments
             segments = [seg for seg in allsegments
-                        if seg not in self.submitted_segments[config0.scanId]]
+                        if seg not in self.known_segments[config0.scanId]]
             if len(segments):
                 logger.info("Starting pipeline for {0} with segments {1}"
                             .format(config0.scanId, segments))
                 self.start_pipeline(config0.scanId, cfile=cfile,
                                     segments=segments,
                                     phasecenters=phasecenters)
-                # now all (currently known segments) have been submitted
-                logger.info("Updating submitted_segments for {0} to {1}"
+                # now all (currently known segments) have been started
+                logger.info("Updating known_segments for {0} to {1}"
                             .format(config0.scanId, allsegments))
-                self.submitted_segments[config0.scanId] = allsegments
+                self.known_segments[config0.scanId] = allsegments
             else:
                 logger.info("No new segments to submit for {0}"
                             .format(config0.scanId))
@@ -336,6 +343,8 @@ class realfast_controller(Controller):
         Will inject mock transient based on mockprob and other parameters.
         """
 
+        from rfpipe import preferences, state
+
         prefsname = get_prefsname(inmeta=inmeta, config=config,
                                   sdmfile=sdmfile, sdmscan=sdmscan,
                                   bdfdir=bdfdir)
@@ -373,14 +382,14 @@ class realfast_controller(Controller):
         vys_timeout = self.vys_timeout
         if st.metadata.datasource in ['vys', 'vyssim']:
             if self.vys_timeout is not None:
-                logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
-                            .format(vys_timeout))
+                logger.debug("vys_timeout factor set to fixed value of {0:.1f}x"
+                             .format(vys_timeout))
             else:
                 assert self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout"
                 nspec = st.readints*st.nbl*st.nspw*st.npol
                 vys_timeout = (st.t_segment + self.vys_sec_per_spec*nspec)/st.t_segment
-                logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
-                            .format(vys_timeout))
+                logger.debug("vys_timeout factor scaled by nspec to {0:.1f}x"
+                             .format(vys_timeout))
 
         mockseg = random.choice(segments) if random.uniform(0, 1) < self.mockprob else None
         if mockseg is not None:
@@ -393,20 +402,21 @@ class realfast_controller(Controller):
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
-        logger.info('Submitting {0} segments for scanId {1} with throttletime {2:.1f} '
-                    'read_overhead {3}, read_totfrac {4}, and '
-                    'spill_limit {5} with timeout {6}s'
-                    .format(len(segments), scanId, throttletime, self.read_overhead, self.read_totfrac,
-                            self.spill_limit, timeout))
+        logger.info('Submitting {0} segments for scanId {1} with {2:.1f}s per segment'
+                    .format(len(segments), scanId, throttletime))
+        logger.debug('Read_overhead {0}, read_totfrac {1}, and '
+                     'spill_limit {2} with timeout {3}s'
+                     .format(self.read_overhead, self.read_totfrac,
+                             self.spill_limit, timeout))
 
-        tot_memlim = self.read_totfrac*sum([v['memory_limit']
+        tot_memlim = self.read_totfrac*sum([v['resources']['MEMORY']
                                             for v in itervalues(self.client.scheduler_info()['workers'])
                                             if 'READER' in v['resources']])
 
         # submit segments
         t0 = time.Time.now().unix
         elapsedtime = 0
-        nsubmitted = 0
+        nsubmitted = 0  # count number submitted from list segments
         segments = iter(segments)
         segment = next(segments)
         telcalset = self.set_telcalfile(scanId)
@@ -445,7 +455,7 @@ class realfast_controller(Controller):
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
-                        elastic.indexscanstatus(scanId, nsegment=len(segments),
+                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
                                                 indexprefix=self.indexprefix)
                     else:
                         logger.info("Not indexing scan or prefs.")
@@ -468,8 +478,7 @@ class realfast_controller(Controller):
                                                                    fifo_timeout='0s',
                                                                    priority=-1))
                 if self.indexresults:
-                    elastic.indexscanstatus(scanId, nsubmitted=nsubmitted,
-                                            pending=self.pending[scanId],
+                    elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId],
                                             indexprefix=self.indexprefix)
@@ -514,8 +523,8 @@ class realfast_controller(Controller):
             else:
                 dt = time.Time.now().unix - segsubtime
                 if dt < throttletime:
-                    logger.info("Waiting {0:.1f}s to submit segment."
-                                .format(throttletime-dt))
+                    logger.debug("Waiting {0:.1f}s to submit segment."
+                                 .format(throttletime-dt))
                     sleep(throttletime-dt)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
@@ -628,7 +637,7 @@ class realfast_controller(Controller):
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
                 try:
-                    _ = self.submitted_segments.pop(scanId)
+                    _ = self.known_segments.pop(scanId)
                 except KeyError:
                     pass
 
@@ -995,6 +1004,8 @@ class config_controller(Controller):
         """ Triggered when obs comes in.
         Downstream logic starts here.
         """
+
+        from rfpipe import preferences
 
         logger.info('Received complete configuration for {0}, '
                     'scan {1}, subscan {2}, source {3}, intent {4}'
