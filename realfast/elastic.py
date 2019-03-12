@@ -8,15 +8,10 @@ import subprocess
 import shutil
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
-from rfpipe.metadata import make_metadata
-from rfpipe.candidates import iter_noise
-from rfpipe.preferences import Preferences
-from realfast import heuristics
 import logging
-from numpy import degrees
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
-logger.setLevel(10)
+logger.setLevel(20)
 
 # eventually should be updated to search.realfast.io/api with auth
 es = Elasticsearch(['realfast.nrao.edu:9200'])
@@ -33,6 +28,10 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     Uses data source (config, sdm, etc.) to define metadata object.
 
     """
+
+    from rfpipe.metadata import make_metadata
+    from numpy import degrees
+    from realfast import heuristics
 
     meta = make_metadata(inmeta=inmeta, config=config, sdmfile=sdmfile,
                          sdmscan=sdmscan, bdfdir=bdfdir)
@@ -86,8 +85,8 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         indexprefs(preferences, indexprefix=indexprefix)
 
 
-def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
-                    errors=None, indexprefix='new'):
+def indexscanstatus(scanId, nsegment=None, nsubmitted=None, pending=None,
+                    finished=None, errors=None, indexprefix='new'):
     """ Update status fields for scanId
     """
 
@@ -97,6 +96,10 @@ def indexscanstatus(scanId, nsegment=None, pending=None, finished=None,
         tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
                             field='nsegment', value=int(nsegment))
+    if nsubmitted is not None:
+        tried += 1
+        res += update_field(index=indexprefix+'scans', Id=scanId,
+                            field='nsubmitted', value=int(nsubmitted))
     if pending is not None:
         tried += 1
         res += update_field(index=indexprefix+'scans', Id=scanId,
@@ -141,6 +144,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='new' for production.
     """
+
+    from numpy import degrees
 
     if tags is None:
         tags = ''
@@ -248,6 +253,8 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
     """
+
+    from rfpipe.candidates import iter_noise
 
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
@@ -395,9 +402,10 @@ def remove_ids(index, Ids=None, **kwargs):
 
     confirm = input("Press any key to confirm removal of {0} ids from {1}."
                     .format(len(Ids), index))
+
+    res = 0
     if confirm:
         logger.info("Removing...")
-        res = 0
         for Id in Ids:
             res += pushdata({}, index, Id, command='delete')
 
@@ -450,6 +458,8 @@ def create_preference(index, Id):
     """ Get doc from index with Id and create realfast preference object
     """
 
+    from rfpipe.preferences import Preferences
+
     doc = get_doc(index, Id)
     prefs = doc['_source']
     return Preferences(**prefs)
@@ -462,6 +472,7 @@ def create_preference(index, Id):
 def move_dataset(indexprefix1, indexprefix2, datasetId):
     """ Given two index prefixes, move a datasetId and all associated docs over.
     This will delete the original documents in indexprefix1.
+    If indexprefix2 is None, then datasetId is removed from indexprefix1.
     """
 
     iddict0 = {indexprefix1+'cands': [], indexprefix1+'scans': [],
@@ -498,51 +509,58 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     Associated docs include scanId, preferences, mocks, etc.
     If scanId provided, all docs moved.
     If candId provided, only that one will be selected from all in scanId.
+    If indexprefix2 is None, then the dict of all docs in indexprefix1 is returned.
     """
 
     if candId is not None:
-        logger.info("Copying docs for candId {0}".format(candId))
+        logger.info("Finding docs with candId {0}".format(candId))
     elif scanId is not None:
-        logger.info("Copying docs for scanId {0}".format(scanId))
+        logger.info("Finding docs with scanId {0}".format(scanId))
 
     iddict = find_docids(indexprefix1, candId=candId, scanId=scanId)
-    for k, v in iddict.items():
-        for Id in v:
-            if (candId is None) or (candId == Id):
-                result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
+    if indexprefix2 is not None:
+        assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
+        for k, v in iddict.items():
+            for Id in v:
+                if (candId is None) or (candId == Id):
+                    result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
 
-                # update png_url to new prefix and move plot
-                if (k == indexprefix1+'cands') and result:
-                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
-                    update_field(indexprefix2+'cands', 'png_url',
-                                 png_url.replace(indexprefix1, indexprefix2),
-                                 Id=Id)
-                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix1, Id))
-                    candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                 .format(indexprefix2, Id))
-                    if os.path.exists(candplot1):
-                        success = shutil.copy(candplot1, candplot2)
+                    # update png_url to new prefix and move plot
+                    if (k == indexprefix1+'cands') and result:
+                        png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                        update_field(indexprefix2+'cands', 'png_url',
+                                     png_url.replace(indexprefix1, indexprefix2),
+                                     Id=Id)
+                        candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                     .format(indexprefix1, Id))
+                        candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                     .format(indexprefix2, Id))
+                        if os.path.exists(candplot1):
+                            success = shutil.copy(candplot1, candplot2)
 
-                        if success:
-                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
+                            if success:
+                                logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                            .format(Id, indexprefix1,
+                                                    indexprefix2))
+                            else:
+                                logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+                                            .format(Id, indexprefix1,
+                                                    indexprefix2))
                         else:
-                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
-                elif not result:
-                    logger.info("Did not copy {0} from {1} to {2}"
-                                .format(Id, indexprefix1, indexprefix2))
+                            logger.warn("Could not find file {0}".format(candplot1))
 
-            # copy summary html file
-            if k == indexprefix1+'scans':
-                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                            .format(indexprefix1, v[0]))
-                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                            .format(indexprefix2, v[0]))
-                success = shutil.copy(summary1, summary2)
+                    elif not result:
+                        logger.info("Did not copy {0} from {1} to {2}"
+                                    .format(Id, indexprefix1, indexprefix2))
+
+                # copy summary html file
+                if k == indexprefix1+'scans':
+                    summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                                .format(indexprefix1, v[0]))
+                    summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                                .format(indexprefix2, v[0]))
+                    if os.path.exists(summary1):
+                        success = shutil.copy(summary1, summary2)
 
     return iddict
 

@@ -5,11 +5,9 @@ from io import open
 
 import distributed
 from dask import array, delayed
-from rfpipe import source, pipeline, fileLock
 from dask.base import tokenize
 import numpy as np
 from time import sleep
-import os.path
 
 import logging
 logger = logging.getLogger(__name__)
@@ -18,7 +16,7 @@ vys_timeout_default = 10
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
                   vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                  throttle=1, mockseg=None):
+                  throttle=False, mockseg=None, phasecenters=None):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -38,7 +36,8 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
-                                    mem_search=mem_search, mockseg=mockseg))
+                                    mem_search=mem_search, mockseg=mockseg,
+                                    phasecenters=phasecenters))
         if throttle:
             sleep(sleeptime)
 
@@ -47,13 +46,15 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
 
 def pipeline_seg(st, segment, cl, cfile=None,
                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                 mockseg=None):
+                 mockseg=None, phasecenters=None):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
     Uses distributed resources parameter to control scheduling of GPUs.
     memreq is required memory in bytes.
     """
+
+    from rfpipe import source, pipeline
 
     logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment))
@@ -87,6 +88,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
 
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
+                               phasecenters=phasecenters,
                                resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1, retries=1)
 
@@ -121,6 +123,8 @@ def read_segment(st, segment, cfile, vys_timeout):
     thread pool
     """
 
+    from rfpipe import source
+
     logger.info("Reading datasetId {0}, segment {1} locally."
                 .format(st.metadata.scanId, segment))
 
@@ -139,6 +143,8 @@ def prep_and_search(st, segment, data):
     """ Wrapper for search.prep_and_search that secedes from worker
     thread pool
     """
+
+    from rfpipe import pipeline
 
     logger.info("Searching datasetId {0}, segment {1} locally."
                 .format(st.metadata.scanId, segment))
@@ -167,6 +173,8 @@ def lazy_read_segment(st, segment, cfile=None,
     equivalent to making delayed version of function and then:
     arr = dask.array.from_delayed(dd, st.datashape, np.complex64).
     """
+
+    from rfpipe import source
 
     shape = st.datashape
     chunks = ((shape[0],), (shape[1],), (shape[2],), (shape[3],))

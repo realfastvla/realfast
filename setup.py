@@ -19,5 +19,6 @@ setup(
     entry_points='''
         [console_scripts]
         realfast=realfast.cli:cli
+        realfast_portal=realfast.cli:cli2
 '''
 )

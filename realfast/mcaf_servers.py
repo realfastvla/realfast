@@ -11,7 +11,6 @@ from lxml import etree, objectify
 import json
 from astropy import time
 import numpy as np
-from rfpipe.metadata import Metadata
 import logging
 logger = logging.getLogger(__name__)
 
@@ -165,6 +164,7 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
     """
 
     from sdmpy import bdf
+    from rfpipe.metadata import Metadata
 
     assert type(metadata) == Metadata, ("metadata must be "
                                         "of type rfpipe.metadata.Metadata")

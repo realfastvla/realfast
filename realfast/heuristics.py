@@ -5,8 +5,6 @@ from io import open
 
 import os.path
 import sys
-from math import log
-from rfpipe import state
 import logging
 logger = logging.getLogger(__name__)
 
@@ -15,9 +13,15 @@ def reader_memory_available(cl):
     """ Calc memory in use by READERs
     """
 
-    return [vals['memory_limit']-vals['metrics']['memory']
-            for vals in itervalues(cl.scheduler_info()['workers'])
-            if 'READER' in vals['resources']]
+    memories = []
+    for vals in itervalues(cl.scheduler_info()['workers']):
+        if 'READER' in vals['resources']:
+            if vals['resources']['MEMORY'] > 0:
+                memories.append(vals['resources']['MEMORY']-vals['metrics']['memory'])
+            else:
+                memories.append(0)
+
+    return memories
 
 
 def reader_memory_used(cl):
@@ -53,7 +57,7 @@ def reader_memory_ok(cl, memory_required):
     """
 
     for worker_memory in reader_memory_available(cl):
-        if worker_memory > memory_required:
+        if worker_memory and (worker_memory > memory_required):
             return True
 
     logger.info("No worker found with required memory of {0} GB"
@@ -97,6 +101,8 @@ def state_validates(config=None, inmeta=None, sdmfile=None, sdmscan=None,
                     bdfdir=None, preffile=None, prefsname=None, inprefs={}):
     """ Try to compile state
     """
+
+    from rfpipe import state
 
     try:
         st = state.State(inmeta=inmeta, config=config, preffile=preffile,
@@ -225,6 +231,8 @@ def total_compute_time(st):
     1.2e-3 s (2048x2048)
     3.8e-3 s (4096x4096)
     """
+
+    from math import log
 
     time_ref = 2.3e-4
     npix_ref = 512

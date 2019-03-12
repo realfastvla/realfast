@@ -13,7 +13,6 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from rfpipe import state, preferences, metadata, calibration, fileLock
 from realfast import pipeline, elastic, mcaf_servers, heuristics, util
 
 import logging
@@ -72,6 +71,8 @@ class realfast_controller(Controller):
 
         super(realfast_controller, self).__init__()
 
+        from rfpipe import preferences
+
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
             self.client = distributed.Client('{0}:{1}'
@@ -93,6 +94,7 @@ class realfast_controller(Controller):
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
+        self.known_segments = {}
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile
@@ -103,7 +105,8 @@ class realfast_controller(Controller):
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
 
-                _ = self.client.run(preferences.parsepreffile, self.preffile, asynchronous=True)
+                _ = self.client.run(preferences.parsepreffile, self.preffile,
+                                    asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
@@ -118,7 +121,7 @@ class realfast_controller(Controller):
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
-                setattr(self, attr, 0.8) # submit relative to realtime
+                setattr(self, attr, 0.8)  # submit relative to realtime
             else:
                 setattr(self, attr, None)
 
@@ -129,7 +132,7 @@ class realfast_controller(Controller):
 
         if self.indexprefix is None:
             self.indexprefix = 'new'
-        assert self.indexprefix in ['new', 'test', 'aws'], "indexprefix must be None, 'new', 'test' or 'aws'."
+        assert self.indexprefix in ['new', 'test', 'chime', 'aws'], "indexprefix must be None, 'new', 'test', 'chime', or 'aws'."
         if self.daskdir is None:
             self.daskdir = _default_daskdir
 
@@ -213,17 +216,90 @@ class realfast_controller(Controller):
         if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
                          nameincludes=self.nameincludes,
                          searchintents=self.searchintents):
-            logger.info('Config looks good. Generating rfpipe state...')
 
-            self.set_state(config.scanId, config=config,
-                           inmeta={'datasource': 'vys'})
+            # starting config of an OTF row will trigger subscan logic
+            if config.otf:
+                logger.info("Good OTF config: calling handle_subscan")
+                self.handle_subscan(config, cfile=cfile)
+            else:
+                logger.info("Good Non-OTF config: setting state and starting pipeline")
+                # for standard pointed mode, just set state and start pipeline
+                self.set_state(config.scanId, config=config,
+                               inmeta={'datasource': 'vys'})
 
-            self.start_pipeline(config.scanId, cfile=cfile, segments=segments)
+                self.start_pipeline(config.scanId, cfile=cfile,
+                                    segments=segments)
 
         else:
             logger.info("Config not suitable for realfast. Skipping.")
 
         self.cleanup()
+
+    def handle_subscan(self, config, cfile=_vys_cfile_prod):
+        """ Triggered when subscan info is updated (e.g., OTF mode).
+        OTF requires more setup and management.
+        """
+
+        # set up OTF info
+        # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
+        phasecenters = []
+        endtime_mjd_ = 0
+        for ss in config.subscans:
+            if ss.stopTime is not None:
+                if ss.stopTime > endtime_mjd_:
+                    endtime_mjd_ = ss.stopTime
+                phasecenters.append((ss.startTime, ss.stopTime,
+                                     ss.ra_deg, ss.dec_deg))
+        t0 = min([startTime for (startTime, _, _, _) in phasecenters])
+        t1 = max([stopTime for (_, stopTime, _, _) in phasecenters])
+        logger.info("Calculated {0} phasecenters from {1} to {2}"
+                    .format(len(phasecenters), t0, t1))
+
+        # pass in first subscan and overload end time
+        config0 = config.subscans[0]  # all tracked by first config of scan
+        if config0.is_complete:
+            logger.info("Scan has a complete subscan. Setting state.")
+            if config0.scanId in self.known_segments:
+                logger.info("Already submitted {0} segments for scanId {1}. "
+                            "Fast state calculation."
+                            .format(self.known_segments[config0.scanId.nsegment],
+                                    config0.scanId))
+#                self.states[config0.scanId].clearcache()  # force it to ignore past
+                self.set_state(config0.scanId, config=config0, validate=False,
+                               showsummary=False,
+                               inmeta={'datasource': 'vys',
+                                       'endtime_mjd_': endtime_mjd_})
+            else:
+                logger.info("No submitted segments for scanId {0}. Submitting "
+                            "Slow state calculation.".format(config0.scanId))
+                self.set_state(config0.scanId, config=config0,
+                               inmeta={'datasource': 'vys',
+                                       'endtime_mjd_': endtime_mjd_})
+
+            allsegments = list(range(self.states[config0.scanId].nsegment))
+            if config0.scanId not in self.known_segments:
+                logger.debug("Initializing known_segments with scanId {0}"
+                             .format(config0.scanId))
+                self.known_segments[config0.scanId] = []
+
+            # get new segments
+            segments = [seg for seg in allsegments
+                        if seg not in self.known_segments[config0.scanId]]
+            if len(segments):
+                logger.info("Starting pipeline for {0} with segments {1}"
+                            .format(config0.scanId, segments))
+                self.start_pipeline(config0.scanId, cfile=cfile,
+                                    segments=segments,
+                                    phasecenters=phasecenters)
+                # now all (currently known segments) have been started
+                logger.info("Updating known_segments for {0} to {1}"
+                            .format(config0.scanId, allsegments))
+                self.known_segments[config0.scanId] = allsegments
+            else:
+                logger.info("No new segments to submit for {0}"
+                            .format(config0.scanId))
+        else:
+            logger.info("First subscan config is not complete. Continuing.")
 
     def handle_sdm(self, sdmfile, sdmscan, bdfdir=None, segments=None):
         """ Parallel to handle_config, but allows sdm to be passed in.
@@ -260,12 +336,14 @@ class realfast_controller(Controller):
         self.cleanup()
 
     def set_state(self, scanId, config=None, inmeta=None, sdmfile=None,
-                  sdmscan=None, bdfdir=None):
+                  sdmscan=None, bdfdir=None, validate=True, showsummary=True):
         """ Given metadata source, define state for a scanId.
         Uses metadata to set preferences used in preffile (prefsname).
         Preferences are then overloaded with self.inprefs.
         Will inject mock transient based on mockprob and other parameters.
         """
+
+        from rfpipe import preferences, state
 
         prefsname = get_prefsname(inmeta=inmeta, config=config,
                                   sdmfile=sdmfile, sdmscan=sdmscan,
@@ -279,7 +357,7 @@ class realfast_controller(Controller):
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
-                         bdfdir=bdfdir)
+                         bdfdir=bdfdir, validate=validate, showsummary=showsummary)
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
                     ' {2:.1f} GPU-sec to search.'
@@ -289,7 +367,8 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None, segments=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None,
+                       phasecenters=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         segments arg can be used to select or slow segment submission.
@@ -303,14 +382,14 @@ class realfast_controller(Controller):
         vys_timeout = self.vys_timeout
         if st.metadata.datasource in ['vys', 'vyssim']:
             if self.vys_timeout is not None:
-                logger.info("vys_timeout factor set to fixed value of {0:.1f}x"
-                            .format(vys_timeout))
+                logger.debug("vys_timeout factor set to fixed value of {0:.1f}x"
+                             .format(vys_timeout))
             else:
                 assert self.vys_sec_per_spec is not None, "Must define vys_sec_per_spec to estimate vys_timeout"
                 nspec = st.readints*st.nbl*st.nspw*st.npol
                 vys_timeout = (st.t_segment + self.vys_sec_per_spec*nspec)/st.t_segment
-                logger.info("vys_timeout factor scaled by nspec to {0:.1f}x"
-                            .format(vys_timeout))
+                logger.debug("vys_timeout factor scaled by nspec to {0:.1f}x"
+                             .format(vys_timeout))
 
         mockseg = random.choice(segments) if random.uniform(0, 1) < self.mockprob else None
         if mockseg is not None:
@@ -323,47 +402,61 @@ class realfast_controller(Controller):
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
-        logger.info('Submitting segments for scanId {0} with throttletime {1:.1f} '
-                    'read_overhead {2}, read_totfrac {3}, and '
-                    'spill_limit {4} with timeout {5}s'
-                    .format(scanId, throttletime, self.read_overhead, self.read_totfrac,
-                            self.spill_limit, timeout))
+        logger.info('Submitting {0} segments for scanId {1} with {2:.1f}s per segment'
+                    .format(len(segments), scanId, throttletime))
+        logger.debug('Read_overhead {0}, read_totfrac {1}, and '
+                     'spill_limit {2} with timeout {3}s'
+                     .format(self.read_overhead, self.read_totfrac,
+                             self.spill_limit, timeout))
 
-        tot_memlim = self.read_totfrac*sum([v['memory_limit']
+        tot_memlim = self.read_totfrac*sum([v['resources']['MEMORY']
                                             for v in itervalues(self.client.scheduler_info()['workers'])
                                             if 'READER' in v['resources']])
 
         # submit segments
         t0 = time.Time.now().unix
         elapsedtime = 0
-        nsegment = 0
-        for segment in segments:
+        nsubmitted = 0  # count number submitted from list segments
+        segments = iter(segments)
+        segment = next(segments)
+        telcalset = self.set_telcalfile(scanId)
+        while True:
             segsubtime = time.Time.now().unix
-
             if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                if endtime < segsubtime:
-                    logger.warn("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                .format(segment, endtime, segsubtime))
-                    continue
+                if endtime < segsubtime-1:  # TODO: define buffer delay better
+                    logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
+                                   .format(segment, endtime, segsubtime-1))
+                    try:
+                        segment = next(segments)
+                        continue
+                    except StopIteration:
+                        logger.info("No more segments for scanId {0}".format(scanId))
+                        break
+
+            # try setting telcal
+            if not telcalset:
+                telcalset = self.set_telcalfile(scanId)
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
                 heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                 heuristics.spilled_memory_ok(limit=self.spill_limit,
                                              daskdir=self.daskdir) and
-                (self.set_telcalfile(scanId)
-                 if self.requirecalibration else True)):
+                (telcalset if self.requirecalibration else True)):
 
                 # first time initialize scan
                 if scanId not in self.futures:
                     self.futures[scanId] = []
                     self.errors[scanId] = 0
                     self.finished[scanId] = 0
+
                     if self.indexresults:
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
+                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
+                                                indexprefix=self.indexprefix)
                     else:
                         logger.info("Not indexing scan or prefs.")
 
@@ -372,9 +465,10 @@ class realfast_controller(Controller):
                                                 vys_timeout=vys_timeout,
                                                 mem_read=w_memlim,
                                                 mem_search=2*st.vismem*1e9,
-                                                mockseg=mockseg)
+                                                mockseg=mockseg,
+                                                phasecenters=phasecenters)
                 self.futures[scanId].append(futures)
-                nsegment += 1
+                nsubmitted += 1
 
                 if self.data_logging:
                     segment, data, cc, acc = futures
@@ -384,11 +478,16 @@ class realfast_controller(Controller):
                                                                    fifo_timeout='0s',
                                                                    priority=-1))
                 if self.indexresults:
-                    elastic.indexscanstatus(scanId, nsegment=nsegment,
-                                            pending=self.pending[scanId],
+                    elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId],
                                             indexprefix=self.indexprefix)
+
+                try:
+                    segment = next(segments)
+                except StopIteration:
+                    logger.info("No more segments for scanId {0}".format(scanId))
+                    break
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
@@ -417,14 +516,15 @@ class realfast_controller(Controller):
             # check timeout and wait time for next segment
             elapsedtime = time.Time.now().unix - t0
             if elapsedtime > timeout and timeout:
-                logger.info("Submission timed out. Submitted {0} segments of "
-                            "ScanId {1}".format(nsegment, scanId))
+                logger.info("Submission timed out. Submitted {0}/{1} segments "
+                            "for ScanId {2}".format(nsubmitted, len(segments),
+                                                    scanId))
                 break
             else:
                 dt = time.Time.now().unix - segsubtime
                 if dt < throttletime:
-                    logger.info("Waiting {0:.1f}s to submit next segment."
-                                .format(throttletime-dt))
+                    logger.debug("Waiting {0:.1f}s to submit segment."
+                                 .format(throttletime-dt))
                     sleep(throttletime-dt)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
@@ -445,7 +545,6 @@ class realfast_controller(Controller):
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
-        sdm_futs = []
         for scanId in self.futures:
 
             # check on finished
@@ -461,62 +560,59 @@ class realfast_controller(Controller):
                                         errors=self.errors[scanId],
                                         indexprefix=self.indexprefix)
 
-            # TODO: make robust to lost jobs
+            # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
                 seg, data, cc, acc = futures
                 ncands, mocks = acc.result()
 
+                # index mocks
                 if self.indexresults and mocks:
-                    mindexed = elastic.indexmock(scanId, mocks,
-                                                 indexprefix=self.indexprefix)
+                    distributed.fire_and_forget(self.client.submit(elastic.indexmock,
+                                                                   scanId,
+                                                                   mocks,
+                                                                   indexprefix=self.indexprefix))
                 else:
-                    logger.debug("Not indexing mock transient(s).")
-                
+                    logger.debug("No mocks indexed from scanId {0}"
+                                 .format(scanId))
+
                 # index noises
                 noisefile = self.states[scanId].noisefile
-                if os.path.exists(noisefile):
-                    if self.indexresults:
-                        res = elastic.indexnoises(noisefile, scanId,
-                                                  indexprefix=self.indexprefix)
-                    else:
-                        logger.debug("Not indexing noises for scanId {0}."
-                                     .format(scanId))
+                if self.indexresults and os.path.exists(noisefile):
+                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
+                                                                   noisefile,
+                                                                   scanId,
+                                                                   indexprefix=self.indexprefix))
                 else:
-                    logger.debug('No noisefile found, no noises indexed.')
+                    logger.debug("No noises indexed from scanId {0}."
+                                 .format(scanId))
 
                 # index cands
-                if ncands:
-                    if self.indexresults:
-                        workdir = self.states[scanId].prefs.workdir
-                        # TODO: check on error handling for fire_and_forget
-                        distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
-                                                                       cc,
-                                                                       scanId,
-                                                                       self.tags,
-                                                                       self.indexprefix,
-                                                                       workdir,
-                                                                       priority=5))
-                        cindexed += ncands
-                    else:
-                        logger.info("Not indexing cands found in scanId {0}"
-                                    .format(scanId))
+                if self.indexresults and ncands:
+                    workdir = self.states[scanId].prefs.workdir
+                    distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
+                                                                   cc,
+                                                                   scanId,
+                                                                   self.tags,
+                                                                   self.indexprefix,
+                                                                   workdir,
+                                                                   priority=5))
                 else:
-                    logger.debug('No candidates for a segment from scanId {0}'
+                    logger.debug("No cands indexed from scanId {0}"
                                  .format(scanId))
 
                 # optionally save and archive sdm/bdfs for segment
                 if self.saveproducts and ncands:
-                    # TODO: be sure this does not slow loop too much
                     distributed.fire_and_forget(self.client.submit(createproducts,
                                                                    cc, data,
                                                                    self.archiveproducts,
                                                                    indexprefix=self.indexprefix,
                                                                    priority=5))
-                    logger.info("SDM being created for {0}, segment {1}, with {2} candidates"
+                    logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                                 .format(scanId, seg, ncands))
                     sdms += 1
                 else:
-                    logger.debug("Not making new SDMs or moving candplots.")
+                    logger.debug("No SDMs plots moved for scanId {0}."
+                                 .format(scanId))
 
                 # remove job from list
                 self.futures[scanId].remove(futures)
@@ -540,6 +636,10 @@ class realfast_controller(Controller):
                 _ = self.states.pop(scanId)
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
+                try:
+                    _ = self.known_segments.pop(scanId)
+                except KeyError:
+                    pass
 
 #        _ = self.client.run(gc.collect)
         if removed or cindexed or sdms:
@@ -587,12 +687,12 @@ class realfast_controller(Controller):
                     gainfile = os.path.join(path, name)
 
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
-                logger.info("Found telcalfile {0} for scanId {1}."
+                logger.debug("Found telcalfile {0} for scanId {1}."
                             .format(gainfile, scanId))
                 st.prefs.gainfile = gainfile
                 return True
             else:
-                logger.warn("No telcalfile {0} found for scanId {1}."
+                logger.debug("No telcalfile {0} found for scanId {1}."
                             .format(gainfile, scanId))
                 return False
 
@@ -718,8 +818,8 @@ def search_config(config, preffile=None, inprefs={},
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
-    # 7) only if some fast sampling is done
-    t_fast = 0.5
+    # 7) only if some fast sampling is done (faster than VLASS final inttime)
+    t_fast = 0.4
     if not any([inttime < t_fast for inttime in inttimes]):
         logger.warn("No subband has integration time faster than {0} s"
                     .format(t_fast))
@@ -734,6 +834,8 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     Allows configuration of pipeline based on scan properties.
     (e.g., galactic/extragal, FRB/pulsar).
     """
+
+    from rfpipe import metadata
 
     meta = metadata.make_metadata(inmeta=inmeta, config=config,
                                   sdmfile=sdmfile, sdmscan=sdmscan,
@@ -903,10 +1005,12 @@ class config_controller(Controller):
         Downstream logic starts here.
         """
 
+        from rfpipe import preferences
+
         logger.info('Received complete configuration for {0}, '
-                    'scan {1}, source {2}, intent {3}'
-                    .format(config.scanId, config.scanNo, config.source,
-                            config.scan_intent))
+                    'scan {1}, subscan {2}, source {3}, intent {4}'
+                    .format(config.scanId, config.scanNo, config.subscanNo,
+                            config.source, config.scan_intent))
 
         if self.pklfile:
             with open(self.pklfile, 'ab') as pkl:
