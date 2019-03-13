@@ -165,12 +165,18 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     cluster = candcollection.cluster
     clustersize = candcollection.clustersize
     snrtot = candcollection.snrtot
-    ra_ctr, dec_ctr = degrees(candcollection.metadata.radec)
 
     res = 0
     for i in range(len(candarr)):
         # get features. use .item() to cast to default types
         canddict = dict(list(zip(candarr.dtype.names, candarr[i].item())))
+
+        # get reference ra, dec
+        segment = canddict['segment']
+        if candcollection.state.otfcorrections is not None:
+            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]
+        else:
+            ra_ctr, dec_ctr = degrees(candcollection.metadata.radec)
 
         # fill optional fields
         canddict['scanId'] = scanId

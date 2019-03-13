@@ -256,23 +256,23 @@ class realfast_controller(Controller):
         # pass in first subscan and overload end time
         config0 = config.subscans[0]  # all tracked by first config of scan
         if config0.is_complete:
-            logger.info("Scan has a complete subscan. Setting state.")
             if config0.scanId in self.known_segments:
                 logger.info("Already submitted {0} segments for scanId {1}. "
                             "Fast state calculation."
-                            .format(self.known_segments[config0.scanId.nsegment],
+                            .format(len(self.known_segments[config0.scanId]),
                                     config0.scanId))
-#                self.states[config0.scanId].clearcache()  # force it to ignore past
                 self.set_state(config0.scanId, config=config0, validate=False,
                                showsummary=False,
                                inmeta={'datasource': 'vys',
-                                       'endtime_mjd_': endtime_mjd_})
+                                       'endtime_mjd_': endtime_mjd_,
+                                       'phasecenters': phasecenters})
             else:
                 logger.info("No submitted segments for scanId {0}. Submitting "
                             "Slow state calculation.".format(config0.scanId))
                 self.set_state(config0.scanId, config=config0,
                                inmeta={'datasource': 'vys',
-                                       'endtime_mjd_': endtime_mjd_})
+                                       'endtime_mjd_': endtime_mjd_,
+                                       'phasecenters': phasecenters})
 
             allsegments = list(range(self.states[config0.scanId].nsegment))
             if config0.scanId not in self.known_segments:
@@ -283,12 +283,14 @@ class realfast_controller(Controller):
             # get new segments
             segments = [seg for seg in allsegments
                         if seg not in self.known_segments[config0.scanId]]
+
+            # TODO: this may not actually submit if telcal not ready
+            # should not update known_segments automatically?
             if len(segments):
                 logger.info("Starting pipeline for {0} with segments {1}"
                             .format(config0.scanId, segments))
                 self.start_pipeline(config0.scanId, cfile=cfile,
-                                    segments=segments,
-                                    phasecenters=phasecenters)
+                                    segments=segments)
                 # now all (currently known segments) have been started
                 logger.info("Updating known_segments for {0} to {1}"
                             .format(config0.scanId, allsegments))
@@ -365,8 +367,7 @@ class realfast_controller(Controller):
 
         self.states[scanId] = st
 
-    def start_pipeline(self, scanId, cfile=None, segments=None,
-                       phasecenters=None):
+    def start_pipeline(self, scanId, cfile=None, segments=None):
         """ Start pipeline conditional on cluster state.
         Sets futures and state after submission keyed by scanId.
         segments arg can be used to select or slow segment submission.
@@ -422,14 +423,14 @@ class realfast_controller(Controller):
             segsubtime = time.Time.now().unix
             if st.metadata.datasource == 'vys':
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                if endtime < segsubtime-1:  # TODO: define buffer delay better
+                if endtime < segsubtime-2:  # TODO: define buffer delay better
                     logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
                                    .format(segment, endtime, segsubtime-1))
                     try:
                         segment = next(segments)
                         continue
                     except StopIteration:
-                        logger.info("No more segments for scanId {0}".format(scanId))
+                        logger.debug("No more segments for scanId {0}".format(scanId))
                         break
 
             # try setting telcal
@@ -453,8 +454,6 @@ class realfast_controller(Controller):
                         elastic.indexscan(inmeta=self.states[scanId].metadata,
                                           preferences=self.states[scanId].prefs,
                                           indexprefix=self.indexprefix)
-                        elastic.indexscanstatus(scanId, nsegment=st.nsegment,
-                                                indexprefix=self.indexprefix)
                     else:
                         logger.info("Not indexing scan or prefs.")
 
@@ -463,8 +462,7 @@ class realfast_controller(Controller):
                                                 vys_timeout=vys_timeout,
                                                 mem_read=w_memlim,
                                                 mem_search=2*st.vismem*1e9,
-                                                mockseg=mockseg,
-                                                phasecenters=phasecenters)
+                                                mockseg=mockseg)
                 self.futures[scanId].append(futures)
                 nsubmitted += 1
 
@@ -479,7 +477,8 @@ class realfast_controller(Controller):
                     elastic.indexscanstatus(scanId, pending=self.pending[scanId],
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId],
-                                            indexprefix=self.indexprefix)
+                                            indexprefix=self.indexprefix,
+                                            nsegment=st.nsegment)
 
                 try:
                     segment = next(segments)
@@ -489,19 +488,19 @@ class realfast_controller(Controller):
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
-                    logger.info("No reader available with required memory {0}"
+                    logger.info("System not ready. No reader available with required memory {0}"
                                 .format(w_memlim))
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
-                    logger.info("Total reader memory exceeds limit of {0}"
+                    logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                 .format(tot_memlim))
                 elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                       daskdir=self.daskdir):
-                    logger.info("Spilled memory exceeds limit of {0}"
+                    logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
                 elif not (self.set_telcalfile(scanId)
                           if self.requirecalibration else True):
-                    logger.info("No telcalfile available for {0}"
+                    logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
 
             # periodically check on submissions. always, if memory limited.
@@ -515,8 +514,8 @@ class realfast_controller(Controller):
             elapsedtime = time.Time.now().unix - t0
             if elapsedtime > timeout and timeout:
                 logger.info("Submission timed out. Submitted {0}/{1} segments "
-                            "for ScanId {2}".format(nsubmitted, len(segments),
-                                                    scanId))
+                            "in ScanId {2}".format(nsubmitted, st.nsegment,
+                                                   scanId))
                 break
             else:
                 dt = time.Time.now().unix - segsubtime
@@ -690,8 +689,6 @@ class realfast_controller(Controller):
                 st.prefs.gainfile = gainfile
                 return True
             else:
-                logger.debug("No telcalfile {0} found for scanId {1}."
-                            .format(gainfile, scanId))
                 return False
 
     def removefutures(self, badstatuslist=['cancelled', 'error', 'lost'],
@@ -902,6 +899,8 @@ def createproducts(candcollection, data, archiveproducts=False,
     This uses the mcaf_servers module, which calls the sdm builder server.
     Currently BDFs are moved to no_archive lustre area by default.
     """
+
+    from rfpipe import calibration
 
     if isinstance(candcollection, distributed.Future):
         candcollection = candcollection.result()
