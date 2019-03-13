@@ -29,7 +29,7 @@ _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # product
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
 _preffile = '/lustre/evla/test/realfast/realfast.yml'
 #_distributed_host = '192.168.201.101'  # for ib0 on cbe-node-01
-_distributed_host = '10.80.200.201'  # for ib0 on rfnode021
+_distributed_host = '10.80.200.201:8786'  # for ib0 on rfnode021
 _default_daskdir = '/lustre/evla/test/realfast/dask-worker-space'
 
 
@@ -50,6 +50,7 @@ class realfast_controller(Controller):
         Inherits a "run" method that starts asynchronous operation that calls
         handle_config. handle_sdm and handle_meta (with datasource "vys" or
         "sim") are also supported.
+        host is ip:port for distributed scheduler server.
         host allows specification of 'localhost' for distributed client.
 
         kwargs can include:
@@ -75,9 +76,7 @@ class realfast_controller(Controller):
 
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
-            self.client = distributed.Client('{0}:{1}'
-                                             .format(_distributed_host,
-                                                     '8786'))
+            self.client = distributed.Client(_distributed_host)
         elif host == 'localhost':
             self.client = distributed.Client(n_workers=1,
                                              threads_per_worker=2,
@@ -85,8 +84,7 @@ class realfast_controller(Controller):
                                                         "GPU": 1,
                                                         "MEMORY": 10e9})
         else:
-            self.client = distributed.Client('{0}:{1}'
-                                             .format(host, '8786'))
+            self.client = distributed.Client(host)
 
         self.lock = dask.utils.SerializableLock()
         self.states = {}
