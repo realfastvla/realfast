@@ -16,7 +16,7 @@ vys_timeout_default = 10
 
 def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
                   vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                  throttle=False, mockseg=None, phasecenters=None):
+                  throttle=False, mockseg=None):
     """ Given rfpipe state and dask distributed client, run search pipline.
     """
 
@@ -36,8 +36,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
     for segment in segments:
         futures.append(pipeline_seg(st, segment, cl=cl, cfile=cfile,
                                     vys_timeout=vys_timeout, mem_read=mem_read,
-                                    mem_search=mem_search, mockseg=mockseg,
-                                    phasecenters=phasecenters))
+                                    mem_search=mem_search, mockseg=mockseg))
         if throttle:
             sleep(sleeptime)
 
@@ -46,7 +45,7 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
 
 def pipeline_seg(st, segment, cl, cfile=None,
                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                 mockseg=None, phasecenters=None):
+                 mockseg=None):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
@@ -88,7 +87,6 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
 
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
-                               phasecenters=phasecenters,
                                resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1, retries=1)
 
