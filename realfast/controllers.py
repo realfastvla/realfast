@@ -916,8 +916,8 @@ def createproducts(candcollection, data, archiveproducts=False,
     metadata = candcollection.metadata
     segment = candcollection.segment
     if not isinstance(segment, int):
-        logger.warn("Cannot get unique segment from candcollection ({0})"
-                    .format(segment))
+        logger.warning("Cannot get unique segment from candcollection")
+
     st = candcollection.state
 
     candranges = util.gencandranges(candcollection)  # finds time windows to save from segment

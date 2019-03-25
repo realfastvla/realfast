@@ -184,6 +184,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['datasetId'] = datasetId
         canddict['scan'] = int(scan)
         canddict['subscan'] = int(subscan)
+        canddict['source'] = candcollection.metadata.source
         canddict['tags'] = tagstr
         canddict['tagcount'] = 0
         canddict['candmjd'] = float(candmjd[i])

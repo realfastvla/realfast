@@ -66,6 +66,9 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
                           .format(workdir, scanId, segment))
     for candplot in candplots:
         success = rsync(candplot, destination)
+        if not success:  # make robust to a failure
+            success = rsync(candplot, destination)
+
         nplots += success
 
     # move summary plot too
@@ -74,6 +77,8 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
     if os.path.exists(summaryplot):
 #        shutil.move(summaryplot, summaryplotdest)
         success = rsync(summaryplot, summaryplotdest)
+        if not success:
+            success = rsync(summaryplot, summaryplotdest)
     else:
         logger.warn("No summary plot {0} found".format(summaryplot))
 
@@ -167,6 +172,6 @@ def rsync(original, new):
     """
 
     assert os.path.exists(original), 'Need original file!'
-    res = subprocess.call(["rsync", "-a", original.rstrip('/'), new.rstrip('/')])
+    res = subprocess.call(["rsync", "--timeout", "30", "-a", original.rstrip('/'), new.rstrip('/')])
 
     return int(res == 0)
