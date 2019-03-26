@@ -72,7 +72,7 @@ class realfast_controller(Controller):
 
         super(realfast_controller, self).__init__()
 
-        from rfpipe import preferences
+        from rfpipe import search
 
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
@@ -103,8 +103,8 @@ class realfast_controller(Controller):
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
 
-                _ = self.client.run(preferences.parsepreffile, self.preffile,
-                                    asynchronous=True)
+                # initialize worker imports and wisdom
+                _ = self.client.run(search.set_wisdom, 512, asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
