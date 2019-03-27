@@ -103,11 +103,12 @@ class realfast_controller(Controller):
                 logger.info("Parsed realfast preferences from {0}"
                             .format(self.preffile))
 
-                # initialize worker imports and wisdom
-                _ = self.client.run(search.set_wisdom, 512, asynchronous=True)
         else:
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
+
+        # initialize worker imports and wisdom
+        _ = self.client.run(search.set_wisdom, 512)
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
