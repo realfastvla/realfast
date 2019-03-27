@@ -28,13 +28,13 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     # TODO: makesumaryplot logs cands in all segments
     # this is confusing when only one segment being handled here
     msp = makesummaryplot(workdir, scanId)
-    npl = moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
+    moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
                                                              indexprefix))
 
-    if nc or npl or msp:
-        logger.info('Indexed {0} cands to {1} and moved {2} plots and '
-                    'summarized {3} to {4} for scanId {5}'
-                    .format(nc, indexprefix+'cands', npl, msp, _candplot_dir,
+    if nc or msp:
+        logger.info('Indexed {0} cands to {1} and moved plots and '
+                    'summarized {2} to {3} for scanId {4}'
+                    .format(nc, indexprefix+'cands', msp, _candplot_dir,
                             scanId))
     else:
         logger.info('No candidates or plots found.')
@@ -61,28 +61,31 @@ def moveplots(candcollection, scanId, destination=_candplot_dir):
     logger.info("Moving plots for scanId {0} segment {1} to {2}"
                 .format(scanId, segment, destination))
 
-    nplots = 0
-    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
-                          .format(workdir, scanId, segment))
-    for candplot in candplots:
-        success = rsync(candplot, destination)
-        if not success:  # make robust to a failure
-            success = rsync(candplot, destination)
-
-        nplots += success
+#    nplots = 0
+#    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
+#                          .format(workdir, scanId, segment))
+#    for candplot in candplots:
+#        success = rsync(candplot, destination)
+#        if not success:  # make robust to a failure
+#           success = rsync(candplot, destination)
+#
+#        nplots += success
 
     # move summary plot too
-    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
-    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
-    if os.path.exists(summaryplot):
-#        shutil.move(summaryplot, summaryplotdest)
-        success = rsync(summaryplot, summaryplotdest)
-        if not success:
-            success = rsync(summaryplot, summaryplotdest)
-    else:
-        logger.warn("No summary plot {0} found".format(summaryplot))
+#    summaryplot = '{0}/cands_{1}.html'.format(workdir, scanId)
+#    summaryplotdest = os.path.join(destination, os.path.basename(summaryplot))
+#    if os.path.exists(summaryplot):
+#        success = rsync(summaryplot, summaryplotdest)
+#        if not success:
+#            success = rsync(summaryplot, summaryplotdest)
+#    else:
+#        logger.warn("No summary plot {0} found".format(summaryplot))
 
-    return nplots
+    args = ["rsync", "-av", "--include", "cands_{0}*png".format(scanId),
+            "--include", "cands_{0}*.html".format(scanId), "--exclude", "*",
+            workdir, destination]
+
+    subprocess.call(args)
 
 
 def indexcandsfile(candsfile, indexprefix, tags=None):
