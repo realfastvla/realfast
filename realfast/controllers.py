@@ -561,7 +561,12 @@ class realfast_controller(Controller):
             # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
                 seg, data, cc, acc = futures
-                ncands, mocks = acc.result()
+
+                if acc.status != 'finished':  # TODO: does this ever happen?
+                    logger.warning('Final job status for {0}, seg {1}, is {2}, not "finished".'
+                                   .format(scanId, seg, acc.status))
+                else:
+                    ncands, mocks = acc.result()
 
                 # index mocks
                 if self.indexresults and mocks:
