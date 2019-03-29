@@ -553,10 +553,11 @@ class realfast_controller(Controller):
                                (scanId0 == scanId)]
             self.finished[scanId] += len(finishedlist)
             if self.indexresults:
-                elastic.indexscanstatus(scanId, pending=self.pending[scanId],
-                                        finished=self.finished[scanId],
-                                        errors=self.errors[scanId],
-                                        indexprefix=self.indexprefix)
+                distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
+                                            scanId, pending=self.pending[scanId],
+                                            finished=self.finished[scanId],
+                                            errors=self.errors[scanId],
+                                            indexprefix=self.indexprefix))
 
             # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
@@ -566,7 +567,7 @@ class realfast_controller(Controller):
                     logger.warning('Final job status for {0}, seg {1}, is {2}, not "finished".'
                                    .format(scanId, seg, acc.status))
                 else:
-                    ncands, mocks = acc.result()
+                    ncands, mocks = acc.result()  # TODO: is this slowing realtime loop?
 
                 # index mocks
                 if self.indexresults and mocks:
