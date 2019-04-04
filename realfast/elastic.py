@@ -394,6 +394,24 @@ def update_field(index, field, value, Id=None, **kwargs):
     return resp['_shards']['successful']
 
 
+def remove_tags(prefix, **kwargs):
+    """ Removes tags applied in portal
+    Can use keyword args to select subset of all candidates in cands index
+    """
+
+    Ids = get_ids(prefix+"cands", **kwargs)
+    logger.info("Removing tags from {0} candidates in {1}".format(len(Ids), prefix+"cands"))
+
+    for Id in Ids: 
+        doc = get_doc(prefix+"cands", Id) 
+        tagnames = [key for key in doc['_source'].keys() if '_tags' in key] 
+        if len(tagnames): 
+            print("Removing tags {0} for Id {1}".format(tagnames, Id))
+            for tagname in tagnames:
+                resp = es.update(prefix+"cands", prefix+"cand", Id, {"script": 'ctx._source.remove("' + tagname + '")'})
+            resp = es.update(prefix+"cands", prefix+"cand", Id, {"script": 'ctx._source.tagcount = 0'})
+
+
 def remove_ids(index, Ids=None, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
