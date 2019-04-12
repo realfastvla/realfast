@@ -377,7 +377,7 @@ def update_field(index, field, value, Id=None, **kwargs):
     if Id is None:
         query = {"script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                             "lang": "painless"}}
-        query['retry_on_conflct'] = 2
+        query['retry_on_conflct'] = 5
         if len(kwargs):
             searchquery = {"match": kwargs}
         else:

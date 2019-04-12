@@ -475,11 +475,12 @@ class realfast_controller(Controller):
                                                                    fifo_timeout='0s',
                                                                    priority=-1))
                 if self.indexresults:
-                    elastic.indexscanstatus(scanId, pending=self.pending[scanId],
-                                            finished=self.finished[scanId],
-                                            errors=self.errors[scanId],
-                                            indexprefix=self.indexprefix,
-                                            nsegment=st.nsegment)
+                    distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
+                                                                   scanId, pending=self.pending[scanId],
+                                                                   finished=self.finished[scanId],
+                                                                   errors=self.errors[scanId],
+                                                                   indexprefix=self.indexprefix,
+                                                                   nsegment=st.nsegment))
 
                 try:
                     segment = next(segments)
