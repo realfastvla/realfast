@@ -8,7 +8,7 @@ import glob
 import os.path
 import subprocess
 from rfpipe import candidates, fileLock
-from realfast import elastic
+from realfast import elastic, mcaf_servers
 
 import logging
 logger = logging.getLogger(__name__)
@@ -18,18 +18,22 @@ _candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 
 
 def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
-    """
+    """ Wraps indexcands, makesummaryplot, and moveplots calls.
     """
 
-    nc = elastic.indexcands(cc, scanId, tags=tags,
-                            url_prefix=_candplot_url_prefix,
-                            indexprefix=indexprefix)
+    if len(cc):
+        nc = elastic.indexcands(cc, scanId, tags=tags,
+                                url_prefix=_candplot_url_prefix,
+                                indexprefix=indexprefix)
 
-    # TODO: makesumaryplot logs cands in all segments
-    # this is confusing when only one segment being handled here
-    msp = makesummaryplot(workdir, scanId)
-    moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
-                                                             indexprefix))
+        # TODO: makesumaryplot logs cands in all segments
+        # this is confusing when only one segment being handled here
+        msp = makesummaryplot(workdir, scanId)
+        moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
+                                                           indexprefix))
+    else:
+        nc = 0
+        msp = 0
 
     if nc or msp:
         logger.info('Indexed {0} cands to {1} and moved plots and '
@@ -38,8 +42,6 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                             scanId))
     else:
         logger.info('No candidates or plots found.')
-
-    return nc
 
 
 def makesummaryplot(workdir, scanId):
@@ -93,9 +95,6 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
     Should produce identical index results as real-time operation.
     """
 
-    nc = []
-    nn = []
-    nm = []
     for cc in candidates.iter_cands(candsfile):
         st = cc.state
         scanId = st.metadata.scanId
@@ -104,13 +103,101 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
 
         elastic.indexscan(inmeta=st.metadata, preferences=st.prefs,
                           indexprefix=indexprefix)
-        nc.append(indexcands_and_plots(cc, scanId, tags, indexprefix, workdir))
-        nn.append(elastic.indexnoises(cc.state.noisefile, scanId,
-                                      indexprefix=indexprefix))
+        indexcands_and_plots(cc, scanId, tags, indexprefix, workdir)
+        elastic.indexnoises(cc.state.noisefile, scanId,
+                            indexprefix=indexprefix)
         if mocks is not None:
-            nm.append(elastic.indexmock(scanId, mocks,
-                                        indexprefix=indexprefix))
-    return nc, nn, nm
+            elastic.indexmock(scanId, mocks, indexprefix=indexprefix)
+
+
+def createproducts(candcollection, data, indexprefix=None,
+                   savebdfdir='/lustre/evla/wcbe/data/realfast/'):
+    """ Create SDMs and BDFs for a given candcollection (time segment).
+    Takes data future and calls data only if windows found to cut.
+    This uses the mcaf_servers module, which calls the sdm builder server.
+    Currently BDFs are moved to no_archive lustre area by default.
+    """
+
+    from rfpipe import calibration
+    from distributed import Future
+
+    if isinstance(candcollection, Future):
+        candcollection = candcollection.result()
+    if isinstance(data, Future):
+        data = data.result()
+
+    assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
+
+    logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
+                .format(candcollection.metadata.scanId, candcollection.segment,
+                        len(candcollection)))
+
+    if len(candcollection.array) == 0:
+        logger.info('No candidates to generate products for.')
+        return []
+
+    metadata = candcollection.metadata
+    segment = candcollection.segment
+    if not isinstance(segment, int):
+        logger.warning("Cannot get unique segment from candcollection")
+
+    st = candcollection.state
+
+    candranges = gencandranges(candcollection)  # finds time windows to save from segment
+    logger.info('Getting data for candidate time ranges {0} in segment {1}.'
+                .format(candranges, segment))
+
+    ninttot, nbl, nchantot, npol = data.shape
+    nchan = metadata.nchan_orig//metadata.nspw_orig
+    nspw = metadata.nspw_orig
+
+    sdmlocs = []
+    # make sdm for each unique time range (e.g., segment)
+    for (startTime, endTime) in set(candranges):
+        i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
+        nint = np.round(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
+        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
+                    .format(nint, i, startTime, segment))
+        data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
+
+        # TODO: fill in annotation dict as defined in confluence doc on realfast collections
+        annotation = {}
+        calScanTime = np.unique(calibration.getsols(st)['mjd'])
+        if len(calScanTime) > 1:
+            logger.warn("Using first of multiple cal times: {0}."
+                        .format(calScanTime))
+        calScanTime = calScanTime[0]
+
+        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
+                                      data_cut, calScanTime,
+                                      annotation=annotation)
+        if sdmloc is not None:
+            # update index to link to new sdm
+            if indexprefix is not None:
+                candIds = elastic.candid(cc=candcollection)
+                for Id in candIds:
+                    elastic.update_field(indexprefix+'cands', 'sdmname',
+                                         sdmloc, Id=Id)
+
+            sdmlocs.append(sdmloc)
+            logger.info("Created new SDMs at: {0}".format(sdmloc))
+            # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
+            mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
+                                 bdfdir=savebdfdir)
+        else:
+            logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}"
+                        .format(metadata.datasetId, startTime, endTime))
+
+    return sdmlocs
+
+
+def runingest(sdms):
+    """ Call archive tool or move data to trigger archiving of sdms.
+    This function will ultimately be triggered by candidate portal.
+    """
+
+    NotImplementedError
+#    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
 def data_logger(st, segment, data):

@@ -55,21 +55,15 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     from rfpipe import source, pipeline
 
-    logger.info('Building dask for observation {0}, scan {1}, segment {2}.'
-                .format(st.metadata.datasetId, st.metadata.scan, segment))
-
-#    data = delayed(source.read_segment)(st, segment, timeout=vys_timeout,
-#                                        cfile=cfile)
-
-#    resources = {}
-#    resources[tuple(data.__dask_keys__())] = {'READER': 1, 'MEMORY': mem_read}
-
     # set up worker node round robin based on segment
     workers = [w['id']for w in itervalues(cl.scheduler_info()['workers'])]
     nodes = list(set([w.split('g')[0] for w in workers]))
     workerspernode = list(set([int(w.split('g')[1]) for w in workers]))
     allowed = ['{0}g{1}'.format(node, segment % len(workerspernode))
                for node in nodes]
+
+    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers (like {4}).'
+                .format(st.metadata.datasetId, st.metadata.scan, segment, len(allowed), allowed[0]))
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},

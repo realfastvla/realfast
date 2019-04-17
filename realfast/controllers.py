@@ -13,7 +13,7 @@ from time import sleep
 import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
-from realfast import pipeline, elastic, mcaf_servers, heuristics, util
+from realfast import pipeline, elastic, heuristics, util
 
 import logging
 import matplotlib
@@ -139,11 +139,16 @@ class realfast_controller(Controller):
         assert self.read_overhead and self.read_totfrac and self.spill_limit
 
     def __repr__(self):
-        nseg = len([seg for (scanId, futurelist) in iteritems(self.futures)
-                    for seg, data, cc, acc in futurelist])
-
         return ('realfast controller with {0} jobs'
-                .format(nseg))
+                .format(self.nsegment))
+
+    @property
+    def nsegment(self):
+        """ Total number of segments submitted but not yet cleaned up
+        """
+
+        return len([seg for (scanId, futurelist) in iteritems(self.futures)
+                    for seg, data, cc, acc in futurelist])
 
     @property
     def statuses(self):
@@ -534,13 +539,12 @@ class realfast_controller(Controller):
         """
 
         removed = 0
-        cindexed = 0
-        sdms = 0
 
         scanIds = [scanId for scanId in self.futures]
         if len(scanIds):
-            logger.info("Checking on scanIds: {0}"
-                        .format(','.join(scanIds)))
+            logger.info("Checking on {0} segments in {1} scanIds: {2}"
+                        .format(self.nsegment, len(scanIds),
+                                ','.join(scanIds)))
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
@@ -564,35 +568,27 @@ class realfast_controller(Controller):
             for futures in finishedlist:
                 seg, data, cc, acc = futures
 
-                if acc.status != 'finished':  # TODO: does this ever happen?
-                    logger.warning('Final job status for {0}, seg {1}, is {2}, not "finished".'
-                                   .format(scanId, seg, acc.status))
-                else:
-                    ncands, mocks = acc.result()  # TODO: is this slowing realtime loop?
+#                if acc.status != 'finished':  # TODO: does this ever happen?
+#                    logger.warning('Final job status for {0}, seg {1}, is {2}, not "finished".'
+#                                   .format(scanId, seg, acc.status))
+#                else:
+#                    ncands, mocks = acc.result()  # TODO: is this slowing realtime loop?
 
-                # index mocks
-                if self.indexresults and mocks:
+                if self.indexresults:
+                    # index mocks
                     distributed.fire_and_forget(self.client.submit(elastic.indexmock,
                                                                    scanId,
-                                                                   mocks,
+                                                                   acc=acc,
                                                                    indexprefix=self.indexprefix))
-                else:
-                    logger.debug("No mocks indexed from scanId {0}"
-                                 .format(scanId))
 
-                # index noises
-                noisefile = self.states[scanId].noisefile
-                if self.indexresults and os.path.exists(noisefile):
+                    # index noises
+                    noisefile = self.states[scanId].noisefile
                     distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
                                                                    noisefile,
                                                                    scanId,
                                                                    indexprefix=self.indexprefix))
-                else:
-                    logger.debug("No noises indexed from scanId {0}."
-                                 .format(scanId))
 
-                # index cands
-                if self.indexresults and ncands:
+                    # index cands
                     workdir = self.states[scanId].prefs.workdir
                     distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
                                                                    cc,
@@ -601,25 +597,17 @@ class realfast_controller(Controller):
                                                                    self.indexprefix,
                                                                    workdir,
                                                                    priority=5))
-                else:
-                    logger.debug("No cands indexed from scanId {0}"
-                                 .format(scanId))
 
-                # optionally save and archive sdm/bdfs for segment
-                if self.saveproducts and ncands:
-                    distributed.fire_and_forget(self.client.submit(createproducts,
+                if self.saveproducts:
+                    # optionally save and archive sdm/bdfs for segment
+                    distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
                                                                    self.archiveproducts,
                                                                    indexprefix=self.indexprefix,
                                                                    priority=5))
-                    logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
-                                .format(scanId, seg, ncands))
-                    sdms += 1
-                else:
-                    logger.debug("No SDMs plots moved for scanId {0}."
-                                 .format(scanId))
 
                 # remove job from list
+                # TODO: need way to report number of cands and sdms before removal without slowing cleanup
                 self.futures[scanId].remove(futures)
                 removed += 1
 
@@ -647,9 +635,8 @@ class realfast_controller(Controller):
                     pass
 
 #        _ = self.client.run(gc.collect)
-        if removed or cindexed or sdms:
-            logger.info('Removed {0} jobs, indexed {1} cands, made {2} SDMs.'
-                        .format(removed, cindexed, sdms))
+        if removed:
+            logger.info('Removed {0} jobs'.format(removed))
 
     def cleanup_loop(self, timeout=None):
         """ Clean up until all jobs gone or timeout elapses.
@@ -897,99 +884,6 @@ def summarize(config):
     except:
         logger.warn("Failed to fully parse config to print summary."
                     "Proceeding.")
-
-
-def createproducts(candcollection, data, archiveproducts=False,
-                   indexprefix=None,
-                   savebdfdir='/lustre/evla/wcbe/data/realfast/'):
-    """ Create SDMs and BDFs for a given candcollection (time segment).
-    Takes data future and calls data only if windows found to cut.
-    This uses the mcaf_servers module, which calls the sdm builder server.
-    Currently BDFs are moved to no_archive lustre area by default.
-    """
-
-    from rfpipe import calibration
-
-    if isinstance(candcollection, distributed.Future):
-        candcollection = candcollection.result()
-    if isinstance(data, distributed.Future):
-        data = data.result()
-
-    assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
-
-    if len(candcollection.array) == 0:
-        logger.info('No candidates to generate products for.')
-        return []
-
-    metadata = candcollection.metadata
-    segment = candcollection.segment
-    if not isinstance(segment, int):
-        logger.warning("Cannot get unique segment from candcollection")
-
-    st = candcollection.state
-
-    candranges = util.gencandranges(candcollection)  # finds time windows to save from segment
-    logger.info('Getting data for candidate time ranges {0} in segment {1}.'
-                .format(candranges, segment))
-
-    ninttot, nbl, nchantot, npol = data.shape
-    nchan = metadata.nchan_orig//metadata.nspw_orig
-    nspw = metadata.nspw_orig
-
-    sdmlocs = []
-    # make sdm for each unique time range (e.g., segment)
-    for (startTime, endTime) in set(candranges):
-        i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = np.round(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
-        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
-                    .format(nint, i, startTime, segment))
-        data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
-
-        # TODO: fill in annotation dict as defined in confluence doc on realfast collections
-        annotation = {}
-        calScanTime = np.unique(calibration.getsols(st)['mjd'])
-        if len(calScanTime) > 1:
-            logger.warn("Using first of multiple cal times: {0}."
-                        .format(calScanTime))
-        calScanTime = calScanTime[0]
-
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut, calScanTime,
-                                      annotation=annotation)
-        if sdmloc is not None:
-            # update index to link to new sdm
-            if indexprefix is not None:
-                candIds = elastic.candid(cc=candcollection)
-                for Id in candIds:
-                    elastic.update_field(indexprefix+'cands', 'sdmname',
-                                         sdmloc, Id=Id)
-
-            sdmlocs.append(sdmloc)
-            logger.info("Created new SDMs at: {0}".format(sdmloc))
-            # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
-            mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
-                                 bdfdir=savebdfdir)
-            # try archiving it
-            try:
-                if archiveproducts:
-                    runingest(sdmloc)  # TODO: implement this
-
-            except distributed.scheduler.KilledWorker:
-                logger.warn("Lost SDM generation due to killed worker.")
-        else:
-            logger.warn("No sdm/bdf made for {0} with start/end time {1}-{2}"
-                        .format(metadata.datasetId, startTime, endTime))
-
-    return sdmlocs
-
-
-def runingest(sdms):
-    """ Call archive tool or move data to trigger archiving of sdms.
-    This function will ultimately be triggered by candidate portal.
-    """
-
-    NotImplementedError
-#    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
 class config_controller(Controller):

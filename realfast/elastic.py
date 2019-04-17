@@ -218,15 +218,20 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     return res
 
 
-def indexmock(scanId, mocks, indexprefix='new'):
+def indexmock(scanId, mocks=None, acc=None, indexprefix='new'):
     """ Takes simulated_transient as used in state and pushes to index.
     Assumes 1 mock in list for now.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='new' for production.
+    Option to submit mocks as tuple or part of analyze_cc future.
     """
 
+    # for realtime use
+    if mocks is None and acc is not None:
+        ncands, mocks = acc.result()
+
     if len(mocks[0]) != 7:
-        return 0
+        logger.warn("mocks not in expected format ({0})".format(mocks))
 
     index = indexprefix+'mocks'
 
@@ -251,8 +256,6 @@ def indexmock(scanId, mocks, indexprefix='new'):
     else:
         logger.info('No mocks indexed for {0}'.format(scanId))
 
-    return res
-
 
 def indexnoises(noisefile, scanId, indexprefix='new'):
     """ Reads noises from noisefile and pushes to index
@@ -268,6 +271,7 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
 
     count = 0
     segments = []
+    # TODO: check for presence of noisefile?
     for noise in iter_noise(noisefile):
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
@@ -289,8 +293,6 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
                     .format(count, scanId, index))
     else:
         logger.debug('No noises indexed for {0}'.format(scanId))
-
-    return count
 
 
 ###
