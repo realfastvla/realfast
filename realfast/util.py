@@ -217,15 +217,20 @@ def data_logger(st, segment, data):
     else:
         results = 'None'
 
-    with fileLock.FileLock(filename, timeout=10):
-        with open(filename, "a") as fp:
-            fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr,
-                                                 results))
+    try:
+        with fileLock.FileLock(filename, timeout=60):
+            with open(filename, "a") as fp:
+                fp.write("{0}: {1} {2} {3}\n".format(segment, t0, timearr,
+                                                     results))
+    except fileLock.FileLock.FileLockException:
+        logger.warn("data_logger on segment {0} failed to write due to file timeout"
+                    .format(segment))
 
 
 def data_logging_report(filename):
     """ Read and summarize data logging file
     """
+
     with open(filename, 'r') as fp:
         for line in fp.readlines():
             segment, starttime, dts, filled = line.split(' ')
