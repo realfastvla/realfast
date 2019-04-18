@@ -123,6 +123,11 @@ def createproducts(candcollection, data, indexprefix=None,
 
     if isinstance(candcollection, Future):
         candcollection = candcollection.result()
+
+    if len(candcollection) == 0:
+        logger.info('No candidates to generate products for.')
+        return []
+
     if isinstance(data, Future):
         data = data.result()
 
@@ -131,10 +136,6 @@ def createproducts(candcollection, data, indexprefix=None,
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                 .format(candcollection.metadata.scanId, candcollection.segment,
                         len(candcollection)))
-
-    if len(candcollection.array) == 0:
-        logger.info('No candidates to generate products for.')
-        return []
 
     metadata = candcollection.metadata
     segment = candcollection.segment

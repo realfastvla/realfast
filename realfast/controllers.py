@@ -602,7 +602,6 @@ class realfast_controller(Controller):
                     # optionally save and archive sdm/bdfs for segment
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
-                                                                   self.archiveproducts,
                                                                    indexprefix=self.indexprefix,
                                                                    priority=5))
 

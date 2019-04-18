@@ -97,11 +97,12 @@ def indexscanstatus(scanId, indexprefix='new', **kwargs):
                  if field in allowed]
     valuelist = [int(value) for (field, value) in iteritems(kwargs)
                  if field in allowed]
-
-    res = update_fields(index, fieldlist, valuelist, scanId)
-
-    logger.info("Updated {0}/{1} fields with processing status for {2}"
-                .format(res['updated'], len(fieldlist), scanId))
+    try:
+        res = update_fields(index, fieldlist, valuelist, scanId)
+        logger.info("Updated {0}/{1} fields with processing status for {2}"
+                    .format(res['updated'], len(fieldlist), scanId))
+    except TransportError:
+        logger.warn("Could not update fields due to version conflict. Skipping this update.")
 
 
 def indexprefs(preferences, indexprefix='new'):
@@ -213,34 +214,40 @@ def indexmock(scanId, mocks=None, acc=None, indexprefix='new'):
     Option to submit mocks as tuple or part of analyze_cc future.
     """
 
+    from distributed import Future
+
     # for realtime use
     if mocks is None and acc is not None:
-        ncands, mocks = acc.result()
+        if isinstance(acc, Future):
+            ncands, mocks = acc.result()
+        else:
+            ncands, mocks = acc
 
-    if len(mocks[0]) != 7:
-        logger.warn("mocks not in expected format ({0})".format(mocks))
+    if mocks is not None:
+        if len(mocks[0]) != 7:
+            logger.warn("mocks not in expected format ({0})".format(mocks))
 
-    index = indexprefix+'mocks'
+        index = indexprefix+'mocks'
 
-    mockdict = {}
-    mockdict['scanId'] = scanId
-    (seg, i0, dm, dt, amp, l, m) = mocks[0]  # assume 1 mock
-    # TODO: support possible ampslope
-    mockdict['segment'] = int(seg)
-    mockdict['integration'] = int(i0)
-    mockdict['dm'] = float(dm)
-    mockdict['dt'] = float(dt)
-    mockdict['amp'] = float(amp)
-    mockdict['l'] = float(l)
-    mockdict['m'] = float(m)
+        mockdict = {}
+        mockdict['scanId'] = scanId
+        (seg, i0, dm, dt, amp, l, m) = mocks[0]  # assume 1 mock
+        # TODO: support possible ampslope
+        mockdict['segment'] = int(seg)
+        mockdict['integration'] = int(i0)
+        mockdict['dm'] = float(dm)
+        mockdict['dt'] = float(dt)
+        mockdict['amp'] = float(amp)
+        mockdict['l'] = float(l)
+        mockdict['m'] = float(m)
 
-    res = pushdata(mockdict, Id=scanId, index=index,
-                   command='index')
+        res = pushdata(mockdict, Id=scanId, index=index,
+                       command='index')
 
-    if res >= 1:
-        logger.info('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
-                                                               index))
-    else:
+        if res >= 1:
+            logger.info('Indexed {0} mocks for {1} to {2}'.format(res, scanId,
+                                                                  index))
+    if mocks is None or res == 0:
         logger.info('No mocks indexed for {0}'.format(scanId))
 
 
@@ -258,28 +265,29 @@ def indexnoises(noisefile, scanId, indexprefix='new'):
 
     count = 0
     segments = []
-    # TODO: check for presence of noisefile?
-    for noise in iter_noise(noisefile):
-        segment, integration, noiseperbl, zerofrac, imstd = noise
-        Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
-        if not es.exists(index=index, doc_type=doc_type, id=Id):
-            noisedict = {}
-            noisedict['scanId'] = str(scanId)
-            noisedict['segment'] = int(segment)
-            noisedict['integration'] = int(integration)
-            noisedict['noiseperbl'] = float(noiseperbl)
-            noisedict['zerofrac'] = float(zerofrac)
-            noisedict['imstd'] = float(imstd)
+    if os.path.exists(noisefile):
+        for noise in iter_noise(noisefile):
+            segment, integration, noiseperbl, zerofrac, imstd = noise
+            Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
+            if not es.exists(index=index, doc_type=doc_type, id=Id):
+                noisedict = {}
+                noisedict['scanId'] = str(scanId)
+                noisedict['segment'] = int(segment)
+                noisedict['integration'] = int(integration)
+                noisedict['noiseperbl'] = float(noiseperbl)
+                noisedict['zerofrac'] = float(zerofrac)
+                noisedict['imstd'] = float(imstd)
 
-            count += pushdata(noisedict, Id=Id, index=index,
-                              command='index')
-            segments.append(segment)
+                count += pushdata(noisedict, Id=Id, index=index,
+                                  command='index')
+                segments.append(segment)
 
-    if count:
-        logger.info('Indexed {0} noises for {1} to {2}'
-                    .format(count, scanId, index))
-    else:
-        logger.debug('No noises indexed for {0}'.format(scanId))
+        if count:
+            logger.info('Indexed {0} noises for {1} to {2}'
+                        .format(count, scanId, index))
+
+    if not os.path.exists(noisefile) or not count:
+        logger.info('No noises indexed for {0}'.format(scanId))
 
 
 ###
@@ -366,7 +374,7 @@ def update_field(index, field, value, Id=None, **kwargs):
     if Id is None:
         query = {"script": {"inline": "ctx._source.{0}='{1}'".format(field, value),
                             "lang": "painless"}}
-        query['retry_on_conflct'] = 5
+        query['retry_on_conflict'] = 5
         if len(kwargs):
             searchquery = {"match": kwargs}
         else:
@@ -390,9 +398,10 @@ def update_fields(index, fieldlist, valuelist, Id):
 
     doc_type = index.rstrip('s')
 
-    inline = ';'.join(['ctx._source.{0} = {1}'.format(field, value) for field, value in zip(fieldlist, valuelist)])
-    query = {"script": {"inline": inline, "lang": "painless"}, "query": {"match": {"_id": Id}}} 
-    resp = es.update_by_query(index=index, doc_type=doc_type, body=query)  
+    inline = ';'.join(['ctx._source.{0} = {1} '.format(field, value)
+                       for field, value in zip(fieldlist, valuelist)])
+    query = {"script": {"inline": inline, "lang": "painless"}, "query": {"match": {"_id": Id}}}
+    resp = es.update_by_query(index=index, doc_type=doc_type, body=query, conflicts="proceed")
 
     return resp
 
@@ -405,10 +414,10 @@ def remove_tags(prefix, **kwargs):
     Ids = get_ids(prefix+"cands", **kwargs)
     logger.info("Removing tags from {0} candidates in {1}".format(len(Ids), prefix+"cands"))
 
-    for Id in Ids: 
-        doc = get_doc(prefix+"cands", Id) 
-        tagnames = [key for key in doc['_source'].keys() if '_tags' in key] 
-        if len(tagnames): 
+    for Id in Ids:
+        doc = get_doc(prefix+"cands", Id)
+        tagnames = [key for key in doc['_source'].keys() if '_tags' in key]
+        if len(tagnames):
             print("Removing tags {0} for Id {1}".format(tagnames, Id))
             for tagname in tagnames:
                 resp = es.update(prefix+"cands", prefix+"cand", Id, {"script": 'ctx._source.remove("' + tagname + '")'})
