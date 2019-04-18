@@ -85,36 +85,23 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
         indexprefs(preferences, indexprefix=indexprefix)
 
 
-def indexscanstatus(scanId, nsegment=None, nsubmitted=None, pending=None,
-                    finished=None, errors=None, indexprefix='new'):
+def indexscanstatus(scanId, indexprefix='new', **kwargs):
     """ Update status fields for scanId
+        Can set field of 'nsegment', 'pending', 'finished', 'errors'.
     """
 
-    res = 0
-    tried = 0
-    if nsegment is not None:
-        tried += 1
-        res += update_field(index=indexprefix+'scans', Id=scanId,
-                            field='nsegment', value=int(nsegment))
-    if nsubmitted is not None:
-        tried += 1
-        res += update_field(index=indexprefix+'scans', Id=scanId,
-                            field='nsubmitted', value=int(nsubmitted))
-    if pending is not None:
-        tried += 1
-        res += update_field(index=indexprefix+'scans', Id=scanId,
-                            field='pending', value=int(pending))
-    if finished is not None:
-        tried += 1
-        res += update_field(index=indexprefix+'scans', Id=scanId,
-                            field='finished', value=int(finished))
-    if errors is not None:
-        tried += 1
-        res += update_field(index=indexprefix+'scans', Id=scanId,
-                            field='errors', value=int(errors))
+    index = indexprefix+'scans'
 
-    logger.debug("Updated {0}/{1} fields with processing status for {2}"
-                 .format(res, tried, scanId))
+    allowed = ['nsegment', 'pending', 'finished', 'errors']
+    fieldlist = [field for (field, value) in iteritems(kwargs)
+                 if field in allowed]
+    valuelist = [int(value) for (field, value) in iteritems(kwargs)
+                 if field in allowed]
+
+    res = update_fields(index, fieldlist, valuelist, scanId)
+
+    logger.info("Updated {0}/{1} fields with processing status for {2}"
+                .format(res['updated'], len(fieldlist), scanId))
 
 
 def indexprefs(preferences, indexprefix='new'):
@@ -394,6 +381,20 @@ def update_field(index, field, value, Id=None, **kwargs):
         resp = es.update(id=Id, body=query, doc_type=doc_type, index=index)
 
     return resp['_shards']['successful']
+
+
+def update_fields(index, fieldlist, valuelist, Id):
+    """ Updates multiple fields together for single Id.
+    Safer than update_field, which can produce doc conflicts if run rapidly.
+    """
+
+    doc_type = index.rstrip('s')
+
+    inline = ';'.join(['ctx._source.{0} = {1}'.format(field, value) for field, value in zip(fieldlist, valuelist)])
+    query = {"script": {"inline": inline, "lang": "painless"}, "query": {"match": {"_id": Id}}} 
+    resp = es.update_by_query(index=index, doc_type=doc_type, body=query)  
+
+    return resp
 
 
 def remove_tags(prefix, **kwargs):

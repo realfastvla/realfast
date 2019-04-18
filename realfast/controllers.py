@@ -481,10 +481,10 @@ class realfast_controller(Controller):
                                                                    priority=-1))
                 if self.indexresults:
                     distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
-                                                                   scanId, pending=self.pending[scanId],
+                                                                   scanId, indexprefix=self.indexprefix,
+                                                                   pending=self.pending[scanId],
                                                                    finished=self.finished[scanId],
                                                                    errors=self.errors[scanId],
-                                                                   indexprefix=self.indexprefix,
                                                                    nsegment=st.nsegment))
 
                 try:
@@ -559,10 +559,10 @@ class realfast_controller(Controller):
             self.finished[scanId] += len(finishedlist)
             if self.indexresults:
                 distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
-                                            scanId, pending=self.pending[scanId],
+                                            scanId, indexprefix=self.indexprefix,
+                                            pending=self.pending[scanId],
                                             finished=self.finished[scanId],
-                                            errors=self.errors[scanId],
-                                            indexprefix=self.indexprefix))
+                                            errors=self.errors[scanId]))
 
             # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
