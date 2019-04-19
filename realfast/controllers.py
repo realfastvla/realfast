@@ -10,7 +10,6 @@ import random
 import distributed
 from astropy import time
 from time import sleep
-import numpy as np
 import dask.utils
 from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util

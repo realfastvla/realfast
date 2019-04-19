@@ -4,9 +4,10 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import numpy as np
-import glob
-import os.path
+import os
+import shutil
 import subprocess
+from astropy import time
 from rfpipe import candidates, fileLock
 from realfast import elastic, mcaf_servers
 
@@ -189,6 +190,53 @@ def createproducts(candcollection, data, indexprefix=None,
 
     return sdmlocs
 
+
+def get_sdmname(candcollection):
+    """ Use candcollection to get name of SDM output by the sdmbuilder
+    """
+
+    datasetId = candcollection.metadata.datasetId
+    uid = get_uid(candcollection)
+    outputDatasetId = 'realfast_{0}_{1}'.format(datasetId, uid.rsplit('/')[-1])
+
+    return outputDatasetId
+
+
+def get_uid(candcollection):
+    """ Get unix time appropriate for bdf naming
+    Expects one segment per candcollection and one range per segment.
+    """
+
+    candranges = gencandranges(candcollection)
+    assert len(candranges) == 1, "Assuming 1 candrange per candcollection and/or segment"
+
+    startTime, endTime = candranges[0]
+
+    uid = ('uid:///evla/realfastbdf/{0}'
+           .format(int(time.Time(startTime, format='mjd').unix*1e3)))
+
+    return uid
+
+
+def assemble_sdmbdf(candcollection, sdmloc='/home/mctest/evla/mcaf/workspace/',
+                    bdfdir='/lustre/evla/wcbe/data/realfast/'):
+    """ Use candcollection to assemble cutout SDM and BDF from file system at VLA
+    into a viable SDM.
+    """
+
+    destination = '.'
+    sdm0 = get_sdmname(candcollection)
+    bdf0 = get_uid(candcollection).replace(':', '_').replace('/', '_')
+    newsdm = os.path.join(destination, sdm0)
+    shutil.copytree(os.path.join(sdmloc, sdm0), newsdm)
+
+    bdfdestination = os.path.join(newsdm, 'ASDMBinary')
+    os.mkdir(bdfdestination)
+    shutil.copy(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
+
+    logger.info("Assembled SDM/BDF at {0}".format(newsdm))
+
+    return newsdm
 
 def runingest(sdms):
     """ Call archive tool or move data to trigger archiving of sdms.
