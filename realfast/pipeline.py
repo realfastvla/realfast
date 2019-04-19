@@ -62,8 +62,9 @@ def pipeline_seg(st, segment, cl, cfile=None,
     allowed = ['{0}g{1}'.format(node, segment % len(workerspernode))
                for node in nodes]
 
-    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers (like {4}).'
-                .format(st.metadata.datasetId, st.metadata.scan, segment, len(allowed), allowed[0]))
+    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers with device {4}.'
+                .format(st.metadata.datasetId, st.metadata.scan, segment,
+                        len(allowed), segment % len(workerspernode)))
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},

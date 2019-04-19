@@ -29,8 +29,9 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
         msp = makesummaryplot(workdir, scanId)
-        moveplots(cc, scanId, destination='{0}/{1}'.format(_candplot_dir,
-                                                           indexprefix))
+        workdir = cc.prefs.workdir + '/'
+        moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
+                                                                indexprefix))
     else:
         nc = 0
         msp = 0
@@ -53,15 +54,12 @@ def makesummaryplot(workdir, scanId):
     return ncands
 
 
-def moveplots(candcollection, scanId, destination=_candplot_dir):
+def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
     """
 
-    workdir = candcollection.prefs.workdir
-#    segment = candcollection.segment
-
-    logger.info("Moving plots for scanId {0} to {1}"
-                .format(scanId, destination))
+    logger.info("Moving scanId {0} plots from {1} to {2}"
+                .format(scanId, workdir, destination))
 
 #    nplots = 0
 #    candplots = glob.glob('{0}/cands_{1}_seg{2}-*.png'
