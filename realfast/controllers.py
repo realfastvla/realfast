@@ -510,7 +510,7 @@ class realfast_controller(Controller):
                                 .format(scanId))
 
             # periodically check on submissions. always, if memory limited.
-            if not (segment % 2) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+            if not (segment % 3) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
                                          heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                                          heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                                       daskdir=self.daskdir)):
@@ -670,15 +670,16 @@ class realfast_controller(Controller):
         else:
             gainfile = ''
             today = date.today()
-            directory = '/home/mchammer/evladata/telcal/{0}'.format(today.year)
+            directory = '/home/mchammer/evladata/telcal/{0}/{1:02}'.format(today.year, today.month)
             name = '{0}.GN'.format(st.metadata.datasetId)
-            for path, dirs, files in os.walk(directory):
-                for f in filter(lambda x: name in x, files):
-                    gainfile = os.path.join(path, name)
+#            for path, dirs, files in os.walk(directory):
+#                for f in filter(lambda x: name in x, files):
+#                    gainfile = os.path.join(path, name)
 
+            gainfile = os.path.join(directory, name)
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
                 logger.debug("Found telcalfile {0} for scanId {1}."
-                            .format(gainfile, scanId))
+                             .format(gainfile, scanId))
                 st.prefs.gainfile = gainfile
                 return True
             else:
