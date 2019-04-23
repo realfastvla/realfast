@@ -6,6 +6,7 @@ from io import open
 import pickle
 import os.path
 from datetime import date
+import gc
 import random
 import distributed
 from astropy import time
@@ -496,14 +497,17 @@ class realfast_controller(Controller):
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
                     logger.info("System not ready. No reader available with required memory {0}"
                                 .format(w_memlim))
+                    self.client.run(gc.collect)
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
                     logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                 .format(tot_memlim))
+                    self.client.run(gc.collect)
                 elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                       daskdir=self.daskdir):
                     logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
+                    self.client.run(gc.collect)
                 elif not (self.set_telcalfile(scanId)
                           if self.requirecalibration else True):
                     logger.info("System not ready. No telcalfile available for {0}"
