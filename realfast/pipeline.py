@@ -56,11 +56,11 @@ def pipeline_seg(st, segment, cl, cfile=None,
     from rfpipe import source, pipeline
 
     # set up worker node round robin based on segment
-    workers = [w['id']for w in itervalues(cl.scheduler_info()['workers'])]
+    workers = [w['id'] for w in itervalues(cl.scheduler_info()['workers'])]
     nodes = list(set([w.split('g')[0] for w in workers]))
     workerspernode = list(set([int(w.split('g')[1]) for w in workers]))
-    allowed = ['{0}g{1}'.format(node, segment % len(workerspernode))
-               for node in nodes]
+    allowed = ['{0}g{1}'.format(node, 2*(segment % len(workerspernode)))
+               for node in nodes]  # assumes 2 gpus per worker
 
     logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers with device {4}.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment,
