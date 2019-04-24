@@ -8,6 +8,7 @@ import os
 import shutil
 import subprocess
 from astropy import time
+from time import sleep
 from rfpipe import candidates, fileLock
 from realfast import elastic, mcaf_servers
 
@@ -135,6 +136,16 @@ def createproducts(candcollection, data, indexprefix=None,
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                 .format(candcollection.metadata.scanId, candcollection.segment,
                         len(candcollection)))
+
+    now = time.Time.now().mjd
+    if now < candcollection.metadata.endtime_mjd:
+        logger.info("Waiting until {0} for ScanId {1} to complete"
+                    .format(candcollection.metadata.endtime_mjd,
+                            candcollection.metadata.scanId))
+
+        while now < candcollection.metadata.endtime_mjd:
+            sleep(1)
+            now = time.Time.now().mjd
 
     metadata = candcollection.metadata
     segment = candcollection.segment
