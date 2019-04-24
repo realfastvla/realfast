@@ -137,13 +137,13 @@ def createproducts(candcollection, data, indexprefix=None,
                 .format(candcollection.metadata.scanId, candcollection.segment,
                         len(candcollection)))
 
+    wait = candcollection.metadata.endtime_mjd + 10/(24*3600)  # end+10s
     now = time.Time.now().mjd
-    if now < candcollection.metadata.endtime_mjd:
+    if now < wait:
         logger.info("Waiting until {0} for ScanId {1} to complete"
-                    .format(candcollection.metadata.endtime_mjd,
-                            candcollection.metadata.scanId))
+                    .format(wait, candcollection.metadata.scanId))
 
-        while now < candcollection.metadata.endtime_mjd:
+        while now < wait:
             sleep(1)
             now = time.Time.now().mjd
 
