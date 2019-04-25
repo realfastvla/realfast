@@ -53,6 +53,21 @@ def run(preffile):
         rfc.cleanup_loop()
 
 
+@cli.command()
+@click.argument('sdmname')
+@click.option('--notebook', default='unflagged_search_and_refine.ipynb')
+def refine(sdmname, notebook):
+    """ Compile notebook
+    """
+    import subprocess, os.path
+    notebookpath = '/home/cbe-master/realfast/soft/realfast/realfast/notebooks'
+
+    args = ["papermill", "-p", "sdmname", sdmname, os.path.join(notebookpath, notebook), sdmname+".ipynb"]
+    subprocess.call(args)
+    args = ["jupyter", "nbconvert", sdmname+".ipynb", "--to", "html", "--output", sdmname+".html"]
+    subprocess.call(args)
+
+
 @click.group('realfast_portal')
 def cli2():
     pass
