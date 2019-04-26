@@ -59,13 +59,20 @@ def run(preffile):
 def refine(sdmname, notebook):
     """ Compile notebook
     """
-    import subprocess, os.path
+    import subprocess, os
     notebookpath = '/home/cbe-master/realfast/soft/realfast/realfast/notebooks'
 
-    args = ["papermill", "-p", "sdmname", sdmname, os.path.join(notebookpath, notebook), sdmname+".ipynb"]
+    # report-mode just shows output of each cell
+    args = ["papermill", "--report-mode", "-p", "sdmname", sdmname, os.path.join(notebookpath, notebook), sdmname+".ipynb"]
     subprocess.call(args)
     args = ["jupyter", "nbconvert", sdmname+".ipynb", "--to", "html", "--output", sdmname+".html"]
     subprocess.call(args)
+    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
+    args = ["rsync", "-av", "--remove-source-files", "--include", "{0}.html".format(sdmname), "--exclude", "*", '.', destination]
+    logger.info("Refinement notebook available at http://realfast.nrao.edu/plots/refinement/{0}.html".format(sdmname))
+    status = subprocess.call(args)
+    if not status:
+        os.remove(sdmname + '.ipynb')
 
 
 @click.group('realfast_portal')
