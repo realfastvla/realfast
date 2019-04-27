@@ -508,7 +508,7 @@ class realfast_controller(Controller):
                     logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
                     self.client.run(gc.collect)
-                elif not (telcalset if self.requirecalibration else True)):
+                elif not (telcalset if self.requirecalibration else True):
                     logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
 

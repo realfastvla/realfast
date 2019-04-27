@@ -99,8 +99,11 @@ def indexscanstatus(scanId, indexprefix='new', **kwargs):
                  if field in allowed]
     try:
         res = update_fields(index, fieldlist, valuelist, scanId)
-        logger.info("Updated {0}/{1} fields with processing status for {2}"
-                    .format(res['updated'], len(fieldlist), scanId))
+        if res:
+            logger.info("Updated processing status of {0} fields for {1}"
+                        .format(len(fieldlist), scanId))
+        else:
+            logger.warn("Update of status for scan {0} failed".format(scanId))
     except TransportError:
         logger.warn("Could not update fields due to version conflict. Skipping this update.")
 
@@ -397,13 +400,10 @@ def update_fields(index, fieldlist, valuelist, Id):
     """
 
     doc_type = index.rstrip('s')
-
-    inline = ';'.join(['ctx._source.{0} = {1} '.format(field, value)
-                       for field, value in zip(fieldlist, valuelist)])
-    query = {"script": {"inline": inline, "lang": "painless"}, "query": {"match": {"_id": Id}}}
-    resp = es.update_by_query(index=index, doc_type=doc_type, body=query, conflicts="proceed")
-
-    return resp
+    doc = es.get(index, doc_type, Id) 
+    doc['_source'].update(dict(zip(fieldlist, valuelist))) 
+    res = es.index(index, doc_type, body=doc['_source'], id=Id) 
+    return res['_shards']['successful']
 
 
 def remove_tags(prefix, **kwargs):
