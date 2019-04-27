@@ -431,7 +431,7 @@ class realfast_controller(Controller):
                 endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
                 if endtime < segsubtime-2:  # TODO: define buffer delay better
                     logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                   .format(segment, endtime, segsubtime-1))
+                                   .format(segment, endtime, segsubtime-2))
                     try:
                         segment = next(segments)
                         continue
@@ -508,8 +508,7 @@ class realfast_controller(Controller):
                     logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
                     self.client.run(gc.collect)
-                elif not (self.set_telcalfile(scanId)
-                          if self.requirecalibration else True):
+                elif not (telcalset if self.requirecalibration else True)):
                     logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
 
@@ -669,6 +668,9 @@ class realfast_controller(Controller):
 
         st = self.states[scanId]
 
+        # could also parse sols to test whether good ones exist
+#        sols = getsols(st)
+
         if st.gainfile is not None:
             return True
         else:
@@ -676,10 +678,6 @@ class realfast_controller(Controller):
             today = date.today()
             directory = '/home/mchammer/evladata/telcal/{0}/{1:02}'.format(today.year, today.month)
             name = '{0}.GN'.format(st.metadata.datasetId)
-#            for path, dirs, files in os.walk(directory):
-#                for f in filter(lambda x: name in x, files):
-#                    gainfile = os.path.join(path, name)
-
             gainfile = os.path.join(directory, name)
             if os.path.exists(gainfile) and os.path.isfile(gainfile):
                 logger.debug("Found telcalfile {0} for scanId {1}."
