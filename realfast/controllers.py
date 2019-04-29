@@ -834,10 +834,9 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
 
     band = heuristics.reffreq_to_band(meta.spw_reffreq)
     if band is not None:
-        # currently only 'L' and 'S' are defined
-        # TODO: parse preffile to check available prefsnames
-        if band in ['C', 'X', 'Ku', 'K', 'Ka', 'Q']:
-            band = 'S'
+        # bands higher than X go to X
+        if band in ['Ku', 'K', 'Ka', 'Q']:
+            band = 'X'
         prefsname = 'NRAOdefault' + band
     else:
         prefsname = 'default'
