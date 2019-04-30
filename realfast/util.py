@@ -104,7 +104,7 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
         elastic.indexscan(inmeta=st.metadata, preferences=st.prefs,
                           indexprefix=indexprefix)
         indexcands_and_plots(cc, scanId, tags, indexprefix, workdir)
-        elastic.indexnoises(cc.state.noisefile, scanId,
+        elastic.indexnoises(scanId, noisefile=cc.state.noisefile,
                             indexprefix=indexprefix)
         if mocks is not None:
             elastic.indexmock(scanId, mocks, indexprefix=indexprefix)

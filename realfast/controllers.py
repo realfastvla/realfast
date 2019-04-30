@@ -586,8 +586,8 @@ class realfast_controller(Controller):
                     # index noises
 #                    noisefile = self.states[scanId].noisefile
 #                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
-#                                                                   noisefile,
 #                                                                   scanId,
+#                                                                   noisefile=noisefile,
 #                                                                   indexprefix=self.indexprefix))
 
                     # index cands

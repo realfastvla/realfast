@@ -261,7 +261,6 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
     Use indexprefix='' for production.
     """
 
-
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
 
@@ -272,7 +271,7 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
             noises = list(iter_noise(noisefile))
 
     assert len(noises)
-    
+
     count = 0
     segments = []
     for noise in noises:
