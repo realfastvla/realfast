@@ -468,7 +468,7 @@ class realfast_controller(Controller):
                                                 vys_timeout=vys_timeout,
                                                 mem_read=w_memlim,
                                                 mem_search=2*st.vismem*1e9,
-                                                mockseg=mockseg)
+                                                mockseg=mockseg, indexresults=self.indexresults)
                 self.futures[scanId].append(futures)
                 nsubmitted += 1
 
@@ -584,11 +584,11 @@ class realfast_controller(Controller):
                                                                    indexprefix=self.indexprefix))
 
                     # index noises
-                    noisefile = self.states[scanId].noisefile
-                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
-                                                                   noisefile,
-                                                                   scanId,
-                                                                   indexprefix=self.indexprefix))
+#                    noisefile = self.states[scanId].noisefile
+#                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
+#                                                                   noisefile,
+#                                                                   scanId,
+#                                                                   indexprefix=self.indexprefix))
 
                     # index cands
                     workdir = self.states[scanId].prefs.workdir

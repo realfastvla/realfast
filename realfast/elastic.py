@@ -254,40 +254,46 @@ def indexmock(scanId, mocks=None, acc=None, indexprefix='new'):
         logger.info('No mocks indexed for {0}'.format(scanId))
 
 
-def indexnoises(noisefile, scanId, indexprefix='new'):
-    """ Reads noises from noisefile and pushes to index
+def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
+    """ Takes noises as list or from noisefile and pushes to index.
     scanId is added to associate cand to a give scan.
     indexprefix allows specification of set of indices ('test', 'aws').
     Use indexprefix='' for production.
     """
 
-    from rfpipe.candidates import iter_noise
 
     index = indexprefix+'noises'
     doc_type = index.rstrip('s')
 
+    if noisefile is not None and noises is None:
+        from rfpipe.candidates import iter_noise
+        if os.path.exists(noisefile):
+            logger.info("Reading noises from {0}".format(noisefile))
+            noises = list(iter_noise(noisefile))
+
+    assert len(noises)
+    
     count = 0
     segments = []
-    if os.path.exists(noisefile):
-        for noise in iter_noise(noisefile):
-            segment, integration, noiseperbl, zerofrac, imstd = noise
-            Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
-            if not es.exists(index=index, doc_type=doc_type, id=Id):
-                noisedict = {}
-                noisedict['scanId'] = str(scanId)
-                noisedict['segment'] = int(segment)
-                noisedict['integration'] = int(integration)
-                noisedict['noiseperbl'] = float(noiseperbl)
-                noisedict['zerofrac'] = float(zerofrac)
-                noisedict['imstd'] = float(imstd)
+    for noise in noises:
+        segment, integration, noiseperbl, zerofrac, imstd = noise
+        Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
+        if not es.exists(index=index, doc_type=doc_type, id=Id):
+            noisedict = {}
+            noisedict['scanId'] = str(scanId)
+            noisedict['segment'] = int(segment)
+            noisedict['integration'] = int(integration)
+            noisedict['noiseperbl'] = float(noiseperbl)
+            noisedict['zerofrac'] = float(zerofrac)
+            noisedict['imstd'] = float(imstd)
 
-                count += pushdata(noisedict, Id=Id, index=index,
-                                  command='index')
-                segments.append(segment)
+        count += pushdata(noisedict, Id=Id, index=index,
+                          command='index')
+        segments.append(segment)
 
-        if count:
-            logger.info('Indexed {0} noises for {1} to {2}'
-                        .format(count, scanId, index))
+    if count:
+        logger.info('Indexed {0} noises for {1} to {2}'
+                    .format(count, scanId, index))
 
     if not os.path.exists(noisefile) or not count:
         logger.info('No noises indexed for {0}'.format(scanId))
