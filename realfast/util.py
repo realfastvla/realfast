@@ -154,7 +154,8 @@ def createproducts(candcollection, data, indexprefix=None,
 
     st = candcollection.state
 
-    candranges = gencandranges(candcollection)  # finds time windows to save from segment
+    candranges = gencandranges(candcollection)  # finds time windows to save
+    calScanTime = candcollection.soltime  # solution saved during search
     logger.info('Getting data for candidate time ranges {0} in segment {1}.'
                 .format(candranges, segment))
 
@@ -173,11 +174,13 @@ def createproducts(candcollection, data, indexprefix=None,
 
         # TODO: fill in annotation dict as defined in confluence doc on realfast collections
         annotation = {}
-        calScanTime = np.unique(calibration.getsols(st)['mjd'])
-        if len(calScanTime) > 1:
-            logger.warn("Using first of multiple cal times: {0}."
-                        .format(calScanTime))
-        calScanTime = calScanTime[0]
+
+# now retrieved from candcollection
+#        calScanTime = np.unique(calibration.getsols(st)['mjd'])
+#        if len(calScanTime) > 1:
+#            logger.warn("Using first of multiple cal times: {0}."
+#                        .format(calScanTime))
+#        calScanTime = calScanTime[0]
 
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
                                       data_cut, calScanTime,
