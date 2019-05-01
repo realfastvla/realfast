@@ -45,13 +45,12 @@ def pipeline_scan(st, segments=None, cl=None, host=None, cfile=None,
 
 def pipeline_seg(st, segment, cl, cfile=None,
                  vys_timeout=vys_timeout_default, mem_read=0., mem_search=0.,
-                 mockseg=None, indexresults=True):
+                 mockseg=None):
     """ Submit pipeline processing of a single segment to scheduler.
     Can use distributed client or compute locally.
 
     Uses distributed resources parameter to control scheduling of GPUs.
     memreq is required memory in bytes.
-    indexresults will tell rfpipe to try to index noises.
     """
 
     from rfpipe import source, pipeline
@@ -83,7 +82,6 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
 
     candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
-                               indexresults=indexresults,
                                resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1, retries=1)
 

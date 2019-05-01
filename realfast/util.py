@@ -110,6 +110,18 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
             elastic.indexmock(scanId, mocks, indexprefix=indexprefix)
 
 
+def calc_and_indexnoises(st, segment, data, indexprefix='new'):
+    """ Wraps calculation and indexing functions.
+    Takes raw data as input.
+    """
+
+    from rfpipe import util
+
+    noises = util.calc_noise(st, segment, data)
+    elastic.indexnoises(st.metadata.scanId, noises=noises,
+                        indexprefix=indexprefix)
+
+
 def createproducts(candcollection, data, indexprefix=None,
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
@@ -118,7 +130,6 @@ def createproducts(candcollection, data, indexprefix=None,
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
-    from rfpipe import calibration
     from distributed import Future
 
     if isinstance(candcollection, Future):

@@ -468,18 +468,24 @@ class realfast_controller(Controller):
                                                 vys_timeout=vys_timeout,
                                                 mem_read=w_memlim,
                                                 mem_search=2*st.vismem*1e9,
-                                                mockseg=mockseg, indexresults=self.indexresults)
+                                                mockseg=mockseg)
                 self.futures[scanId].append(futures)
                 nsubmitted += 1
 
+                segment, data, cc, acc = futures
                 if self.data_logging:
-                    segment, data, cc, acc = futures
                     distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                    st, segment,
                                                                    data,
                                                                    fifo_timeout='0s',
                                                                    priority=-1))
+
+                # index noises
                 if self.indexresults:
+                    distributed.fire_and_forget(self.client.submit(util.calc_and_indexnoises,
+                                                                   st, segment, data,
+                                                                   indexprefix=self.indexprefix))
+
                     distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
                                                                    scanId, indexprefix=self.indexprefix,
                                                                    pending=self.pending[scanId],
@@ -497,17 +503,20 @@ class realfast_controller(Controller):
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
                     logger.info("System not ready. No reader available with required memory {0}"
                                 .format(w_memlim))
-                    self.client.run(gc.collect)
+                    if not (segment % 3):
+                        self.client.run(gc.collect)
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
                     logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                 .format(tot_memlim))
-                    self.client.run(gc.collect)
+                    if not (segment % 3):
+                        self.client.run(gc.collect)
                 elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                       daskdir=self.daskdir):
                     logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
-                    self.client.run(gc.collect)
+                    if not (segment % 3):
+                        self.client.run(gc.collect)
                 elif not (telcalset if self.requirecalibration else True):
                     logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
@@ -582,13 +591,6 @@ class realfast_controller(Controller):
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix))
-
-                    # index noises
-#                    noisefile = self.states[scanId].noisefile
-#                    distributed.fire_and_forget(self.client.submit(elastic.indexnoises,
-#                                                                   scanId,
-#                                                                   noisefile=noisefile,
-#                                                                   indexprefix=self.indexprefix))
 
                     # index cands
                     workdir = self.states[scanId].prefs.workdir

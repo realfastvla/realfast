@@ -121,7 +121,7 @@ def indexprefs(preferences, indexprefix='new'):
         logger.info('Indexed preference {0} to {1}'
                     .format(preferences.name, index))
     else:
-        logger.warn('Preferences not indexed for {0}'.format(preferences.name))
+        logger.debug('Preferences not indexed for {0}'.format(preferences.name))
 
 
 def indexcands(candcollection, scanId, tags=None, url_prefix=None,
@@ -258,7 +258,6 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
     """ Takes noises as list or from noisefile and pushes to index.
     scanId is added to associate cand to a give scan.
     indexprefix allows specification of set of indices ('test', 'aws').
-    Use indexprefix='' for production.
     """
 
     index = indexprefix+'noises'
@@ -294,7 +293,7 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
         logger.info('Indexed {0} noises for {1} to {2}'
                     .format(count, scanId, index))
 
-    if not os.path.exists(noisefile) or not count:
+    if not count:
         logger.info('No noises indexed for {0}'.format(scanId))
 
 
