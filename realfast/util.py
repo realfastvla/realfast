@@ -116,6 +116,7 @@ def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     """
 
     from rfpipe.util import calc_noise
+    from rfpipe import source
 
     datap = source.data_prep(st, segment, data)
     noises = calc_noise(st, segment, datap)
