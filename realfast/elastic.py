@@ -269,7 +269,7 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
             logger.info("Reading noises from {0}".format(noisefile))
             noises = list(iter_noise(noisefile))
 
-    assert len(noises)
+    assert isinstance(noises, list)
 
     count = 0
     segments = []

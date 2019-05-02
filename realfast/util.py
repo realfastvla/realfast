@@ -115,9 +115,10 @@ def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     Takes raw data as input.
     """
 
-    from rfpipe import util
+    from rfpipe.util import calc_noise
 
-    noises = util.calc_noise(st, segment, data)
+    datap = source.data_prep(st, segment, data)
+    noises = calc_noise(st, segment, datap)
     elastic.indexnoises(st.metadata.scanId, noises=noises,
                         indexprefix=indexprefix)
 
