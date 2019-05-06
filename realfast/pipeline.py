@@ -8,6 +8,7 @@ from dask import array, delayed
 from dask.base import tokenize
 import numpy as np
 from time import sleep
+from realfast import util
 
 import logging
 logger = logging.getLogger(__name__)
@@ -53,7 +54,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
     memreq is required memory in bytes.
     """
 
-    from rfpipe import source, pipeline
+    from rfpipe import source
 
     # set up worker node round robin based on segment
     workers = [w['id'] for w in itervalues(cl.scheduler_info()['workers'])]
@@ -76,30 +77,45 @@ def pipeline_seg(st, segment, cl, cfile=None,
     else:
         st.prefs.simulated_transient = None
 
-#    candcollection = delayed(pipeline.prep_and_search)(st, segment, data)
-#    resources[tuple(candcollection.__dask_keys__())] = {'MEMORY': mem_search}
-#    if st.fftmode == 'cuda':
-#        resources[tuple(candcollection.__dask_keys__())]['GPU'] = 1
-
-    candcollection = cl.submit(pipeline.prep_and_search, st, segment, data,
+    candcollection = cl.submit(prep_and_search, st, segment, data,
                                resources={'MEMORY': mem_search, 'GPU': 2},
                                fifo_timeout='0s', priority=1, retries=1)
-
-#    acc = delayed(analyze_cc)(candcollection)
 
     acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2,
                     retries=1)
 
-#    futures_seg = cl.compute((segment, data, candcollection, acc),
-#                             resources=resources, fifo_timeout='0s')
-#    data = cl.compute(data, resources=resources, fifo_timeout='0s', priority=-1)
-#    candcollection = cl.compute(candcollection, resources=resources, fifo_timeout='0s', priority=1)
-#    acc = cl.compute(acc, fifo_timeout='0s', priority=2)
-
     return (segment, data, candcollection, acc)
 
 
-### helper functions (not necessarily in use)
+### helper functions
+
+def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
+    """ Reproduces rfpipe.search.prep_and_search but calculates and
+    indexes noises.
+    """
+
+    from rfpipe import source, search
+
+    ret = source.data_prep(st, segment, data, returnsoltime=returnsoltime)
+    if returnsoltime:
+        data, soltime = ret
+    else:
+        data = ret
+        soltime = None
+
+    util.calc_and_indexnoises(st, segment, data, indexprefix=indexprefix)
+
+    if st.prefs.fftmode == "cuda":
+        candcollection = search.dedisperse_search_cuda(st, segment, data)
+    elif st.prefs.fftmode == "fftw":
+        candcollection = search.dedisperse_search_fftw(st, segment, data)
+    else:
+        logger.warning("fftmode {0} not recognized (cuda, fftw allowed)"
+                       .format(st.prefs.fftmode))
+
+    candcollection.soltime = soltime
+    return candcollection
+
 
 def analyze_cc(cc):
     """ Submittable function to get results of cc in memory
@@ -130,26 +146,6 @@ def read_segment(st, segment, cfile, vys_timeout):
                 .format(st.metadata.scanId, segment))
 
     return data
-
-
-def prep_and_search(st, segment, data):
-    """ Wrapper for search.prep_and_search that secedes from worker
-    thread pool
-    """
-
-    from rfpipe import pipeline
-
-    logger.info("Searching datasetId {0}, segment {1} locally."
-                .format(st.metadata.scanId, segment))
-
-    with distributed.worker_client() as cl_loc:
-        fut = cl_loc.submit(pipeline.prep_and_search, st, segment, data)
-        cc = fut.result()
-
-    logger.info("Finished searching datasetId {0}, segment {1} locally."
-                .format(st.metadata.scanId, segment))
-
-    return cc
 
 
 def mergelists(futlists):

@@ -482,10 +482,6 @@ class realfast_controller(Controller):
 
                 # index noises
                 if self.indexresults:
-                    distributed.fire_and_forget(self.client.submit(util.calc_and_indexnoises,
-                                                                   st, segment, data,
-                                                                   indexprefix=self.indexprefix))
-
                     distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
                                                                    scanId, indexprefix=self.indexprefix,
                                                                    pending=self.pending[scanId],

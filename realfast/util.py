@@ -112,14 +112,12 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
 
 def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     """ Wraps calculation and indexing functions.
-    Takes raw data as input.
+    Should get calibrated data as input.
     """
 
     from rfpipe.util import calc_noise
-    from rfpipe import source
 
-    datap = source.data_prep(st, segment, data)
-    noises = calc_noise(st, segment, datap)
+    noises = calc_noise(st, segment, data)
     elastic.indexnoises(st.metadata.scanId, noises=noises,
                         indexprefix=indexprefix)
 
