@@ -407,8 +407,7 @@ class realfast_controller(Controller):
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
-        logger.info('Submitting {0} segments for scanId {1} with {2:.1f}s per segment'
-                    .format(len(segments), scanId, throttletime))
+        logger.info('Submitting {0} segments for scanId {1}'.format(len(segments), scanId))
         logger.debug('Read_overhead {0}, read_totfrac {1}, and '
                      'spill_limit {2} with timeout {3}s'
                      .format(self.read_overhead, self.read_totfrac,
@@ -427,9 +426,10 @@ class realfast_controller(Controller):
         telcalset = self.set_telcalfile(scanId)
         while True:
             segsubtime = time.Time.now().unix
+            starttime, endtime = time.Time(st.segmenttimes[segment], format='mjd').unix
             if st.metadata.datasource == 'vys':
-                endtime = time.Time(st.segmenttimes[segment][1], format='mjd').unix
-                if endtime < segsubtime-2:  # TODO: define buffer delay better
+                # TODO: define buffer delay better
+                if segsubtime > endtime+2:
                     logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
                                    .format(segment, endtime, segsubtime-2))
                     try:
@@ -438,6 +438,12 @@ class realfast_controller(Controller):
                     except StopIteration:
                         logger.debug("No more segments for scanId {0}".format(scanId))
                         break
+                elif segsubtime < starttime-2:
+                    logger.info("Waiting {0:.1f}s to submit segment."
+                                .format(starttime-segsubtime))
+                    sleep(starttime-segsubtime)
+            elif st.metadata.datasource == 'sdm':
+                sleep(throttletime)
 
             # try setting telcal
             if not telcalset:
@@ -531,12 +537,6 @@ class realfast_controller(Controller):
                             "in ScanId {2}".format(nsubmitted, st.nsegment,
                                                    scanId))
                 break
-            else:
-                dt = time.Time.now().unix - segsubtime
-                if dt < throttletime:
-                    logger.debug("Waiting {0:.1f}s to submit segment."
-                                 .format(throttletime-dt))
-                    sleep(throttletime-dt)
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
