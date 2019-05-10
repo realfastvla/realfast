@@ -272,7 +272,6 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
     assert isinstance(noises, list)
 
     count = 0
-    segments = []
     for noise in noises:
         segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
@@ -285,9 +284,10 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
             noisedict['zerofrac'] = float(zerofrac)
             noisedict['imstd'] = float(imstd)
 
-        count += pushdata(noisedict, Id=Id, index=index,
-                          command='index')
-        segments.append(segment)
+            count += pushdata(noisedict, Id=Id, index=index,
+                              command='index')
+        else:
+            logger.warn("noise index {0} already exists".format(Id))
 
     if count:
         logger.info('Indexed {0} noises for {1} to {2}'

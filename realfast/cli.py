@@ -55,7 +55,7 @@ def run(preffile):
 
 @cli.command()
 @click.argument('sdmname')
-@click.option('--notebook', default='unflagged_search_and_refine.ipynb')
+@click.option('--notebook', default='Search_and_refine.ipynb')
 def refine(sdmname, notebook):
     """ Compile notebook
     """
