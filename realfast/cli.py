@@ -80,7 +80,9 @@ def buildsdm(sdmname):
 @cli.command()
 @click.argument('sdmname')
 @click.option('--notebook', default='Search_and_refine.ipynb')
-def refine(sdmname, notebook):
+@click.option('--on_rfnode', type=bool, default=True)
+@click.option('--preffile', default=None)
+def refine(sdmname, notebook, on_rfnode, preffile):
     """ Compile notebook
     """
     import subprocess, os
