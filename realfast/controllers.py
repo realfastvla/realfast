@@ -403,7 +403,7 @@ class realfast_controller(Controller):
 
         # vys data means realtime operations must timeout within a scan time
         if st.metadata.datasource == 'vys':
-            timeout = 0.9*st.metadata.inttime*st.metadata.nints  # bit shorter than scan
+            timeout = st.metadata.inttime*st.metadata.nints  # bit shorter than scan
         else:
             timeout = 0
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
@@ -418,30 +418,36 @@ class realfast_controller(Controller):
                                             if 'READER' in v['resources']])
 
         # submit segments
-        t0 = time.Time.now().unix
-        elapsedtime = 0
         nsubmitted = 0  # count number submitted from list segments
         segments = iter(segments)
         segment = next(segments)
         telcalset = self.set_telcalfile(scanId)
+        t0 = time.Time.now().unix
         while True:
             segsubtime = time.Time.now().unix
+            elapsedtime = segsubtime - t0
+            if elapsedtime > timeout and timeout:
+                logger.info("Submission timed out. Submitted {0}/{1} segments "
+                            "in ScanId {2}".format(nsubmitted, st.nsegment,
+                                                   scanId))
+                break
+
             starttime, endtime = time.Time(st.segmenttimes[segment], format='mjd').unix
             if st.metadata.datasource == 'vys':
                 # TODO: define buffer delay better
-                if segsubtime > endtime+2:
-                    logger.warning("Segment {0} time window has passed ({1} < {2}). Skipping."
-                                   .format(segment, endtime, segsubtime-2))
+                if segsubtime > starttime:
+                    logger.warning("Segment {0} time window has passed ({1} > {2}). Skipping."
+                                   .format(segment, segsubtime, starttime))
                     try:
                         segment = next(segments)
                         continue
                     except StopIteration:
                         logger.debug("No more segments for scanId {0}".format(scanId))
                         break
-                elif segsubtime < starttime-2:
+                elif segsubtime < starttime-10:
                     logger.info("Waiting {0:.1f}s to submit segment."
-                                .format(starttime-segsubtime))
-                    sleep(starttime-segsubtime)
+                                .format((starttime-10)-segsubtime))
+                    sleep((starttime-10)-segsubtime)
             elif st.metadata.datasource == 'sdm':
                 sleep(throttletime)
 
@@ -505,38 +511,30 @@ class realfast_controller(Controller):
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
                     logger.info("System not ready. No reader available with required memory {0}"
                                 .format(w_memlim))
-                    if not (segment % 3):
+                    if not (segment % 5):
                         self.client.run(gc.collect)
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
                     logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                 .format(tot_memlim))
-                    if not (segment % 3):
+                    if not (segment % 5):
                         self.client.run(gc.collect)
                 elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                       daskdir=self.daskdir):
                     logger.info("System not ready. Spilled memory exceeds limit of {0}"
                                 .format(self.spill_limit))
-                    if not (segment % 3):
+                    if not (segment % 5):
                         self.client.run(gc.collect)
                 elif not (telcalset if self.requirecalibration else True):
                     logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
 
             # periodically check on submissions. always, if memory limited.
-            if not (segment % 3) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+            if not (segment % 5) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
                                          heuristics.readertotal_memory_ok(self.client, tot_memlim) and
                                          heuristics.spilled_memory_ok(limit=self.spill_limit,
                                                                       daskdir=self.daskdir)):
                 self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
-
-            # check timeout and wait time for next segment
-            elapsedtime = time.Time.now().unix - t0
-            if elapsedtime > timeout and timeout:
-                logger.info("Submission timed out. Submitted {0}/{1} segments "
-                            "in ScanId {2}".format(nsubmitted, st.nsegment,
-                                                   scanId))
-                break
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
