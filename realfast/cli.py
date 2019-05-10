@@ -4,7 +4,9 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import click
-
+import shutil
+import os
+import glob
 import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logging.captureWarnings(True)
@@ -51,6 +53,28 @@ def run(preffile):
         logger.warn("Cleaning up before stopping processing.")
     finally:
         rfc.cleanup_loop()
+
+@cli.command()
+@click.argument('sdmname')
+def buildsdm(sdmname):
+    """ Assemble sdm/bdf from cbe lustre
+    """
+
+    sdmloc = '/home/mctest/evla/mcaf/workspace/'
+    bdfdir = '/lustre/evla/wcbe/data/realfast/'
+
+    shutil.copytree(os.path.join(sdmloc, sdmname), os.path.join('.', sdmname))
+
+    bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
+    os.mkdir(bdfdestination)
+
+    bdft = sdmname.split('_')[-1]
+    bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
+    if len(bdf0) == 1:
+        bdf0 = bdf0[0].split('/')[-1]
+    else:
+        logger.warn("Could not find unique bdf in {0}".format(bdf0))
+    shutil.copy(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
 
 
 @cli.command()
