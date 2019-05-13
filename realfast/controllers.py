@@ -108,7 +108,7 @@ class realfast_controller(Controller):
                         .format(self.preffile))
 
         # initialize worker imports and wisdom
-        _ = self.client.run(search.set_wisdom, 512)
+        _ = self.client.run(util.initialize_worker)
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',

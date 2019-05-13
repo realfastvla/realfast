@@ -332,6 +332,13 @@ def gencandranges(candcollection):
     return [(st.segmenttimes[segment][0], st.segmenttimes[segment][1])]
 
 
+def initialize_worker():
+    from rfpipe import search, state, metadata
+
+    search.set_wisdom(512)
+    st = state.State(inmeta=metadata.mock_metadata(0,0.001, 27, 16, 16*32, 4, 5e4, datasource='sim'))
+
+
 def rsync(original, new):
     """ Uses subprocess.call to rsync from 'filename' to 'new'
     If new is directory, copies original in.
