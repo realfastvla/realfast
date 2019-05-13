@@ -192,6 +192,8 @@ class realfast_controller(Controller):
 
     @property
     def spilled_memory(self):
+        """ Check dask disk cache. Super slow!
+        """
         return heuristics.spilled_memory(self.daskdir)
 
     @property
@@ -432,7 +434,8 @@ class realfast_controller(Controller):
                                                    scanId))
                 break
 
-            starttime, endtime = time.Time(st.segmenttimes[segment], format='mjd').unix
+            starttime, endtime = time.Time(st.segmenttimes[segment],
+                                           format='mjd').unix
             if st.metadata.datasource == 'vys':
                 # TODO: define buffer delay better
                 if segsubtime > starttime:
@@ -442,7 +445,8 @@ class realfast_controller(Controller):
                         segment = next(segments)
                         continue
                     except StopIteration:
-                        logger.debug("No more segments for scanId {0}".format(scanId))
+                        logger.debug("No more segments for scanId {0}"
+                                     .format(scanId))
                         break
                 elif segsubtime < starttime-10:
                     logger.info("Waiting {0:.1f}s to submit segment."
@@ -458,8 +462,8 @@ class realfast_controller(Controller):
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
                 heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-                heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                             daskdir=self.daskdir) and
+#                heuristics.spilled_memory_ok(limit=self.spill_limit,
+#                                             daskdir=self.daskdir) and
                 (telcalset if self.requirecalibration else True)):
 
                 # first time initialize scan
@@ -519,21 +523,21 @@ class realfast_controller(Controller):
                                 .format(tot_memlim))
                     if not (segment % 5):
                         self.client.run(gc.collect)
-                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                      daskdir=self.daskdir):
-                    logger.info("System not ready. Spilled memory exceeds limit of {0}"
-                                .format(self.spill_limit))
-                    if not (segment % 5):
-                        self.client.run(gc.collect)
+#                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
+#                                                      daskdir=self.daskdir):
+#                    logger.info("System not ready. Spilled memory exceeds limit of {0}"
+#                                .format(self.spill_limit))
+#                    if not (segment % 5):
+#                        self.client.run(gc.collect)
                 elif not (telcalset if self.requirecalibration else True):
                     logger.info("System not ready. No telcalfile available for {0}"
                                 .format(scanId))
 
             # periodically check on submissions. always, if memory limited.
             if not (segment % 5) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
-                                         heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
-                                                                      daskdir=self.daskdir)):
+                                         heuristics.readertotal_memory_ok(self.client, tot_memlim)):
+#                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
+#                                                                      daskdir=self.daskdir)):
                 self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
