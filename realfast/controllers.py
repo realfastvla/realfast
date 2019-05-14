@@ -108,7 +108,7 @@ class realfast_controller(Controller):
                         .format(self.preffile))
 
         # initialize worker imports and wisdom
-        _ = self.client.run(util.initialize_worker)
+        _ = self.client.register_worker_callbacks(util.initialize_worker)    
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
@@ -580,15 +580,8 @@ class realfast_controller(Controller):
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId]))
 
-            # TODO: check on error handling for fire_and_forget
             for futures in finishedlist:
                 seg, data, cc, acc = futures
-
-#                if acc.status != 'finished':  # TODO: does this ever happen?
-#                    logger.warning('Final job status for {0}, seg {1}, is {2}, not "finished".'
-#                                   .format(scanId, seg, acc.status))
-#                else:
-#                    ncands, mocks = acc.result()  # TODO: is this slowing realtime loop?
 
                 if self.indexresults:
                     # index mocks
