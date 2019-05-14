@@ -55,7 +55,7 @@ class realfast_controller(Controller):
 
         kwargs can include:
         - tags, a comma-delimited string for cands to index
-        - nameincludes, a string required to be in datasetId,
+        - nameincludes, a comma-delimited list of strings required to be in datasetId,
         - vys_timeout, factor over real-time for vys reading to wait,
         - vys_sec_per_spec, time in sec to allow for vys reading (overloaded by vys_timeout)
         - mockprob, chance (range 0-1) that a mock is added to scan,
@@ -245,6 +245,13 @@ class realfast_controller(Controller):
         """ Triggered when subscan info is updated (e.g., OTF mode).
         OTF requires more setup and management.
         """
+
+        # catch subscans with wrong name
+        if self.nameincludes is not None:
+            if any([name in config.datasetId for name in self.nameincludes.split(',')]):
+                logger.warn("datasetId {0} not in nameincludes {1}"
+                            .format(config.datasetId, self.nameincludes))
+                return
 
         # set up OTF info
         # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
@@ -785,8 +792,8 @@ def search_config(config, preffile=None, inprefs={},
 
     # 3) if nameincludes set, reject if datasetId does not have it
     if nameincludes is not None:
-        if nameincludes not in config.datasetId:
-            logger.warn("datasetId {0} does not include nameincludes {1}"
+        if any([name in config.datasetId for name in self.nameincludes.split(',')]):
+            logger.warn("datasetId {0} not in nameincludes {1}"
                         .format(config.datasetId, nameincludes))
             return False
 
@@ -809,6 +816,7 @@ def search_config(config, preffile=None, inprefs={},
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
         return False
+
     # 7) only if some fast sampling is done (faster than VLASS final inttime)
     t_fast = 0.4
     if not any([inttime < t_fast for inttime in inttimes]):
