@@ -668,12 +668,8 @@ class realfast_controller(Controller):
 
         st = self.states[scanId]
 
-        # could also parse sols to test whether good ones exist
-#        sols = getsols(st)
-
-        if st.gainfile is not None:
-            return True
-        else:
+        # try to find file
+        if st.gainfile is None:
             gainfile = ''
             today = date.today()
             directory = '/home/mchammer/evladata/telcal/{0}/{1:02}'.format(today.year, today.month)
@@ -683,9 +679,13 @@ class realfast_controller(Controller):
                 logger.debug("Found telcalfile {0} for scanId {1}."
                              .format(gainfile, scanId))
                 st.prefs.gainfile = gainfile
-                return True
-            else:
-                return False
+
+        # parse sols to test whether good ones exist
+        sols = getsols(st)
+        if len(sols):
+            return True
+        else:
+            return False
 
     def removefutures(self, badstatuslist=['cancelled', 'error', 'lost'],
                       keep=False):
