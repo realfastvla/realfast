@@ -60,7 +60,7 @@ def reader_memory_ok(cl, memory_required):
         if worker_memory and (worker_memory > memory_required):
             return True
 
-    logger.info("No worker found with required memory of {0} GB"
+    logger.debug("No worker found with required memory of {0} GB"
                 .format(memory_required/1e9))
 
     return False
@@ -75,7 +75,7 @@ def readertotal_memory_ok(cl, memory_limit):
         total = sum(reader_memory_used(cl))
 
         if total > memory_limit:
-            logger.info("Total of {0} GB in use. Exceeds limit of {1} GB."
+            logger.debug("Total of {0} GB in use. Exceeds limit of {1} GB."
                         .format(total/1e9, memory_limit/1e9))
 
         return total < memory_limit
@@ -92,7 +92,7 @@ def spilled_memory_ok(limit=1.0, daskdir='.'):
     if spilled < limit:
         return True
     else:
-        logger.info("Spilled memory {0:.1f} GB exceeds limit of {1:.1f}"
+        logger.debug("Spilled memory {0:.1f} GB exceeds limit of {1:.1f}"
                     .format(spilled, limit))
         return False
 
