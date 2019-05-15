@@ -666,6 +666,8 @@ class realfast_controller(Controller):
         Returns True if set, False if not available.
         """
 
+        from rfpipe.calibration import getsols
+
         st = self.states[scanId]
 
         # try to find file
