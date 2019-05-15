@@ -465,6 +465,8 @@ class realfast_controller(Controller):
             # try setting telcal
             if not telcalset:
                 telcalset = self.set_telcalfile(scanId)
+                if telcalset:
+                    logger.info("Set calibration for scanId {0}".format(scanId))
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -520,15 +522,15 @@ class realfast_controller(Controller):
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
-                    logger.info("System not ready. No reader available with required memory {0}"
-                                .format(w_memlim))
-                    if not (segment % 5):
+                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                        logger.info("System not ready. No reader available with required memory {0}"
+                                    .format(w_memlim))
                         self.client.run(gc.collect)
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
-                    logger.info("System not ready. Total reader memory exceeds limit of {0}"
-                                .format(tot_memlim))
-                    if not (segment % 5):
+                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                        logger.info("System not ready. Total reader memory exceeds limit of {0}"
+                                    .format(tot_memlim))
                         self.client.run(gc.collect)
 #                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
 #                                                      daskdir=self.daskdir):
@@ -537,11 +539,13 @@ class realfast_controller(Controller):
 #                    if not (segment % 5):
 #                        self.client.run(gc.collect)
                 elif not (telcalset if self.requirecalibration else True):
-                    logger.info("System not ready. No telcalfile available for {0}"
-                                .format(scanId))
+                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                        logger.info("System not ready. No telcalfile available for {0}"
+                                    .format(scanId))
+
 
             # periodically check on submissions. always, if memory limited.
-            if not (segment % 5) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
+            if not (int(segsubtime-t0) % 5) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
                                          heuristics.readertotal_memory_ok(self.client, tot_memlim)):
 #                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
 #                                                                      daskdir=self.daskdir)):
@@ -665,6 +669,7 @@ class realfast_controller(Controller):
         """ Find and set telcalfile in state prefs, if not set already.
         Returns True if set, False if not available.
         """
+        from rfpipe.calibration import getsols
 
         from rfpipe.calibration import getsols
 
