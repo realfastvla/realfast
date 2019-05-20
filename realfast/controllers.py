@@ -67,6 +67,7 @@ class realfast_controller(Controller):
         - read_totfrac, throttle param requires fraction of total READER memory be available,
         - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
         - searchintents, a list of intent names to search,
+        - ignoreintents, a list of intent names to not search,
         - indexprefix, a string defining set of indices to save results.
         """
 
@@ -113,7 +114,8 @@ class realfast_controller(Controller):
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
-                     'archiveproducts', 'searchintents', 'throttle',
+                     'archiveproducts', 'searchintents',  'ignoreintents',
+                     'throttle',
                      'read_overhead', 'read_totfrac', 'spill_limit',
                      'indexprefix', 'daskdir', 'requirecalibration',
                      'data_logging']:
@@ -221,7 +223,8 @@ class realfast_controller(Controller):
 
         if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
                          nameincludes=self.nameincludes,
-                         searchintents=self.searchintents):
+                         searchintents=self.searchintents,
+                         ignoreintents=self.ignoreintents):
 
             # starting config of an OTF row will trigger subscan logic
             if config.otf:
@@ -758,7 +761,7 @@ class realfast_controller(Controller):
 
 
 def search_config(config, preffile=None, inprefs={},
-                  nameincludes=None, searchintents=None):
+                  nameincludes=None, searchintents=None, ignoreintents=None):
     """ Test whether configuration specifies a scan config that realfast should
     search
     """
@@ -802,6 +805,13 @@ def search_config(config, preffile=None, inprefs={},
         if not any([searchintent in intent for searchintent in searchintents]):
             logger.warn("intent {0} not in searchintents list {1}"
                         .format(intent, searchintents))
+            return False
+
+    # 5) do not search if in ignoreintents
+    if ignoreintents is not None:
+        if any([ignoreintent in intent for ignoreintent in ignoreintents]):
+            logger.warn("intent {0} not in ignoreintents list {1}"
+                        .format(intent, ignoreintents))
             return False
 
     # 5) only two antennas
