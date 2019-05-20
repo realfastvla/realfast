@@ -110,7 +110,7 @@ def indexscanstatus(scanId, indexprefix='new', **kwargs):
 
 def indexprefs(preferences, indexprefix='new'):
     """ Index preferences with id equal to hash of contents.
-    indexprefix allows specification of set of indices ('test', 'aws').
+    indexprefix allows specification of set of indices ('test', 'new').
     Use indexprefix='new' for production.
     """
 
@@ -132,7 +132,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     Assumes scanId is defined as:
     datasetId dot scanNo dot subscanNo.
     tags is a comma-delimited string used to fill tag field in index.
-    indexprefix allows specification of set of indices ('test', 'aws').
+    indexprefix allows specification of set of indices ('test', 'new').
     Use indexprefix='new' for production.
     """
 
@@ -212,7 +212,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
 def indexmock(scanId, mocks=None, acc=None, indexprefix='new'):
     """ Takes simulated_transient as used in state and pushes to index.
     Assumes 1 mock in list for now.
-    indexprefix allows specification of set of indices ('test', 'aws').
+    indexprefix allows specification of set of indices ('test', 'new').
     Use indexprefix='new' for production.
     Option to submit mocks as tuple or part of analyze_cc future.
     """
@@ -257,7 +257,7 @@ def indexmock(scanId, mocks=None, acc=None, indexprefix='new'):
 def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
     """ Takes noises as list or from noisefile and pushes to index.
     scanId is added to associate cand to a give scan.
-    indexprefix allows specification of set of indices ('test', 'aws').
+    indexprefix allows specification of set of indices ('test', 'new').
     """
 
     index = indexprefix+'noises'
@@ -748,6 +748,8 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
         update_field(indexprefix2+'cands', 'tags',
                      consensus[candId]['tags'], Id=candId)
 
+    # TODO: clean up, as is done in move_dataset. 
+
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
                   res='consensus', newtags=None):
@@ -889,7 +891,7 @@ def create_indices(indexprefix):
 
 def reset_indices(indexprefix, deleteindices=False):
     """ Remove entries from set of indices with a given indexprefix.
-    indexprefix allows specification of set of indices ('test', 'aws').
+    indexprefix allows specification of set of indices ('test', 'new').
     Use indexprefix='new' for production.
     deleteindices will delete indices, too.
 

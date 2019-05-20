@@ -431,6 +431,7 @@ class realfast_controller(Controller):
 
         # submit segments
         nsubmitted = 0  # count number submitted from list segments
+        justran = 0  # track if function just ran
         segments = iter(segments)
         segment = next(segments)
         telcalset = self.set_telcalfile(scanId)
@@ -525,34 +526,37 @@ class realfast_controller(Controller):
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
-                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                    if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
                         logger.info("System not ready. No reader available with required memory {0}"
                                     .format(w_memlim))
                         self.client.run(gc.collect)
+                        self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                        justran = 1
+                    elif (int(segsubtime-t0) % 5):
+                        justran = 0
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
-                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                    if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
                         logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                     .format(tot_memlim))
                         self.client.run(gc.collect)
-#                elif not heuristics.spilled_memory_ok(limit=self.spill_limit,
-#                                                      daskdir=self.daskdir):
-#                    logger.info("System not ready. Spilled memory exceeds limit of {0}"
-#                                .format(self.spill_limit))
-#                    if not (segment % 5):
-#                        self.client.run(gc.collect)
+                        self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                    elif (int(segsubtime-t0) % 5):
+                        justran = 0
                 elif not (telcalset if self.requirecalibration else True):
-                    if not (int(segsubtime-t0) % 5):  # every 5 sec
+                    if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
                         logger.info("System not ready. No telcalfile available for {0}"
                                     .format(scanId))
+                        self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                    elif (int(segsubtime-t0) % 5):
+                        justran = 0
 
-
-            # periodically check on submissions. always, if memory limited.
-            if not (int(segsubtime-t0) % 5) or not (heuristics.reader_memory_ok(self.client, w_memlim) and
-                                         heuristics.readertotal_memory_ok(self.client, tot_memlim)):
-#                                         heuristics.spilled_memory_ok(limit=self.spill_limit,
-#                                                                      daskdir=self.daskdir)):
+            # periodically check on submissions
+            if not (int(segsubtime-t0) % 5) and not justran:
                 self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                justran = 1
+            elif (int(segsubtime-t0) % 5):
+                justran = 0
 
     def cleanup(self, badstatuslist=['cancelled', 'error', 'lost'], keep=None):
         """ Clean up job list.
@@ -672,7 +676,6 @@ class realfast_controller(Controller):
         """ Find and set telcalfile in state prefs, if not set already.
         Returns True if set, False if not available.
         """
-        from rfpipe.calibration import getsols
 
         from rfpipe.calibration import getsols
 
