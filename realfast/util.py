@@ -37,6 +37,10 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     else:
         nc = 0
         msp = 0
+        if len(cc.array) > 0:
+            logger.warn('CandCollection in segment {0} is empty. '
+                        '{1} realtime detections exceeded maximum'
+                        .format(cc.segment, cc.array.ncands))
 
     if nc or msp:
         logger.info('Indexed {0} cands to {1} and moved plots and '
