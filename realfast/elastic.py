@@ -273,11 +273,13 @@ def indexnoises(scanId, noises=None, noisefile=None, indexprefix='new'):
 
     count = 0
     for noise in noises:
-        segment, integration, noiseperbl, zerofrac, imstd = noise
+        startmjd, deltamjd, segment, integration, noiseperbl, zerofrac, imstd = noise
         Id = '{0}.{1}.{2}'.format(scanId, segment, integration)
         if not es.exists(index=index, doc_type=doc_type, id=Id):
             noisedict = {}
             noisedict['scanId'] = str(scanId)
+            noisedict['startmjd'] = float(startmjd)
+            noisedict['deltamjd'] = float(deltamjd)
             noisedict['segment'] = int(segment)
             noisedict['integration'] = int(integration)
             noisedict['noiseperbl'] = float(noiseperbl)
