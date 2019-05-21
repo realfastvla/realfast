@@ -761,7 +761,7 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
             move_dataset(indexprefix1, indexprefix2, datasetId)
 
 
-def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
+def get_consensus(indexprefix='new', nop=3, consensustype='majority',
                   res='consensus', newtags=None):
     """ Get candidtes with consensus over at least nop user tag fields.
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
