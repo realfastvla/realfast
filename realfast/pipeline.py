@@ -79,10 +79,10 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     candcollection = cl.submit(prep_and_search, st, segment, data,
                                resources={'MEMORY': mem_search, 'GPU': 2},
-                               fifo_timeout='0s', priority=1, retries=1)
+                               fifo_timeout='0s', priority=1, retries=2)
 
     acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2,
-                    retries=1)
+                    retries=2)
 
     return (segment, data, candcollection, acc)
 

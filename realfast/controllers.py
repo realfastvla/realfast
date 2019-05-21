@@ -507,16 +507,19 @@ class realfast_controller(Controller):
                                                                    st, segment,
                                                                    data,
                                                                    fifo_timeout='0s',
+                                                                   retries=2,
                                                                    priority=-1))
 
                 # index noises
                 if self.indexresults:
                     distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
-                                                                   scanId, indexprefix=self.indexprefix,
+                                                                   scanId,
+                                                                   indexprefix=self.indexprefix,
                                                                    pending=self.pending[scanId],
                                                                    finished=self.finished[scanId],
                                                                    errors=self.errors[scanId],
-                                                                   nsegment=st.nsegment))
+                                                                   nsegment=st.nsegment,
+                                                                   retries=2))
 
                 try:
                     segment = next(segments)
@@ -586,10 +589,12 @@ class realfast_controller(Controller):
             self.finished[scanId] += len(finishedlist)
             if self.indexresults:
                 distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
-                                            scanId, indexprefix=self.indexprefix,
+                                            scanId,
+                                            indexprefix=self.indexprefix,
                                             pending=self.pending[scanId],
                                             finished=self.finished[scanId],
-                                            errors=self.errors[scanId]))
+                                            errors=self.errors[scanId],
+                                            retries=2))
 
             for futures in finishedlist:
                 seg, data, cc, acc = futures
@@ -599,7 +604,8 @@ class realfast_controller(Controller):
                     distributed.fire_and_forget(self.client.submit(elastic.indexmock,
                                                                    scanId,
                                                                    acc=acc,
-                                                                   indexprefix=self.indexprefix))
+                                                                   indexprefix=self.indexprefix,
+                                                                   retries=2))
 
                     # index cands
                     workdir = self.states[scanId].prefs.workdir
@@ -609,6 +615,7 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
+                                                                   retries=2,
                                                                    priority=5))
 
                 if self.saveproducts:
@@ -616,6 +623,7 @@ class realfast_controller(Controller):
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
                                                                    indexprefix=self.indexprefix,
+                                                                   retries=2,
                                                                    priority=5))
 
                 # remove job from list

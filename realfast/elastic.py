@@ -740,15 +740,25 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
     consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
                               consensustype=consensustype, newtags=newtags)
 
+    datasetIds = []
     for candId, tags in iteritems(consensus):
+        scanId = candId.split('_seg')[0]
+        datasetIds.append('.'.join(scanId.split('.')[:-2]))
+
         # check remaining docs
-        iddict = copy_all_docs(indexprefix1, indexprefix2, candId)
+        iddict = copy_all_docs(indexprefix1, indexprefix2, candId=candId)
 
         # set tags field
         update_field(indexprefix2+'cands', 'tags',
                      consensus[candId]['tags'], Id=candId)
 
-    # TODO: clean up, as is done in move_dataset. 
+        res = pushdata({}, indexprefix1+'cands', candId, command='delete')
+
+    # (re)move any datasets with no associated cands
+    index = indexprefix1+'cands'
+    for datasetId in set(datasetIds):
+        if not len(get_ids(index, datasetId=datasetId)):
+            move_dataset(indexprefix1, indexprefix2, datasetId)
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
@@ -816,9 +826,14 @@ def get_consensus(indexprefix='new', nop=3, consensustype='absolute',
             logger.exception("consensustype {0} not recognized"
                              .format(consensustype))
 
+    logger.info("Consensus found for {0} candidates in prefix {1}"
+                .format(len(consensus), indexprefix))
+
     if res == 'consensus':
+        logger.info("Returning consensus candidates")
         return consensus
     elif res == 'noconsensus':
+        logger.info("Returning candidates without consensus")
         return noconsensus
 
 
