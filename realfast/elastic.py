@@ -6,6 +6,7 @@ from io import open
 import os.path
 import subprocess
 import shutil
+from time import sleep
 from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
 from urllib3.connection import ConnectionError, NewConnectionError
 import logging
@@ -742,6 +743,9 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
     consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
                               consensustype=consensustype, newtags=newtags)
 
+    logger.info("Moving {0} consensus candidates from {1} to {2}"
+                .format(len(consensus), indexprefix1, indexprefix2))
+
     datasetIds = []
     for candId, tags in iteritems(consensus):
         scanId = candId.split('_seg')[0]
@@ -756,11 +760,21 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
 
         res = pushdata({}, indexprefix1+'cands', candId, command='delete')
 
+    # wait for transfer to complete
+    sleep(3)
+
     # (re)move any datasets with no associated cands
     index = indexprefix1+'cands'
-    for datasetId in set(datasetIds):
-        if not len(get_ids(index, datasetId=datasetId)):
+    datasetIds = set(datasetIds)
+    logger.info("Checking whether datasetIds {0} remain in {1}".format(datasetIds, index))
+    for datasetId in datasetIds:
+        ncands = len(get_ids(index, datasetId=datasetId))
+        if not ncands:
+            logger.info("No cands from dataset {0} remain. Removing dataset from {1}"
+                        .format(datasetId, indexprefix1))
             move_dataset(indexprefix1, indexprefix2, datasetId)
+        else:
+            logger.info("{0} candidates remain for dataset {1}".format(ncands, datasetId))
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='majority',
