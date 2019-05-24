@@ -806,7 +806,7 @@ def search_config(config, preffile=None, inprefs={},
 
     # 3) if nameincludes set, reject if datasetId does not have it
     if nameincludes is not None:
-        if any([name in config.datasetId for name in self.nameincludes.split(',')]):
+        if any([name in config.datasetId for name in nameincludes.split(',')]):
             logger.warn("datasetId {0} not in nameincludes {1}"
                         .format(config.datasetId, nameincludes))
             return False
