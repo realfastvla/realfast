@@ -11,6 +11,7 @@ from astropy import time
 from time import sleep
 from rfpipe import candidates, fileLock
 from realfast import elastic, mcaf_servers
+import distributed
 
 import logging
 logger = logging.getLogger(__name__)
@@ -134,16 +135,14 @@ def createproducts(candcollection, data, indexprefix=None,
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
-    from distributed import Future
-
-    if isinstance(candcollection, Future):
+    if isinstance(candcollection, distributed.Future):
         candcollection = candcollection.result()
 
     if len(candcollection) == 0:
         logger.info('No candidates to generate products for.')
         return []
 
-    if isinstance(data, Future):
+    if isinstance(data, distributed.Future):
         data = data.result()
 
     assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
@@ -218,6 +217,15 @@ def createproducts(candcollection, data, indexprefix=None,
                         .format(metadata.datasetId, startTime, endTime))
 
     return sdmlocs
+
+
+def classify_cd(cd):
+    """ Submit canddata object to node with fetch model ready
+    """
+
+    cl = distributed.get_client()
+    distributed.fire_and_forget(cl.submit(candidates.cd_to_fetch, cd, workers=['devrffetch']))
+    # TODO: need to do something with output!
 
 
 def get_sdmname(candcollection):
