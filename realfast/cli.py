@@ -55,20 +55,32 @@ def run(preffile):
         rfc.cleanup_loop()
 
 @cli.command()
-@click.argument('sdmname')
-def buildsdm(sdmname):
-    """ Assemble sdm/bdf from cbe lustre
+@click.option('--sdmname', default=None)
+@click.option('--candid', default=None)
+@click.option('--indexprefix', default='new')
+def buildsdm(sdmname, candid, indexprefix):
+    """ Assemble sdm/bdf from cbe lustre.
+    Can find it from sdmname or can look up by candid.
     """
 
-    sdmloc = '/home/mctest/evla/mcaf/workspace/'
-    bdfdir = '/lustre/evla/wcbe/data/realfast/'
+    if sdmname is None:
+        from realfast import elastic
+        if candid is None:
+            logger.exception("Need to provide canid or sdmname")
+        doc = elastic.get_doc(indexprefix + 'cands', candid)
+        sdmname = doc['_source']['sdmname'].split('/')[-1]
+        logger.info("Got sdmname {0} from {1}cands index".format(sdmname, indexprefix))
 
-    shutil.copytree(os.path.join(sdmloc, sdmname), os.path.join('.', sdmname))
+    sdmloc = '/home/mctest/evla/mcaf/workspace/'
+    sdmname_full = os.path.join(sdmloc, sdmname)
+
+    shutil.copytree(sdmname_full, os.path.join('.', sdmname))
 
     bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
     os.mkdir(bdfdestination)
 
     bdft = sdmname.split('_')[-1]
+    bdfdir = '/lustre/evla/wcbe/data/realfast/'
     bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
     if len(bdf0) == 1:
         bdf0 = bdf0[0].split('/')[-1]
