@@ -705,7 +705,7 @@ class realfast_controller(Controller):
 
         # parse sols to test whether good ones exist
         sols = getsols(st)
-        if len(sols):
+        if len(sols) and not all(sols['flagged']):
             return True
         else:
             return False
