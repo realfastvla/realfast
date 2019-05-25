@@ -544,6 +544,7 @@ class realfast_controller(Controller):
                                     .format(tot_memlim))
                         self.client.run(gc.collect)
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                        justran = 1
                     elif (int(segsubtime-t0) % 5):
                         justran = 0
                 elif not (telcalset if self.requirecalibration else True):
@@ -551,6 +552,7 @@ class realfast_controller(Controller):
                         logger.info("System not ready. No telcalfile available for {0}"
                                     .format(scanId))
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
+                        justran = 1
                     elif (int(segsubtime-t0) % 5):
                         justran = 0
 
