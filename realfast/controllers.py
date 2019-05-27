@@ -73,8 +73,6 @@ class realfast_controller(Controller):
 
         super(realfast_controller, self).__init__()
 
-        from rfpipe import search
-
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
             self.client = distributed.Client(_distributed_host)
