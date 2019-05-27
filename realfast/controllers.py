@@ -919,7 +919,7 @@ def summarize(config):
 
 class config_controller(Controller):
 
-    def __init__(self, pklfile=None, preffile=None, **kwargs):
+    def __init__(self, preffile=None, inprefs={}, pklfile=None, **kwargs):
         """ Creates controller object that saves scan configs.
         If pklfile is defined, it will save pickle there.
         If preffile is defined, it will attach a preferences to indexed scan.
@@ -928,6 +928,7 @@ class config_controller(Controller):
 
         super(config_controller, self).__init__()
         self.pklfile = pklfile
+        self.inprefs = inprefs
 
         # define attributes from yaml file
         self.preffile = preffile if preffile is not None else _preffile

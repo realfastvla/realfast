@@ -35,7 +35,8 @@ def slack(channel, message):
 
 @cli.command()
 @click.option('--preffile', default='realfast.yml')
-def config_catcher(preffile):
+@click.option('--inprefs', default={})
+def config_catcher(preffile, inprefs):
     """ Runs async process to catch multicast messages to form scan config objects
     Can be saved to pklfile and optionally attached to preferences from preffile.
     """
@@ -44,7 +45,7 @@ def config_catcher(preffile):
 
     logger.info("Running config catcher with preffile={0}"
                 .format(preffile))
-    config = controllers.config_controller(preffile=preffile)
+    config = controllers.config_controller(preffile=preffile, inprefs=inprefs)
     config.run()
 
 
