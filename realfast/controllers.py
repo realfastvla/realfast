@@ -979,9 +979,13 @@ class config_controller(Controller):
             with open(self.pklfile, 'ab') as pkl:
                 pickle.dump(config, pkl)
 
-        if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
-                         nameincludes=self.nameincludes,
-                         searchintents=self.searchintents,
-                         ignoreintents=self.ignoreintents):
-            util.update_slack('#alerts', 'New scan to search: {0}'
-                              .format(config.datasetId))
+        searchable = search_config(config, preffile=self.preffile, inprefs=self.inprefs,
+                                   nameincludes=self.nameincludes,
+                                   searchintents=self.searchintents,
+                                   ignoreintents=self.ignoreintents)
+        if searchable:
+            message = 'New scan {0}: searchable'.format(config.datasetId)
+        else:
+            message = 'New scan {0}: not searchable'.format(config.datasetId)
+
+        util.update_slack('#alerts', message)
