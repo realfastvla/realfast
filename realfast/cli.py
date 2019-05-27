@@ -23,6 +23,25 @@ def cli():
 
 
 @cli.command()
+@click.option('--channel', default='#alerts')
+@click.option('--message')
+def slack(channel, message):
+    """ Update slack with something.                                                                                                                                                             
+    """
+
+    import os
+    import slack
+
+    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
+
+    response = client.chat_postMessage(
+        channel=channel,
+        text=message)
+    assert response["ok"]
+    assert response["message"]["text"] == message
+
+
+@cli.command()
 @click.option('--pklfile')
 @click.option('--preffile')
 def config_catcher(pklfile, preffile):
