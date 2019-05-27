@@ -9,7 +9,6 @@ import shutil
 import subprocess
 from astropy import time
 from time import sleep
-from rfpipe import candidates, fileLock
 from realfast import elastic, mcaf_servers
 
 import logging
@@ -55,6 +54,8 @@ def makesummaryplot(workdir, scanId):
     """ Create summary plot for a given scanId and move it
     """
 
+    from rfpipe import candidates
+
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
     ncands = candidates.makesummaryplot(candsfile)
     return ncands
@@ -98,6 +99,8 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
     """ Use candsfile to index cands, scans, prefs, mocks, and noises.
     Should produce identical index results as real-time operation.
     """
+
+    from rfpipe import candidates
 
     for cc in candidates.iter_cands(candsfile):
         st = cc.state
@@ -276,9 +279,29 @@ def runingest(sdms):
 #    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
 
 
+def update_slack(channel, message):
+    """ Use slack web API to send message to realfastvla slack
+    channel should start with '#' and be existing channel.
+    API token set for realfast user on cluster.
+    """
+
+    import os
+    import slack
+
+    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
+
+    response = client.chat_postMessage(
+        channel=channel,
+        text=message)
+    assert response["ok"]
+    assert response["message"]["text"] == message
+
+
 def data_logger(st, segment, data):
     """ Function that inspects read data and writes results to file.
     """
+
+    from rfpipe import fileLock
 
     filename = os.path.join(st.prefs.workdir,
                             "data_" + st.fileroot + ".txt")

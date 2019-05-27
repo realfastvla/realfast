@@ -29,31 +29,22 @@ def slack(channel, message):
     """ Update slack with something.                                                                                                                                                             
     """
 
-    import os
-    import slack
-
-    client = slack.WebClient(token=os.environ['SLACK_API_TOKEN'])
-
-    response = client.chat_postMessage(
-        channel=channel,
-        text=message)
-    assert response["ok"]
-    assert response["message"]["text"] == message
+    from realfast import util
+    util.update_slack(channel, message)
 
 
 @cli.command()
-@click.option('--pklfile')
-@click.option('--preffile')
-def config_catcher(pklfile, preffile):
+@click.option('--preffile', default='realfast.yml')
+def config_catcher(preffile):
     """ Runs async process to catch multicast messages to form scan config objects
     Can be saved to pklfile and optionally attached to preferences from preffile.
     """
 
     from realfast import controllers
 
-    logger.info("Running config catcher with pklfile={0} and preffile={1}"
-                .format(pklfile, preffile))
-    config = controllers.config_controller(pklfile=pklfile, preffile=preffile)
+    logger.info("Running config catcher with preffile={0}"
+                .format(preffile))
+    config = controllers.config_controller(preffile=preffile)
     config.run()
 
 

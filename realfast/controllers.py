@@ -919,7 +919,7 @@ def summarize(config):
 
 class config_controller(Controller):
 
-    def __init__(self, pklfile=None, preffile=_preffile):
+    def __init__(self, pklfile=None, preffile=None, **kwargs):
         """ Creates controller object that saves scan configs.
         If pklfile is defined, it will save pickle there.
         If preffile is defined, it will attach a preferences to indexed scan.
@@ -928,14 +928,46 @@ class config_controller(Controller):
 
         super(config_controller, self).__init__()
         self.pklfile = pklfile
-        self.preffile = preffile
+
+        # define attributes from yaml file
+        self.preffile = preffile if preffile is not None else _preffile
+        prefs = {}
+        if os.path.exists(self.preffile):
+            with open(self.preffile, 'r') as fp:
+                prefs = yaml.load(fp, Loader=PrettySafeLoader)['realfast']
+                logger.info("Parsed realfast preferences from {0}"
+                            .format(self.preffile))
+
+        else:
+            logger.warn("realfast preffile {0} given, but not found"
+                        .format(self.preffile))
+
+        # get arguments from preffile, optional overload from kwargs
+        for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
+                     'vys_sec_per_spec', 'indexresults', 'saveproducts',
+                     'archiveproducts', 'searchintents',  'ignoreintents',
+                     'throttle',
+                     'read_overhead', 'read_totfrac', 'spill_limit',
+                     'indexprefix', 'daskdir', 'requirecalibration',
+                     'data_logging']:
+            if attr == 'indexprefix':
+                setattr(self, attr, 'new')
+            elif attr == 'throttle':
+                setattr(self, attr, 0.8)  # submit relative to realtime
+            else:
+                setattr(self, attr, None)
+
+            if attr in prefs:
+                setattr(self, attr, prefs[attr])
+            if attr in kwargs:
+                setattr(self, attr, kwargs[attr])
 
     def handle_config(self, config):
         """ Triggered when obs comes in.
         Downstream logic starts here.
         """
 
-        from rfpipe import preferences
+        from rfpipe import util
 
         logger.info('Received complete configuration for {0}, '
                     'scan {1}, subscan {2}, source {3}, intent {4}'
@@ -946,7 +978,9 @@ class config_controller(Controller):
             with open(self.pklfile, 'ab') as pkl:
                 pickle.dump(config, pkl)
 
-        if self.preffile:
-            prefs = preferences.Preferences(**preferences.parsepreffile(self.preffile,
-                                                                        name='default'))
-            elastic.indexscan(config=config, preferences=prefs)
+        if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
+                         nameincludes=self.nameincludes,
+                         searchintents=self.searchintents,
+                         ignoreintents=self.ignoreintents):
+            util.update_slack('#alerts', 'New scan to search: {0}'
+                              .format(config.datasetId))
