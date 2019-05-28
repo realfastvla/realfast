@@ -231,6 +231,8 @@ def classify_candidates(cc, indexprefix='new'):
     """ Submit canddata object to node with fetch model ready
     """
 
+    from rfpipe import candidates
+
     index = indexprefix + 'cands'
 
     try:
