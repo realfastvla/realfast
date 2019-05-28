@@ -94,7 +94,7 @@ def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
     indexes noises.
     """
 
-    from rfpipe import source, search, reproduce
+    from rfpipe import source, search, reproduce, candidates
 
     ret = source.data_prep(st, segment, data, returnsoltime=returnsoltime)
     if returnsoltime:
@@ -116,6 +116,8 @@ def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
     candcollection = reproduce.reproduce_candcollection(candcollection, data)
 
     candcollection.soltime = soltime
+
+    candidates.save_cands(st, candcollection=candcollection)
 
     return candcollection
 

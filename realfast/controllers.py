@@ -169,7 +169,7 @@ class realfast_controller(Controller):
         for (scanId, futurelist) in iteritems(self.futures):
             for seg, data, cc, acc in futurelist:
                 if acc.status == 'finished':
-                    ncands, mocks = acc
+                    ncands, mocks = acc.result()
                     logger.info('{0}, {1}: {2} candidates'
                                 .format(scanId, seg, ncands))
                 else:
