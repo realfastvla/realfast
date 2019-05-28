@@ -62,6 +62,7 @@ class realfast_controller(Controller):
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
         - archiveproducts, boolean defining archiving mini-sdm,
+        - classify, run fetch classifier on its own gpu,
         - throttle, integer defining slowing pipeline submission relative to realtime,
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
@@ -113,7 +114,7 @@ class realfast_controller(Controller):
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
                      'archiveproducts', 'searchintents',  'ignoreintents',
-                     'throttle',
+                     'throttle', 'classify',
                      'read_overhead', 'read_totfrac', 'spill_limit',
                      'indexprefix', 'daskdir', 'requirecalibration',
                      'data_logging']:
@@ -197,10 +198,13 @@ class realfast_controller(Controller):
     @property
     def fetchworkers(self):
         workers = [w for w in itervalues(self.workernames) if 'fetch' in w]
-        if len(workers):
-            return workers
+        if self.classify:
+            if len(workers):
+                return workers
+            else:
+                return list(itervalues(self.workernames))
         else:
-            return list(itervalues(self.workernames))
+            return []
 
     @property
     def reader_memory_available(self):
@@ -637,12 +641,12 @@ class realfast_controller(Controller):
                                                                    workdir,
                                                                    retries=2,
                                                                    priority=5))
-
-                    distributed.fire_and_forget(self.client.submit(util.classify_candidates,
-                                                                   cc, self.indexprefix,
-                                                                   retries=2,
-                                                                   priority=5,
-                                                                   workers=self.fetchworkers))
+                    if self.classify:
+                        distributed.fire_and_forget(self.client.submit(util.classify_candidates,
+                                                                       cc, self.indexprefix,
+                                                                       retries=2,
+                                                                       priority=5,
+                                                                       workers=self.fetchworkers))
 
                 if self.saveproducts:
                     # optionally save and archive sdm/bdfs for segment

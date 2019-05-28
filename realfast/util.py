@@ -245,7 +245,7 @@ def classify_candidates(cc, indexprefix='new'):
                 frbprob = candidates.cd_to_fetch(cd, classify=True)
                 elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
         else:
-            logger.info("No candidates to classify for scanId {0}, segment {1}."
+            logger.info("No canddata available for scanId {0}, segment {1}."
                         .format(cc.metadata.scanId, cc.segment))
     except AttributeError:
         logger.info("CandCollection has no canddata attached. Not classifying.")
