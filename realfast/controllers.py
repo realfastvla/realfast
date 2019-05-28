@@ -183,6 +183,14 @@ class realfast_controller(Controller):
                     for k, v in iteritems(self.client.scheduler_info()['workers']))
 
     @property
+    def fetchworkers(self):
+        workers = [w for w in itervalues(self.workernames) if 'fetch' in w]
+        if len(workers):
+            return workers
+        else:
+            return list(itervalues(self.workernames))
+
+    @property
     def reader_memory_available(self):
         return heuristics.reader_memory_available(self.client)
 
@@ -615,6 +623,12 @@ class realfast_controller(Controller):
                                                                    workdir,
                                                                    retries=2,
                                                                    priority=5))
+
+                    distributed.fire_and_forget(self.client.submit(util.classify_candidates,
+                                                                   cc, self.indexprefix,
+                                                                   retries=2,
+                                                                   priority=5,
+                                                                   workers=self.fetchworkers))
 
                 if self.saveproducts:
                     # optionally save and archive sdm/bdfs for segment

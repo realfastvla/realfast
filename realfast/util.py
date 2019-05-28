@@ -219,13 +219,26 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def classify_cd(cd):
+def classify_candidates(cc, indexprefix='new'):
     """ Submit canddata object to node with fetch model ready
     """
 
-    cl = distributed.get_client()
-    distributed.fire_and_forget(cl.submit(candidates.cd_to_fetch, cd, workers=['devrffetch']))
-    # TODO: need to do something with output!
+    index = indexprefix + 'cands'
+
+    try:
+        if len(cc.canddata):
+            logger.info("Running fetch classifier on {0} candidates for scanId {1}, "
+                        "segment {2}"
+                        .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
+
+            for cd in cc.canddata:
+                frbprob = candidates.cd_to_fetch(cd, classify=True)
+                elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
+        else:
+            logger.info("No candidates to classify for scanId {0}, segment {1}."
+                        .format(cc.metadata.scanId, cc.segment))
+    except AttributeError:
+        logger.info("CandCollection has no canddata attached. Not classifying.")
 
 
 def get_sdmname(candcollection):
