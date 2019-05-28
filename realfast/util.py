@@ -54,10 +54,15 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
 def makesummaryplot(workdir, scanId):
     """ Create summary plot for a given scanId and move it
+    TODO: allow candcollection to be passed instead of assuming pkl flie
     """
 
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    ncands = candidates.makesummaryplot(candsfile)
+    if os.path.exists(candsfile):
+        ncands = candidates.makesummaryplot(candsfile)
+    else:
+        logger.warn("No candsfile found. No summary plot made.")
+        ncands = None
     return ncands
 
 
