@@ -165,6 +165,18 @@ class realfast_controller(Controller):
                                         acc.status))
 
     @property
+    def ncands(self):
+        for (scanId, futurelist) in iteritems(self.futures):
+            for seg, data, cc, acc in futurelist:
+                if acc.status == 'finished':
+                    ncands, mocks = acc
+                    logger.info('{0}, {1}: {2} candidates'
+                                .format(scanId, seg, ncands))
+                else:
+                    logger.info('{0}, {1}: search not complete'
+                                .format(scanId, seg))
+
+    @property
     def exceptions(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
                                             cc.exception())
