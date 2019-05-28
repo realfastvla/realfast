@@ -4,7 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import distributed
-from dask import array, delayed
+from dask import array
 from dask.base import tokenize
 import numpy as np
 from time import sleep
@@ -58,8 +58,8 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     # set up worker node round robin based on segment
     workers = [w['id'] for w in itervalues(cl.scheduler_info()['workers'])]
-    nodes = list(set([w.split('g')[0] for w in workers]))
-    workerspernode = list(set([int(w.split('g')[1]) for w in workers]))
+    nodes = list(set([w.split('g')[0] for w in workers if 'g' in w]))
+    workerspernode = list(set([int(w.split('g')[1]) for w in workers if 'g' in w]))
     allowed = ['{0}g{1}'.format(node, 2*(segment % len(workerspernode)))
                for node in nodes]  # assumes 2 gpus per worker
 
@@ -94,7 +94,7 @@ def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
     indexes noises.
     """
 
-    from rfpipe import source, search
+    from rfpipe import source, search, reproduce, candidates
 
     ret = source.data_prep(st, segment, data, returnsoltime=returnsoltime)
     if returnsoltime:
@@ -113,7 +113,12 @@ def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
         logger.warning("fftmode {0} not recognized (cuda, fftw allowed)"
                        .format(st.prefs.fftmode))
 
+    candcollection = reproduce.reproduce_candcollection(candcollection, data)
+
     candcollection.soltime = soltime
+
+    candidates.save_cands(st, candcollection=candcollection)
+
     return candcollection
 
 

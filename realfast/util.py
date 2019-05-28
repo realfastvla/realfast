@@ -10,6 +10,7 @@ import subprocess
 from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
+import distributed
 
 import logging
 logger = logging.getLogger(__name__)
@@ -52,12 +53,17 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
 def makesummaryplot(workdir, scanId):
     """ Create summary plot for a given scanId and move it
+    TODO: allow candcollection to be passed instead of assuming pkl flie
     """
 
     from rfpipe import candidates
 
     candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    ncands = candidates.makesummaryplot(candsfile)
+    if os.path.exists(candsfile):
+        ncands = candidates.makesummaryplot(candsfile)
+    else:
+        logger.warn("No candsfile found. No summary plot made.")
+        ncands = None
     return ncands
 
 
@@ -137,16 +143,14 @@ def createproducts(candcollection, data, indexprefix=None,
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
-    from distributed import Future
-
-    if isinstance(candcollection, Future):
+    if isinstance(candcollection, distributed.Future):
         candcollection = candcollection.result()
 
     if len(candcollection) == 0:
         logger.info('No candidates to generate products for.')
         return []
 
-    if isinstance(data, Future):
+    if isinstance(data, distributed.Future):
         data = data.result()
 
     assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
@@ -221,6 +225,28 @@ def createproducts(candcollection, data, indexprefix=None,
                         .format(metadata.datasetId, startTime, endTime))
 
     return sdmlocs
+
+
+def classify_candidates(cc, indexprefix='new'):
+    """ Submit canddata object to node with fetch model ready
+    """
+
+    index = indexprefix + 'cands'
+
+    try:
+        if len(cc.canddata):
+            logger.info("Running fetch classifier on {0} candidates for scanId {1}, "
+                        "segment {2}"
+                        .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
+
+            for cd in cc.canddata:
+                frbprob = candidates.cd_to_fetch(cd, classify=True)
+                elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
+        else:
+            logger.info("No candidates to classify for scanId {0}, segment {1}."
+                        .format(cc.metadata.scanId, cc.segment))
+    except AttributeError:
+        logger.info("CandCollection has no canddata attached. Not classifying.")
 
 
 def get_sdmname(candcollection):

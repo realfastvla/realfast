@@ -73,8 +73,6 @@ class realfast_controller(Controller):
 
         super(realfast_controller, self).__init__()
 
-        from rfpipe import search
-
         self.inprefs = inprefs  # rfpipe preferences
         if host is None:
             self.client = distributed.Client(_distributed_host)
@@ -167,6 +165,18 @@ class realfast_controller(Controller):
                                         acc.status))
 
     @property
+    def ncands(self):
+        for (scanId, futurelist) in iteritems(self.futures):
+            for seg, data, cc, acc in futurelist:
+                if acc.status == 'finished':
+                    ncands, mocks = acc.result()
+                    logger.info('{0}, {1}: {2} candidates'
+                                .format(scanId, seg, ncands))
+                else:
+                    logger.info('{0}, {1}: search not complete'
+                                .format(scanId, seg))
+
+    @property
     def exceptions(self):
         return ['{0}, {1}: {2}, {3}'.format(scanId, seg, data.exception(),
                                             cc.exception())
@@ -183,6 +193,14 @@ class realfast_controller(Controller):
     def workernames(self):
         return dict((k, v['id'])
                     for k, v in iteritems(self.client.scheduler_info()['workers']))
+
+    @property
+    def fetchworkers(self):
+        workers = [w for w in itervalues(self.workernames) if 'fetch' in w]
+        if len(workers):
+            return workers
+        else:
+            return list(itervalues(self.workernames))
 
     @property
     def reader_memory_available(self):
@@ -619,6 +637,12 @@ class realfast_controller(Controller):
                                                                    workdir,
                                                                    retries=2,
                                                                    priority=5))
+
+                    distributed.fire_and_forget(self.client.submit(util.classify_candidates,
+                                                                   cc, self.indexprefix,
+                                                                   retries=2,
+                                                                   priority=5,
+                                                                   workers=self.fetchworkers))
 
                 if self.saveproducts:
                     # optionally save and archive sdm/bdfs for segment
