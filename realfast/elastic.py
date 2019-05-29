@@ -452,7 +452,7 @@ def remove_ids(index, Ids=None, check=True, **kwargs):
         confirm = True
 
     res = 0
-    if confirm.lower() is in ['y', 'yes']:
+    if confirm.lower() in ['y', 'yes']:
         for Id in Ids:
             res += pushdata({}, index, Id, command='delete')
 
@@ -539,7 +539,7 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                     .format(datasetId, indexprefix1, count))
 
     # first remove Ids
-    if confirm.lower() is in ['y', 'yes']:
+    if confirm.lower() in ['y', 'yes']:
         for k, v in iddict0.items():
             if k != indexprefix1 + 'preferences':
                 remove_ids(k, v, check=False)
@@ -920,7 +920,7 @@ def create_indices(indexprefix):
         fullindex = indexprefix+index
         if es.indices.exists(index=fullindex):
             confirm = input("Index {0} exists. Delete?".format(fullindex))
-            if confirm.lower() is in ['y', 'yes']:
+            if confirm.lower() in ['y', 'yes']:
                 es.indices.delete(index=fullindex)
         if index != 'preferences':
             es.indices.create(index=fullindex, body=body)
