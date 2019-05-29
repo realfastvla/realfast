@@ -23,6 +23,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     """ Wraps indexcands, makesummaryplot, and moveplots calls.
     """
 
+    from rfpipe import candidates
+
     if len(cc):
         nc = elastic.indexcands(cc, scanId, tags=tags,
                                 url_prefix=_candplot_url_prefix,
@@ -30,7 +32,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
-        msp = makesummaryplot(workdir, scanId)
+#        msp = makesummaryplot(workdir, scanId)
+        msp = candidates.makesummaryplot(cc)
         workdir = cc.prefs.workdir + '/'
         moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
                                                                 indexprefix))
@@ -49,22 +52,6 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                             scanId))
     else:
         logger.info('No candidates or plots found.')
-
-
-def makesummaryplot(workdir, scanId):
-    """ Create summary plot for a given scanId and move it
-    TODO: allow candcollection to be passed instead of assuming pkl flie
-    """
-
-    from rfpipe import candidates
-
-    candsfile = '{0}/cands_{1}.pkl'.format(workdir, scanId)
-    if os.path.exists(candsfile):
-        ncands = candidates.makesummaryplot(candsfile)
-    else:
-        logger.warn("No candsfile found. No summary plot made.")
-        ncands = None
-    return ncands
 
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
