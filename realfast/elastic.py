@@ -431,7 +431,7 @@ def remove_tags(prefix, **kwargs):
             resp = es.update(prefix+"cands", prefix+"cand", Id, {"script": 'ctx._source.tagcount = 0'})
 
 
-def remove_ids(index, Ids=None, **kwargs):
+def remove_ids(index, Ids=None, check=True, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
     Can optionally pass key-value pairs of field-string to search.
@@ -439,17 +439,20 @@ def remove_ids(index, Ids=None, **kwargs):
     """
 
     if Ids is None:
+        # delete all Ids in index
         if not len(kwargs):
             logger.warn("No Ids or query kwargs. Clearing all Ids in {0}"
                         .format(index))
         Ids = get_ids(index, **kwargs)
 
-    confirm = input("Press any key to confirm removal of {0} ids from {1}."
-                    .format(len(Ids), index))
+    if check:
+        confirm = input("Press any key to confirm removal of {0} ids from {1}."
+                        .format(len(Ids), index))
+    else:
+        confirm = True
 
     res = 0
-    if confirm:
-        logger.info("Removing...")
+    if confirm.lower() is in ['y', 'yes']:
         for Id in Ids:
             res += pushdata({}, index, Id, command='delete')
 
@@ -531,19 +534,24 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                 if Id not in iddict0[k]:
                     iddict0[k].append(Id)
 
-    # first remove Ids
-    for k, v in iddict0.items():
-        if k != indexprefix1 + 'preferences':
-            remove_ids(k, v)
+    count = sum([len(v) for k, v in iteritems(iddict0)])
+    confirm = input("Remove dataset {0} from {1} with {2} ids in all indices?"
+                    .format(datasetId, indexprefix1, count))
 
-    # test whether other scans are using prefsname
-    prefsnames = iddict0[indexprefix1 + 'preferences']
-    for prefsname in prefsnames:
-        if not len(get_ids(indexprefix1 + 'scans', prefsname=prefsname)):
-            remove_ids(indexprefix1 + 'preferences', [prefsname])
-        else:
-            logger.info("prefsname {0} is referred to in {1}. Not deleting"
-                        .format(Id, k))
+    # first remove Ids
+    if confirm.lower() is in ['y', 'yes']:
+        for k, v in iddict0.items():
+            if k != indexprefix1 + 'preferences':
+                remove_ids(k, v, check=False)
+
+        # test whether other scans are using prefsname
+        prefsnames = iddict0[indexprefix1 + 'preferences']
+        for prefsname in prefsnames:
+            if not len(get_ids(indexprefix1 + 'scans', prefsname=prefsname)):
+                remove_ids(indexprefix1 + 'preferences', [prefsname], check=False)
+            else:
+                logger.info("prefsname {0} is referred to in {1}. Not deleting"
+                            .format(Id, k))
 
     # TODO: remove png and html files after last move
 
@@ -912,7 +920,7 @@ def create_indices(indexprefix):
         fullindex = indexprefix+index
         if es.indices.exists(index=fullindex):
             confirm = input("Index {0} exists. Delete?".format(fullindex))
-            if confirm:
+            if confirm.lower() is in ['y', 'yes']:
                 es.indices.delete(index=fullindex)
         if index != 'preferences':
             es.indices.create(index=fullindex, body=body)
