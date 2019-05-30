@@ -378,10 +378,13 @@ def gencandranges(candcollection):
 
 
 def initialize_worker():
-    from rfpipe import search, state, metadata
+    """ Function called to initialize python on workers
+    """
 
+    from rfpipe import search, state, metadata, candidates, reproduce
+    t0 = time.Time.now().mjd
     search.set_wisdom(512)
-    st = state.State(inmeta=metadata.mock_metadata(0,0.001, 27, 16, 16*32, 4, 5e4, datasource='sim'))
+    st = state.State(inmeta=metadata.mock_metadata(t0, t0+0.001, 27, 16, 16*32, 4, 5e4, datasource='sim'))
 
 
 def rsync(original, new):
