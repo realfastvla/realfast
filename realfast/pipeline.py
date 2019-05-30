@@ -117,7 +117,7 @@ def prep_and_search(st, segment, data, indexprefix='new', returnsoltime=False):
 
     candcollection.soltime = soltime
 
-    candidates.save_cands(st, candcollection=candcollection)
+    candidates.save_cands(st, candcollection)
 
     return candcollection
 
