@@ -449,7 +449,7 @@ def remove_ids(index, Ids=None, check=True, **kwargs):
         confirm = input("Press any key to confirm removal of {0} ids from {1}."
                         .format(len(Ids), index))
     else:
-        confirm = True
+        confirm = 'yes'
 
     res = 0
     if confirm.lower() in ['y', 'yes']:
