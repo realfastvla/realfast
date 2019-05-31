@@ -63,7 +63,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 #    allowed = ['{0}g{1}'.format(node, 2*(segment % len(workerspernode)))
 #               for node in nodes]  # assumes 2 gpus per worker
 
-    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3}.'
+    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment,
                         len(workers)))
 
