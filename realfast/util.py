@@ -312,7 +312,9 @@ def update_slack(channel, message):
         channel=channel,
         text=message)
     assert response["ok"]
-    assert response["message"]["text"] == message
+    if response["message"]["text"] != message:
+        logger.warn("Response from Slack API differs from message sent. "
+                    "Maybe just broken into multiple updates: {0}".format(response))
 
 
 def data_logger(st, segment, data):
