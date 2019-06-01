@@ -58,19 +58,17 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     # set up worker node round robin based on segment
     workers = [w['id'] for w in itervalues(cl.scheduler_info()['workers'])]
-    nodes = list(set([w.split('g')[0] for w in workers if 'g' in w]))
-    workerspernode = list(set([int(w.split('g')[1]) for w in workers if 'g' in w]))
-    allowed = ['{0}g{1}'.format(node, 2*(segment % len(workerspernode)))
-               for node in nodes]  # assumes 2 gpus per worker
+#    nodes = list(set([w.split('g')[0] for w in workers if 'g' in w]))
+#    workerspernode = list(set([int(w.split('g')[1]) for w in workers if 'g' in w]))
+#    allowed = ['{0}g{1}'.format(node, 2*(segment % len(workerspernode)))
+#               for node in nodes]  # assumes 2 gpus per worker
 
-    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers with device {4}.'
+    logger.info('Submitted read for observation {0}, scan {1}, segment {2} to {3} workers.'
                 .format(st.metadata.datasetId, st.metadata.scan, segment,
-                        len(allowed), 2*(segment % len(workerspernode))))
+                        len(workers)))
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
-                     cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
-                     fifo_timeout='0s', priority=-1, workers=allowed,
-                     allow_other_workers=True)
+                     cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read})
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1
@@ -79,10 +77,9 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     candcollection = cl.submit(prep_and_search, st, segment, data,
                                resources={'MEMORY': mem_search, 'GPU': 2},
-                               fifo_timeout='0s', priority=1, retries=2)
+                               retries=2)
 
-    acc = cl.submit(analyze_cc, candcollection, fifo_timeout='0s', priority=2,
-                    retries=2)
+    acc = cl.submit(analyze_cc, candcollection, retries=2)
 
     return (segment, data, candcollection, acc)
 

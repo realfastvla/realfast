@@ -461,7 +461,7 @@ class realfast_controller(Controller):
         while True:
             segsubtime = time.Time.now().unix
             elapsedtime = segsubtime - t0
-            if elapsedtime > timeout and timeout:
+            if (elapsedtime > timeout) and timeout:
                 logger.info("Submission timed out. Submitted {0}/{1} segments "
                             "in ScanId {2}".format(nsubmitted, st.nsegment,
                                                    scanId))
@@ -469,7 +469,7 @@ class realfast_controller(Controller):
 
             starttime, endtime = time.Time(st.segmenttimes[segment],
                                            format='mjd').unix
-            if st.metadata.datasource == 'vys':
+            if st.metadata.datasource in ['vys', 'sim']:
                 # TODO: define buffer delay better
                 if segsubtime > starttime:
                     logger.warning("Segment {0} time window has passed ({1} > {2}). Skipping."
@@ -528,9 +528,7 @@ class realfast_controller(Controller):
                     distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                    st, segment,
                                                                    data,
-                                                                   fifo_timeout='0s',
-                                                                   retries=2,
-                                                                   priority=-1))
+                                                                   retries=2))
 
                 # index noises
                 if self.indexresults:
@@ -639,22 +637,20 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
-                                                                   retries=2,
-                                                                   priority=5))
+                                                                   retries=2))
                     if self.classify:
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
                                                                        cc, self.indexprefix,
                                                                        retries=2,
-                                                                       priority=5,
-                                                                       workers=self.fetchworkers))
+                                                                       workers=self.fetchworkers,
+                                                                       resources={'GPU': 1}))
 
                 if self.saveproducts:
                     # optionally save and archive sdm/bdfs for segment
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
                                                                    indexprefix=self.indexprefix,
-                                                                   retries=2,
-                                                                   priority=5))
+                                                                   retries=2))
 
                 # remove job from list
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup

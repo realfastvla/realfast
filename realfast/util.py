@@ -217,7 +217,7 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def classify_candidates(cc, indexprefix='new'):
+def classify_candidates(cc, indexprefix='new', devicenum=None):
     """ Submit canddata object to node with fetch model ready
     """
 
@@ -232,7 +232,7 @@ def classify_candidates(cc, indexprefix='new'):
                         .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
 
             for cd in cc.canddata:
-                frbprob = candidates.cd_to_fetch(cd, classify=True)
+                frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
                 elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
         else:
             logger.info("No canddata available for scanId {0}, segment {1}."
