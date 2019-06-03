@@ -61,12 +61,10 @@ class realfast_controller(Controller):
         - mockprob, chance (range 0-1) that a mock is added to scan,
         - saveproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
-        - archiveproducts, boolean defining archiving mini-sdm,
         - classify, run fetch classifier on its own gpu,
         - throttle, integer defining slowing pipeline submission relative to realtime,
         - read_overhead, throttle param requires multiple of vismem in a READERs memory,
         - read_totfrac, throttle param requires fraction of total READER memory be available,
-        - spill_limit, throttle param limiting maximum size (in GB) of data spill directory,
         - searchintents, a list of intent names to search,
         - ignoreintents, a list of intent names to not search,
         - indexprefix, a string defining set of indices to save results.
@@ -113,9 +111,9 @@ class realfast_controller(Controller):
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
-                     'archiveproducts', 'searchintents',  'ignoreintents',
+                     'searchintents',  'ignoreintents',
                      'throttle', 'classify',
-                     'read_overhead', 'read_totfrac', 'spill_limit',
+                     'read_overhead', 'read_totfrac',
                      'indexprefix', 'daskdir', 'requirecalibration',
                      'data_logging']:
             if attr == 'indexprefix':
@@ -137,7 +135,7 @@ class realfast_controller(Controller):
             self.daskdir = _default_daskdir
 
         # TODO: set defaults for these
-        assert self.read_overhead and self.read_totfrac and self.spill_limit
+        assert self.read_overhead and self.read_totfrac
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'
@@ -443,9 +441,8 @@ class realfast_controller(Controller):
         throttletime = self.throttle*st.metadata.inttime*st.metadata.nints/st.nsegment
         logger.info('Submitting {0} segments for scanId {1}'.format(len(segments), scanId))
         logger.debug('Read_overhead {0}, read_totfrac {1}, and '
-                     'spill_limit {2} with timeout {3}s'
-                     .format(self.read_overhead, self.read_totfrac,
-                             self.spill_limit, timeout))
+                     'with timeout {2}s'
+                     .format(self.read_overhead, self.read_totfrac, timeout))
 
         tot_memlim = self.read_totfrac*sum([v['resources']['MEMORY']
                                             for v in itervalues(self.client.scheduler_info()['workers'])
@@ -497,8 +494,6 @@ class realfast_controller(Controller):
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
                 heuristics.readertotal_memory_ok(self.client, tot_memlim) and
-#                heuristics.spilled_memory_ok(limit=self.spill_limit,
-#                                             daskdir=self.daskdir) and
                 (telcalset if self.requirecalibration else True)):
 
                 # first time initialize scan
@@ -549,7 +544,7 @@ class realfast_controller(Controller):
 
             else:
                 if not heuristics.reader_memory_ok(self.client, w_memlim):
-                    if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
+                    if not (int(segsubtime-t0) % 20) and not justran:  # every 20 sec
                         logger.info("System not ready. No reader available with required memory {0}"
                                     .format(w_memlim))
                         self.client.run(gc.collect)
@@ -559,7 +554,7 @@ class realfast_controller(Controller):
                         justran = 0
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
-                    if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
+                    if not (int(segsubtime-t0) % 20) and not justran:  # every 20 sec
                         logger.info("System not ready. Total reader memory exceeds limit of {0}"
                                     .format(tot_memlim))
                         self.client.run(gc.collect)
@@ -680,7 +675,6 @@ class realfast_controller(Controller):
                 except KeyError:
                     pass
 
-#        _ = self.client.run(gc.collect)
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
 
@@ -986,9 +980,9 @@ class config_controller(Controller):
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                      'vys_sec_per_spec', 'indexresults', 'saveproducts',
-                     'archiveproducts', 'searchintents',  'ignoreintents',
+                     'searchintents',  'ignoreintents',
                      'throttle',
-                     'read_overhead', 'read_totfrac', 'spill_limit',
+                     'read_overhead', 'read_totfrac',
                      'indexprefix', 'daskdir', 'requirecalibration',
                      'data_logging']:
             if attr == 'indexprefix':

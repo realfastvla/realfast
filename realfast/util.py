@@ -288,14 +288,6 @@ def assemble_sdmbdf(candcollection, sdmloc='/home/mctest/evla/mcaf/workspace/',
 
     return newsdm
 
-def runingest(sdms):
-    """ Call archive tool or move data to trigger archiving of sdms.
-    This function will ultimately be triggered by candidate portal.
-    """
-
-    NotImplementedError
-#    /users/vlapipe/workflows/test/bin/ingest -m -p /home/mctest/evla/mcaf/workspace --file 
-
 
 def update_slack(channel, message):
     """ Use slack web API to send message to realfastvla slack
