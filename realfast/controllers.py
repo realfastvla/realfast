@@ -684,6 +684,22 @@ class realfast_controller(Controller):
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
 
+    def cleanup_retry(self):
+        """ Get futures from client who_has and retry them.
+        This will clean up futures showing in scheduler bokeh app.
+        """
+
+        futs = []
+        for k in self.client.who_has():
+            logger.info("Retrying {0}".format(k))
+            fut = distributed.Future(k)
+            fut.retry()
+            futs.append(fut)
+
+        for fut in distributed.as_completed(futs):
+            logger.info("Future {0} completed. Releasing it.".format(fut.key))
+            fut.release()
+
     def cleanup_loop(self, timeout=None):
         """ Clean up until all jobs gone or timeout elapses.
         """
