@@ -302,7 +302,7 @@ def update_slack(channel, message):
 
     response = client.chat_postMessage(
         channel=channel,
-        text=message)
+        text=message, icon_emoji=":robot_face:")
     assert response["ok"]
     if response["message"]["text"] != message:
         logger.warn("Response from Slack API differs from message sent. "
