@@ -825,13 +825,41 @@ def search_config(config, preffile=None, inprefs={},
     reffreqs = [subband.sky_center_freq*1e6 for subband in subbands]
 
     # Do not process if...
-    # 1) chansize changes between subbands
+    # 1) if nameincludes set, reject if datasetId does not have it
+    if nameincludes is not None:
+        if any([name in config.datasetId for name in nameincludes.split(',')]):
+            logger.warn("datasetId {0} not in nameincludes {1}"
+                        .format(config.datasetId, nameincludes))
+            return False
+
+    # 2) only if some fast sampling is done (faster than VLASS final inttime)
+    t_fast = 0.4
+    if not any([inttime < t_fast for inttime in inttimes]):
+        logger.warn("No subband has integration time faster than {0} s"
+                    .format(t_fast))
+        return False
+
+    # 3) only search if in searchintents
+    if searchintents is not None:
+        if not any([searchintent in intent for searchintent in searchintents]):
+            logger.warn("intent {0} not in searchintents list {1}"
+                        .format(intent, searchintents))
+            return False
+
+    # 4) do not search if in ignoreintents
+    if ignoreintents is not None:
+        if any([ignoreintent in intent for ignoreintent in ignoreintents]):
+            logger.warn("intent {0} not in ignoreintents list {1}"
+                        .format(intent, ignoreintents))
+            return False
+
+    # 5) chansize changes between subbands
     if not all([chansizes[0] == chansize for chansize in chansizes]):
         logger.warn("Channel size changes between subbands: {0}"
                     .format(chansizes))
         return False
 
-    # 2) start and stop time is after current time
+    # 6) start and stop time is after current time
     now = time.Time.now().unix
     startTime = time.Time(config.startTime, format='mjd').unix
     stopTime = time.Time(config.stopTime, format='mjd').unix
@@ -840,45 +868,17 @@ def search_config(config, preffile=None, inprefs={},
                     .format(startTime, stopTime, now))
         return False
 
-    # 3) if nameincludes set, reject if datasetId does not have it
-    if nameincludes is not None:
-        if any([name in config.datasetId for name in nameincludes.split(',')]):
-            logger.warn("datasetId {0} not in nameincludes {1}"
-                        .format(config.datasetId, nameincludes))
-            return False
-
-    # 4) only search if in searchintents
-    if searchintents is not None:
-        if not any([searchintent in intent for searchintent in searchintents]):
-            logger.warn("intent {0} not in searchintents list {1}"
-                        .format(intent, searchintents))
-            return False
-
-    # 5) do not search if in ignoreintents
-    if ignoreintents is not None:
-        if any([ignoreintent in intent for ignoreintent in ignoreintents]):
-            logger.warn("intent {0} not in ignoreintents list {1}"
-                        .format(intent, ignoreintents))
-            return False
-
-    # 5) only two antennas
+    # 7) only two antennas
     if len(antnames) <= 2:
         logger.warn("Only {0} antennas in array".format(len(antnames)))
         return False
 
-    # 6) only if state validates
+    # 8) only if state validates
     prefsname = get_prefsname(config=config)
     if not heuristics.state_validates(config=config, preffile=preffile,
                                       prefsname=prefsname, inprefs=inprefs):
         logger.warn("State not valid for scanId {0}"
                     .format(config.scanId))
-        return False
-
-    # 7) only if some fast sampling is done (faster than VLASS final inttime)
-    t_fast = 0.4
-    if not any([inttime < t_fast for inttime in inttimes]):
-        logger.warn("No subband has integration time faster than {0} s"
-                    .format(t_fast))
         return False
 
     return True
