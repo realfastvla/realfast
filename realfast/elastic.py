@@ -461,9 +461,10 @@ def remove_ids(index, Ids=None, check=True, **kwargs):
     return res
 
 
-def get_ids(index, **kwargs):
+def get_ids(index, *args, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)
+    Can optionally pass arg for string query.
     Can optionally pass key-value pairs of field-string to search.
     Must match exactly (e.g., "scanId"="test.1.1")
     """
@@ -475,7 +476,10 @@ def get_ids(index, **kwargs):
     else:
         field = 'false'
 
-    if len(kwargs):
+    if len(args):
+        wildcard = '*' + '* *'.join(args) + '*'
+        query = {"query":{"query_string": {"query":wildcard}}}
+    elif len(kwargs):
         query = {"query": {"match": kwargs}, "_source": field}
     else:
         query = {"query": {"match_all": {}}, "_source": field}
