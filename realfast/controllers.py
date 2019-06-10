@@ -523,7 +523,7 @@ class realfast_controller(Controller):
                     distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                    st, segment,
                                                                    data,
-                                                                   retries=2))
+                                                                   retries=3))
 
                 # index noises
                 if self.indexresults:
@@ -534,7 +534,7 @@ class realfast_controller(Controller):
                                                                    finished=self.finished[scanId],
                                                                    errors=self.errors[scanId],
                                                                    nsegment=st.nsegment,
-                                                                   retries=2))
+                                                                   retries=3))
 
                 try:
                     segment = next(segments)
@@ -611,7 +611,7 @@ class realfast_controller(Controller):
                                             pending=self.pending[scanId],
                                             finished=self.finished[scanId],
                                             errors=self.errors[scanId],
-                                            retries=2))
+                                            retries=3))
 
             for futures in finishedlist:
                 seg, data, cc, acc = futures
@@ -622,7 +622,7 @@ class realfast_controller(Controller):
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix,
-                                                                   retries=2))
+                                                                   retries=3))
 
                     # index cands
                     workdir = self.states[scanId].prefs.workdir
@@ -632,11 +632,11 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
-                                                                   retries=2))
+                                                                   retries=3))
                     if self.classify:
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
                                                                        cc, self.indexprefix,
-                                                                       retries=2,
+                                                                       retries=3,
                                                                        workers=self.fetchworkers,
                                                                        resources={'GPU': 1}))
 
@@ -645,7 +645,7 @@ class realfast_controller(Controller):
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
                                                                    indexprefix=self.indexprefix,
-                                                                   retries=2))
+                                                                   retries=3))
 
                 # remove job from list
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup
