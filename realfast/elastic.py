@@ -548,6 +548,22 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
             if k != indexprefix1 + 'preferences':
                 remove_ids(k, v, check=False)
 
+            # remove old cand pngs
+            if k == indexprefix1 + 'cands':
+                for Id in v:
+                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix1, Id))
+                    os.remove(candplot1)
+
+            # remove old summary htmls
+            if k == indexprefix1 + 'scans':
+                logger.info("{0} {1}".format(k, v))
+                for Id in v:
+                    summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                                .format(indexprefix1, Id))
+                    if os.path.exists(summary1):
+                        os.remove(summary1)
+
         # test whether other scans are using prefsname
         prefsnames = iddict0[indexprefix1 + 'preferences']
         for prefsname in prefsnames:
