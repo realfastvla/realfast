@@ -675,6 +675,12 @@ class realfast_controller(Controller):
                 except KeyError:
                     pass
 
+        # hack to clean up residual jobs in bokeh
+        if not len(self.processing) and len(self.client.who_has()):
+            logger.info("Retrying {0} scheduler jobs without futures."
+                        .format(len(self.client.who_has())))
+            self.cleanup_retry()
+
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
 
