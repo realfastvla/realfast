@@ -79,7 +79,7 @@ class realfast_controller(Controller):
             self.client = distributed.Client(n_workers=1,
                                              threads_per_worker=2,
                                              resources={"READER": 1,
-                                                        "GPU": 1,
+#                                                        "GPU": 1,
                                                         "MEMORY": 10e9})
         else:
             self.client = distributed.Client(host)
@@ -468,9 +468,9 @@ class realfast_controller(Controller):
                                            format='mjd').unix
             if st.metadata.datasource in ['vys', 'sim']:
                 # TODO: define buffer delay better
-                if segsubtime > starttime:
+                if segsubtime > starttime+2:
                     logger.warning("Segment {0} time window has passed ({1} > {2}). Skipping."
-                                   .format(segment, segsubtime, starttime))
+                                   .format(segment, segsubtime, starttime+2))
                     try:
                         segment = next(segments)
                         continue
@@ -519,10 +519,6 @@ class realfast_controller(Controller):
                 nsubmitted += 1
 
                 segment, data, cc, acc = futures
-
-                # run memory logging
-                memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['memory']) for k, v in iteritems(self.client.scheduler_info()['workers'])])
-                self.client.run(logging_statement, memory_summary)
 
                 if self.data_logging:
                     distributed.fire_and_forget(self.client.submit(util.data_logger,
@@ -599,8 +595,9 @@ class realfast_controller(Controller):
                                 ','.join(scanIds)))
 
         # run memory logging
-        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['memory']) for k, v in iteritems(self.client.scheduler_info()['workers'])])
-        self.client.run(logging_statement, memory_summary)
+        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 15])
+        if memory_summary:
+            logger.info("High memory usage on cluster: {0}".format(memory_summary))
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
@@ -689,6 +686,8 @@ class realfast_controller(Controller):
             logger.info("Retrying {0} scheduler jobs without futures."
                         .format(len(self.client.who_has())))
             self.cleanup_retry()
+            sleep(5)
+            self.client.run(gc.collect)
 
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
