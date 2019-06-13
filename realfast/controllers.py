@@ -519,6 +519,11 @@ class realfast_controller(Controller):
                 nsubmitted += 1
 
                 segment, data, cc, acc = futures
+
+                # run memory logging
+                memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['memory']) for k, v in iteritems(self.client.scheduler_info()['workers'])])
+                self.client.run(logging_statement, memory_summary)
+
                 if self.data_logging:
                     distributed.fire_and_forget(self.client.submit(util.data_logger,
                                                                    st, segment,
@@ -592,6 +597,10 @@ class realfast_controller(Controller):
             logger.info("Checking on {0} segments in {1} scanIds: {2}"
                         .format(self.nsegment, len(scanIds),
                                 ','.join(scanIds)))
+
+        # run memory logging
+        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['memory']) for k, v in iteritems(self.client.scheduler_info()['workers'])])
+        self.client.run(logging_statement, memory_summary)
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
@@ -805,6 +814,13 @@ class realfast_controller(Controller):
         """
 
         logger.info('End of scheduling block message received.')
+
+
+def logging_statement(statement):
+    """ Log a statement on a worker
+    """
+
+    logger.info("{0}".format(statement))
 
 
 def search_config(config, preffile=None, inprefs={},
