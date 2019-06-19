@@ -77,8 +77,8 @@ def pipeline_seg(st, segment, cl, cfile=None,
         st.prefs.simulated_transient = None
 
     candcollection = cl.submit(prep_and_search, st, segment, data,
-#                               resources={'MEMORY': mem_search, 'GPU': 2},
-                               resources={'MEMORY': mem_search, 'READER': 1},
+                               resources={'MEMORY': mem_search, 'GPU': 2},
+#                               resources={'MEMORY': mem_search, 'READER': 1},
                                retries=3)
 
     acc = cl.submit(analyze_cc, candcollection, retries=3)

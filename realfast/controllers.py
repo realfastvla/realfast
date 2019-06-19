@@ -59,7 +59,7 @@ class realfast_controller(Controller):
         - vys_timeout, factor over real-time for vys reading to wait,
         - vys_sec_per_spec, time in sec to allow for vys reading (overloaded by vys_timeout)
         - mockprob, chance (range 0-1) that a mock is added to scan,
-        - saveproducts, boolean defining generation of mini-sdm,
+        - createproducts, boolean defining generation of mini-sdm,
         - indexresults, boolean defining push (meta)data to search index,
         - classify, run fetch classifier on its own gpu,
         - throttle, integer defining slowing pipeline submission relative to realtime,
@@ -110,7 +110,7 @@ class realfast_controller(Controller):
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
-                     'vys_sec_per_spec', 'indexresults', 'saveproducts',
+                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                      'searchintents',  'ignoreintents',
                      'throttle', 'classify',
                      'read_overhead', 'read_totfrac',
@@ -646,7 +646,7 @@ class realfast_controller(Controller):
                                                                        workers=self.fetchworkers,
                                                                        resources={'GPU': 1}))
 
-                if self.saveproducts:
+                if self.createproducts:
                     # optionally save and archive sdm/bdfs for segment
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
@@ -783,9 +783,10 @@ class realfast_controller(Controller):
             self.errors[scanId] += len(removelist)
             for removefuts in removelist:
                 (seg, data, cc, acc) = removefuts
-                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}"
+                dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
                             .format(scanId, seg, data.status, cc.status,
-                                    acc.status))
+                                    acc.status, dataloc))
 
             # clean them up
             errworkers = [(fut, self.client.who_has(fut))
@@ -1000,7 +1001,7 @@ class config_controller(Controller):
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
-                     'vys_sec_per_spec', 'indexresults', 'saveproducts',
+                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                      'searchintents',  'ignoreintents',
                      'throttle',
                      'read_overhead', 'read_totfrac',
