@@ -595,8 +595,10 @@ class realfast_controller(Controller):
                                 ','.join(scanIds)))
 
         # run memory logging
-        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 15])
+        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10])
         if memory_summary:
+            workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10]
+            self.client.run(logging_statement, memory_summary, workers=workers_highmem)
             logger.info("High memory usage on cluster: {0}".format(memory_summary))
 
         # clean futures and get finished jobs
