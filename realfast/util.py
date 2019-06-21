@@ -179,7 +179,7 @@ def createproducts(candcollection, data, indexprefix=None,
     # make sdm for each unique time range (e.g., segment)
     for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = np.round(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
+        nint = np.floor(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
         logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
