@@ -33,7 +33,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
 #        msp = makesummaryplot(workdir, scanId)
-        msp = candidates.makesummaryplot(cc=cc)
+        candsfile = cc.state.candsfile
+        msp = candidates.makesummaryplot(candsfile=candsfile)
         workdir = cc.prefs.workdir + '/'
         moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
                                                                 indexprefix))
@@ -46,8 +47,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                         .format(cc.segment, cc.array.ncands))
 
     if nc or msp:
-        logger.info('Indexed {0} cands to {1} and moved plots and '
-                    'summarized {2} to {3} for scanId {4}'
+        logger.info('Indexed {0} new cands to {1}, moved plots, and '
+                    'summarized {2} total cands to {3} for scanId {4}'
                     .format(nc, indexprefix+'cands', msp, _candplot_dir,
                             scanId))
     else:
