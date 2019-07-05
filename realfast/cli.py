@@ -23,6 +23,40 @@ def cli():
 
 
 @cli.command()
+@click.option('--mode', default='line')
+@click.option('--line', default=None)
+@click.option('--filepath', default='/home/cbe-master/realfast/soft/logs/')
+@click.option('--globstr', default='rf*log')
+@click.option('--age', default=3600, type=int)
+def grep(mode, line, filepath, globstr, age):
+    """ Find line in files in path
+    Also has modes 'badclose' (and more?), where line is set
+    for user.
+    """
+
+    import os.path
+    import glob
+    import subprocess
+    import time
+    now = time.time()
+
+    if mode == 'line':
+        assert line is not None
+    elif mode == 'badclose':
+        line = '6: 0}'
+
+    files0 = list(glob.glob(os.path.join(filepath, globstr)))
+    files1 = list(filter(lambda x: now-os.path.getmtime(x) < age, files0))
+    print('Running grep on {1} files ({0} match globstr)\n'.format(len(files1), len(files0)))
+    files = ' '.join(files1)
+    callstr = 'grep "{0}" {1}'.format(line, files)
+    if len(files1):
+#        print(callstr)
+        subprocess.call(callstr, shell=True)
+    else:
+        print('No files found')
+
+@cli.command()
 @click.option('--channel', default='#alerts')
 @click.option('--message')
 def slack(channel, message):
