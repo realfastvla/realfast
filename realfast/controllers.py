@@ -105,8 +105,8 @@ class realfast_controller(Controller):
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
 
-        # initialize worker imports and wisdom
-        _ = self.client.register_worker_callbacks(util.initialize_worker)    
+        # initialize worker imports and wisdom (really slow!)
+#        _ = self.initialize()
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
@@ -227,6 +227,9 @@ class realfast_controller(Controller):
                       len(list(filter(lambda x: x[3].status == 'pending',
                                       futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
+
+    def initialize(self):
+        _ = self.client.run(util.initialize_worker)
 
     def restart(self):
         self.client.restart()
