@@ -3,10 +3,11 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-import numpy as np
+from math import floor
 import os
 import shutil
 import subprocess
+import numpy as np
 from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
@@ -180,7 +181,7 @@ def createproducts(candcollection, data, indexprefix=None,
     # make sdm for each unique time range (e.g., segment)
     for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = np.floor(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
+        nint = floor(86400*(endTime-startTime)/metadata.inttime)
         logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
