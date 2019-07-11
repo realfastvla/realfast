@@ -653,9 +653,10 @@ class realfast_controller(Controller):
 
                 if self.createproducts:
                     # optionally save and archive sdm/bdfs for segment
+                    indexprefix = self.indexprefix if self.indexresults else None
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
-                                                                   indexprefix=self.indexprefix,
+                                                                   indexprefix=indexprefix,
                                                                    retries=3))
 
                 # remove job from list
