@@ -628,14 +628,15 @@ class realfast_controller(Controller):
                 seg, data, cc, acc = futures
 
                 if self.indexresults:
-                    # index mocks
+                    # index mocks from special workers
                     distributed.fire_and_forget(self.client.submit(elastic.indexmock,
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix,
+                                                                   workers=self.fetchworkers,
                                                                    retries=3))
 
-                    # index cands
+                    # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir
                     distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
                                                                    cc,
@@ -643,8 +644,10 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
+                                                                   workers=self.fetchworkers,
                                                                    retries=3))
                     if self.classify:
+                        # classify cands on special workers
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
                                                                        cc, self.indexprefix,
                                                                        retries=3,
