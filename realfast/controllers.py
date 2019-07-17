@@ -233,6 +233,13 @@ class realfast_controller(Controller):
 
     def restart(self):
         self.client.restart()
+        sleep(5)
+        self.states = {}
+        self.futures = {}
+        self.futures_removed = {}
+        self.finished = {}
+        self.errors = {}
+        self.known_segments = {}
 
     def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
         """ Triggered when obs comes in.
