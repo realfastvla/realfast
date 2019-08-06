@@ -133,9 +133,29 @@ def buildsdm(sdmname, candid, indexprefix):
     bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
     if len(bdf0) == 1:
         bdf0 = bdf0[0].split('/')[-1]
+        shutil.copy(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
+    elif len(bdf0) == 0:
+        logger.warn("No bdf found for {0}".format(sdmname))
     else:
-        logger.warn("Could not find unique bdf in {0}".format(bdf0))
-    shutil.copy(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
+        logger.warn("Could not find unique bdf for {0} in {1}. No bdf copied.".format(sdmname, bdf0))
+
+
+@cli.command()
+@click.option('--globstr', default='/home/mctest/evla/mcaf/workspace/realfast*')
+def backup(globstr):
+    """ Get all SDMs in sdm building directory and run buildsdm on them to save locally.
+    """
+
+    import subprocess, os, glob
+
+    sdmnames = glob.glob(globstr)
+    for sdmname in sdmnames:
+        sdmname = os.path.basename(sdmname)
+        if not os.path.exists(sdmname):
+            args = ["realfast", "buildsdm", "--sdmname", sdmname]
+            subprocess.call(args)
+        else:
+            logger.info("sdm {0} already exists locally".format(sdmname))
 
 
 @cli.command()
