@@ -12,6 +12,7 @@ from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
 import distributed
+from elasticsearch import NotFoundError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -204,9 +205,12 @@ def createproducts(candcollection, data, indexprefix=None,
             if indexprefix is not None:
                 candIds = elastic.candid(cc=candcollection)
                 for Id in candIds:
-                    elastic.update_field(indexprefix+'cands', 'sdmname',
-                                         sdmloc, Id=Id)
-
+                    try:
+                        elastic.update_field(indexprefix+'cands', 'sdmname',
+                                             sdmloc, Id=Id)
+                    except NotFoundError as exc:
+                        logger.warn("elasticsearch cannot find Id {0} in index {1}. Exception: {2}".format(Id, indexprefix+'cands', exc))
+                        
             sdmlocs.append(sdmloc)
             logger.info("Created new SDMs at: {0}".format(sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
