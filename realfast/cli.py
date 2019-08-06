@@ -113,6 +113,7 @@ def buildsdm(sdmname, candid, indexprefix):
         if candid is None:
             logger.exception("Need to provide canid or sdmname")
         doc = elastic.get_doc(indexprefix + 'cands', candid)
+        assert 'sdmname' in doc['_source'], 'No sdmname associated with that candid'
         sdmname = doc['_source']['sdmname'].split('/')[-1]
         logger.info("Got sdmname {0} from {1}cands index".format(sdmname, indexprefix))
 
@@ -125,6 +126,9 @@ def buildsdm(sdmname, candid, indexprefix):
     os.mkdir(bdfdestination)
 
     bdft = sdmname.split('_')[-1]
+    # remove suffix for sdms created multiple times
+    if bdft[-2] is '.':
+        bdft = bdft[:-2]
     bdfdir = '/lustre/evla/wcbe/data/realfast/'
     bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
     if len(bdf0) == 1:
