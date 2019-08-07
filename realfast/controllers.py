@@ -105,8 +105,8 @@ class realfast_controller(Controller):
             logger.warn("realfast preffile {0} given, but not found"
                         .format(self.preffile))
 
-        # initialize worker imports and wisdom
-        _ = self.client.register_worker_callbacks(util.initialize_worker)    
+        # initialize worker imports and wisdom (really slow!)
+#        _ = self.initialize()
 
         # get arguments from preffile, optional overload from kwargs
         for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
@@ -228,8 +228,18 @@ class realfast_controller(Controller):
                                       futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
 
+    def initialize(self):
+        _ = self.client.run(util.initialize_worker)
+
     def restart(self):
         self.client.restart()
+        sleep(5)
+        self.states = {}
+        self.futures = {}
+        self.futures_removed = {}
+        self.finished = {}
+        self.errors = {}
+        self.known_segments = {}
 
     def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
         """ Triggered when obs comes in.
@@ -624,14 +634,15 @@ class realfast_controller(Controller):
                 seg, data, cc, acc = futures
 
                 if self.indexresults:
-                    # index mocks
+                    # index mocks from special workers
                     distributed.fire_and_forget(self.client.submit(elastic.indexmock,
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix,
+#                                                                   workers=self.fetchworkers,
                                                                    retries=3))
 
-                    # index cands
+                    # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir
                     distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
                                                                    cc,
@@ -639,8 +650,10 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
+#                                                                   workers=self.fetchworkers,
                                                                    retries=3))
                     if self.classify:
+                        # classify cands on special workers
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
                                                                        cc, self.indexprefix,
                                                                        retries=3,
@@ -649,9 +662,10 @@ class realfast_controller(Controller):
 
                 if self.createproducts:
                     # optionally save and archive sdm/bdfs for segment
+                    indexprefix = self.indexprefix if self.indexresults else None
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
                                                                    cc, data,
-                                                                   indexprefix=self.indexprefix,
+                                                                   indexprefix=indexprefix,
                                                                    retries=3))
 
                 # remove job from list

@@ -3,10 +3,11 @@ from builtins import bytes, dict, object, range, map, input#, str # not casa com
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
-import numpy as np
+from math import floor
 import os
 import shutil
 import subprocess
+import numpy as np
 from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
@@ -34,7 +35,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
 #        msp = makesummaryplot(workdir, scanId)
-        msp = candidates.makesummaryplot(cc=cc)
+        candsfile = cc.state.candsfile
+        msp = candidates.makesummaryplot(candsfile=candsfile)
         workdir = cc.prefs.workdir + '/'
         moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
                                                                 indexprefix))
@@ -47,8 +49,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                         .format(cc.segment, cc.array.ncands))
 
     if nc or msp:
-        logger.info('Indexed {0} cands to {1} and moved plots and '
-                    'summarized {2} to {3} for scanId {4}'
+        logger.info('Indexed {0} new cands to {1}, moved plots, and '
+                    'summarized {2} total cands to {3} for scanId {4}'
                     .format(nc, indexprefix+'cands', msp, _candplot_dir,
                             scanId))
     else:
@@ -187,7 +189,7 @@ def createproducts(candcollection, data, indexprefix=None,
     # make sdm for each unique time range (e.g., segment)
     for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
-        nint = np.floor(86400*(endTime-startTime)/metadata.inttime, 1).astype(int)
+        nint = floor(86400*(endTime-startTime)/metadata.inttime)
         logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
