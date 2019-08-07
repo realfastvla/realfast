@@ -526,7 +526,6 @@ class realfast_controller(Controller):
                                                                    data,
                                                                    retries=3))
 
-                # index noises
                 if self.indexresults:
                     distributed.fire_and_forget(self.client.submit(elastic.indexscanstatus,
                                                                    scanId,
