@@ -119,13 +119,20 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
 def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     """ Wraps calculation and indexing functions.
     Should get calibrated data as input.
+    Checks that scanId is indexed before indexing noise.
     """
 
     from rfpipe.util import calc_noise
 
     noises = calc_noise(st, segment, data)
-    elastic.indexnoises(st.metadata.scanId, noises=noises,
-                        indexprefix=indexprefix)
+    scindex = indexprefix+'scans'
+    try:
+        doc = elastic.get_doc(scindex, st.metadata.scanId)
+        elastic.indexnoises(st.metadata.scanId, noises=noises,
+                            indexprefix=indexprefix)
+    except NotFoundError:
+        logger.warn("scanId {0} not found in {1}. Not indexing noise estimate."
+                    .format(st.metadata.scanId, scindex))
 
 
 def createproducts(candcollection, data, indexprefix=None,
