@@ -84,15 +84,27 @@ def config_catcher(preffile, inprefs):
 
 
 @cli.command()
+@click.option('--mode', default='deployment')
 @click.option('--preffile', default=default_preffile)
 def run(preffile):
     """ Run realfast controller to catch scan configs and start rfpipe.
+    mode can be "deployment" or "development", which defines scheduler IP.
+    preffile can be realfast.yml or another yml config file.
     """
 
     from realfast import controllers
 
+    if mode == 'deployment':
+        host = '10.80.200.201:8796'
+    elif mode == 'development':
+        host = '10.80.200.201:8796'
+    else:
+        logger.warn("mode not recognized (deployment or development allowed)")
+        return 1
+
     try:
-        rfc = controllers.realfast_controller(preffile=preffile)
+        rfc = controllers.realfast_controller(host=host, preffile=preffile)
+        rfc.initialize()
         rfc.run()
     except KeyboardInterrupt:
         logger.warn("Cleaning up before stopping processing.")

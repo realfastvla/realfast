@@ -229,6 +229,8 @@ class realfast_controller(Controller):
                      for scanId, futurelist in iteritems(self.futures)])
 
     def initialize(self):
+        logger.info("Initializing workers...")
+        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
         _ = self.client.run(util.initialize_worker)
 
     def restart(self):
