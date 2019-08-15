@@ -229,9 +229,20 @@ class realfast_controller(Controller):
                      for scanId, futurelist in iteritems(self.futures)])
 
     def initialize(self):
+        from time import sleep
         logger.info("Initializing workers...")
-        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
-        _ = self.client.run(util.initialize_worker)
+#        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
+#        _ = self.client.run(util.initialize_worker)
+        jobs = [self.client.submit(util.initialize_worker, workers=w) for w in list(self.workernames.values())]
+        try:
+            while True:
+                if all([job.status=='finished' for job in jobs]):
+                    break
+                else:
+                    sleep(1)
+        except KeyboardInterrupt:
+            logger.warn("Exiting worker initialization. Some workers may still take time to start up.")
+
 
     def restart(self):
         self.client.restart()
