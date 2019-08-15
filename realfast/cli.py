@@ -165,6 +165,7 @@ def backup(globstr):
         sdmname = os.path.basename(sdmname)
         if not os.path.exists(sdmname):
             args = ["realfast", "buildsdm", "--sdmname", sdmname]
+            logger.info("building sdm {0} locally".format(sdmname))
             subprocess.call(args)
         else:
             logger.info("sdm {0} already exists locally".format(sdmname))
