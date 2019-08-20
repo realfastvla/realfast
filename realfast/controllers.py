@@ -229,6 +229,9 @@ class realfast_controller(Controller):
                      for scanId, futurelist in iteritems(self.futures)])
 
     def initialize(self):
+        """ Check versions and run imports on workers to set them up for work.
+        """
+
         from time import sleep
         logger.info("Initializing workers...")
 #        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
@@ -243,6 +246,10 @@ class realfast_controller(Controller):
         except KeyboardInterrupt:
             logger.warn("Exiting worker initialization. Some workers may still take time to start up.")
 
+        try:
+            versions = self.client.get_versions(check=True)
+        except ValueError:
+            logger.warn("Scheduler/worker version mismatch: {0}".format(versions))
 
     def restart(self):
         self.client.restart()

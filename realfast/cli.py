@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 default_preffile = '/lustre/evla/test/realfast/realfast.yml'
-distributed_host = 'cbe-node-01'
 
 
 @click.group('realfast')
