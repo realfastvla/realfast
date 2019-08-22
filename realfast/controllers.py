@@ -109,13 +109,15 @@ class realfast_controller(Controller):
 #        _ = self.initialize()
 
         # get arguments from preffile, optional overload from kwargs
-        for attr in ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
-                     'vys_sec_per_spec', 'indexresults', 'createproducts',
-                     'searchintents',  'ignoreintents',
-                     'throttle', 'classify',
-                     'read_overhead', 'read_totfrac',
-                     'indexprefix', 'daskdir', 'requirecalibration',
-                     'data_logging']:
+        allattrs = ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
+                    'vys_sec_per_spec', 'indexresults', 'createproducts',
+                    'searchintents',  'ignoreintents',
+                    'throttle', 'classify',
+                    'read_overhead', 'read_totfrac',
+                    'indexprefix', 'daskdir', 'requirecalibration',
+                    'data_logging']
+
+        for attr in allattrs:
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
@@ -136,6 +138,9 @@ class realfast_controller(Controller):
 
         # TODO: set defaults for these
         assert self.read_overhead and self.read_totfrac
+
+        logger.info("Initialized controller with attributes {0} and inprefs {1}"
+                    .format([(attr, getattr(self, attr)) for attr in allattrs], self.inprefs))
 
     def __repr__(self):
         return ('realfast controller with {0} jobs'

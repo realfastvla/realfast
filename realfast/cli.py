@@ -85,7 +85,8 @@ def config_catcher(preffile, inprefs):
 @cli.command()
 @click.option('--mode', default='deployment')
 @click.option('--preffile', default=default_preffile)
-def run(mode, preffile):
+@click.option('--threshold', default=None)
+def run(mode, preffile, threshold):
     """ Run realfast controller to catch scan configs and start rfpipe.
     mode can be "deployment" or "development", which defines scheduler IP.
     preffile can be realfast.yml or another yml config file.
@@ -101,8 +102,12 @@ def run(mode, preffile):
         logger.warn("mode not recognized (deployment or development allowed)")
         return 1
 
+    inprefs = {}
+    if threshold is not None:
+        inprefs['sigma_image1'] = threshold
+
     try:
-        rfc = controllers.realfast_controller(host=host, preffile=preffile)
+        rfc = controllers.realfast_controller(host=host, preffile=preffile, inprefs=inprefs)
         rfc.initialize()
         rfc.run()
     except KeyboardInterrupt:
@@ -116,7 +121,7 @@ def run(mode, preffile):
 @click.option('--sdmname', default=None)
 @click.option('--candid', default=None)
 @click.option('--indexprefix', default='new')
-@click.option('--copybdf', type=bool, default=True)
+@click.option('--copybdf', is_flag=True)
 def buildsdm(sdmname, candid, indexprefix, copybdf):
     """ Assemble sdm/bdf from cbe lustre.
     Can find it from sdmname or can look up by candid.
@@ -169,7 +174,7 @@ def backup(globstr):
     for sdmname in sdmnames:
         sdmname = os.path.basename(sdmname)
         if not os.path.exists(sdmname):
-            args = ["realfast", "buildsdm", "--sdmname", sdmname, "--copybdf", "False"]
+            args = ["realfast", "buildsdm", "--sdmname", sdmname]
             logger.info("building sdm {0} locally".format(sdmname))
             subprocess.call(args)
         else:
