@@ -85,7 +85,7 @@ def config_catcher(preffile, inprefs):
 @cli.command()
 @click.option('--mode', default='deployment')
 @click.option('--preffile', default=default_preffile)
-@click.option('--threshold', default=None)
+@click.option('--threshold', type=float, default=None)
 def run(mode, preffile, threshold):
     """ Run realfast controller to catch scan configs and start rfpipe.
     mode can be "deployment" or "development", which defines scheduler IP.
