@@ -238,10 +238,15 @@ class realfast_controller(Controller):
         """
 
         from time import sleep
-        logger.info("Initializing workers...")
+
+        while len(self.workernames.values()) == 0:
+            logger.info("Waiting for workers to start...")
+            sleep(5)
+
+        logger.info("Initializing workers: {0}".format(list(self.workernames.values())))
 #        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
 #        _ = self.client.run(util.initialize_worker)
-        jobs = [self.client.submit(util.initialize_worker, workers=w) for w in list(self.workernames.values())]
+        jobs = [self.client.submit(util.initialize_worker, workers=w, pure=False) for w in list(self.workernames.values())]
         try:
             while True:
                 if all([job.status=='finished' for job in jobs]):
@@ -254,7 +259,7 @@ class realfast_controller(Controller):
         try:
             versions = self.client.get_versions(check=True)
         except ValueError:
-            logger.warn("Scheduler/worker version mismatch: {0}".format(versions))
+            logger.warn("Scheduler/worker version mismatch")
 
     def restart(self):
         self.client.restart()
