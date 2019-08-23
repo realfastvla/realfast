@@ -159,7 +159,10 @@ class realfast_controller(Controller):
         for (scanId, futurelist) in iteritems(self.futures):
             for seg, data, cc, acc in futurelist:
                 if len(self.client.who_has()[data.key]):
-                    dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    try:
+                        dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    except KeyError:
+                        dataloc = '[key lost]'
                     logger.info('{0}, {1}: {2}, {3}, {4}. Data on {5}.'
                                 .format(scanId, seg, data.status, cc.status,
                                         acc.status, dataloc))
