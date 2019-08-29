@@ -94,7 +94,7 @@ rfpipe:
   NRAOdefaultL:   # L-band 1-2 GHz, 16 spw, 1 MHz channels, 10 ms, 4 pols
     nthread: 2
     dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
-    maxdm: 1000
+    maxdm: 1500
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
