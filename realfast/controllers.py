@@ -672,7 +672,7 @@ class realfast_controller(Controller):
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix,
-                                                                   workers=self.fetchworkers,
+#                                                                   workers=self.fetchworkers,
                                                                    retries=3))
 
                     # index cands and copy data from special workers
@@ -683,7 +683,7 @@ class realfast_controller(Controller):
                                                                    self.tags,
                                                                    self.indexprefix,
                                                                    workdir,
-                                                                   workers=self.fetchworkers,
+#                                                                   workers=self.fetchworkers,
                                                                    retries=3))
                     if self.classify:
                         # classify cands on special workers
