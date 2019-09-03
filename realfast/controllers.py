@@ -10,7 +10,7 @@ import gc
 import random
 import distributed
 from astropy import time
-from time import sleep
+from time import sleep, time
 import dask.utils
 from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
@@ -236,8 +236,9 @@ class realfast_controller(Controller):
                                       futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
 
-    def initialize(self):
+    def initialize(self, timeout=120):
         """ Check versions and run imports on workers to set them up for work.
+        timeout is time to wait in seconds for initialization of workers.
         """
 
         from time import sleep
@@ -250,9 +251,10 @@ class realfast_controller(Controller):
 #        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
 #        _ = self.client.run(util.initialize_worker)
         jobs = [self.client.submit(util.initialize_worker, workers=w, pure=False) for w in list(self.workernames.values())]
+        starttime = time()
         try:
             while True:
-                if all([job.status=='finished' for job in jobs]):
+                if all([job.status=='finished' for job in jobs]) or time()-starttime > timeout:
                     break
                 else:
                     sleep(1)
@@ -263,6 +265,8 @@ class realfast_controller(Controller):
             versions = self.client.get_versions(check=True)
         except ValueError:
             logger.warn("Scheduler/worker version mismatch")
+
+        logger.info("Initialization complete")
 
     def restart(self):
         self.client.restart()
