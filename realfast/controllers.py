@@ -16,7 +16,6 @@ from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
 
 import logging
-logging.root.setLevel(40)
 import matplotlib
 import yaml
 
@@ -834,10 +833,19 @@ class realfast_controller(Controller):
             self.errors[scanId] += len(removelist)
             for removefuts in removelist:
                 (seg, data, cc, acc) = removefuts
-                dataloc = self.workernames[self.client.who_has()[data.key][0]]
-                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
-                            .format(scanId, seg, data.status, cc.status,
-                                    acc.status, dataloc))
+                if len(self.client.who_has()[data.key]):
+                    try:
+                        dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    except KeyError:
+                        dataloc = '[key lost]'
+
+                    logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status, dataloc))
+                else:
+                    logger.info('{0}, {1}: {2}, {3}, {4}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status))
 
             # clean them up
             errworkers = [(fut, self.client.who_has(fut))
