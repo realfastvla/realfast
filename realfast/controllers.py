@@ -16,6 +16,7 @@ from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
 
 import logging
+logging.root.setLevel(40)
 import matplotlib
 import yaml
 
