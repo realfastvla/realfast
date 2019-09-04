@@ -13,6 +13,7 @@ from astropy import time
 import numpy as np
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(20)
 
 _install_dir = os.path.abspath(os.path.dirname(__file__))
 _xsd_dir = os.path.join(_install_dir, 'xsd')

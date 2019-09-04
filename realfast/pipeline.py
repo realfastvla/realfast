@@ -12,6 +12,8 @@ from realfast import util
 
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(20)
+
 vys_timeout_default = 10
 
 

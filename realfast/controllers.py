@@ -24,6 +24,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
 logger = logging.getLogger('realfast_controller')
+logger.setLevel(20)
 
 _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file

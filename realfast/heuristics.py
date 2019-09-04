@@ -7,7 +7,7 @@ import os.path
 import sys
 import logging
 logger = logging.getLogger(__name__)
-
+logger.setLevel(20)
 
 def reader_memory_available(cl):
     """ Calc memory in use by READERs

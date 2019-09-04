@@ -11,6 +11,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logging.captureWarnings(True)
 logger = logging.getLogger(__name__)
+logger.setLevel(20)
 
 vys_cfile = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'
 default_preffile = '/lustre/evla/test/realfast/realfast.yml'
