@@ -9,8 +9,8 @@ from datetime import date
 import gc
 import random
 import distributed
+from time import sleep
 from astropy import time
-from time import sleep, time
 import dask.utils
 from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
@@ -241,8 +241,6 @@ class realfast_controller(Controller):
         timeout is time to wait in seconds for initialization of workers.
         """
 
-        from time import sleep
-
         while len(self.workernames.values()) == 0:
             logger.info("Waiting for workers to start...")
             sleep(5)
@@ -251,10 +249,10 @@ class realfast_controller(Controller):
 #        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
 #        _ = self.client.run(util.initialize_worker)
         jobs = [self.client.submit(util.initialize_worker, workers=w, pure=False) for w in list(self.workernames.values())]
-        starttime = time()
+        starttime = time.Time.now().unix
         try:
             while True:
-                if all([job.status=='finished' for job in jobs]) or time()-starttime > timeout:
+                if all([job.status=='finished' for job in jobs]) or time.Time.now().unix-starttime > timeout:
                     break
                 else:
                     sleep(1)
