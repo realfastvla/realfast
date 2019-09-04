@@ -536,6 +536,9 @@ class realfast_controller(Controller):
                 telcalset = self.set_telcalfile(scanId)
                 if telcalset:
                     logger.info("Set calibration for scanId {0}".format(scanId))
+                else:
+                    pass
+                    # TODO: set appropriate sleep to skip segment here
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
