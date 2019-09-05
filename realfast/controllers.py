@@ -237,7 +237,7 @@ class realfast_controller(Controller):
                                       futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
 
-    def initialize(self, timeout=120):
+    def initialize(self, timeout=200):
         """ Check versions and run imports on workers to set them up for work.
         timeout is time to wait in seconds for initialization of workers.
         """
@@ -256,7 +256,8 @@ class realfast_controller(Controller):
                 if all([job.status=='finished' for job in jobs]) or time.Time.now().unix-starttime > timeout:
                     break
                 else:
-                    sleep(1)
+                    logger.info("Waiting for workers to initialize...")
+                    sleep(5)
         except KeyboardInterrupt:
             logger.warn("Exiting worker initialization. Some workers may still take time to start up.")
 
@@ -321,6 +322,10 @@ class realfast_controller(Controller):
                 logger.warn("datasetId {0} not in nameincludes {1}"
                             .format(config.datasetId, self.nameincludes))
                 return
+
+        if not config.otf:
+            logger.warn("handle_subscan called for non-OTF subscan. Skipping...")
+            return
 
         # set up OTF info
         # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
@@ -537,8 +542,8 @@ class realfast_controller(Controller):
                 if telcalset:
                     logger.info("Set calibration for scanId {0}".format(scanId))
                 else:
-                    pass
-                    # TODO: set appropriate sleep to skip segment here
+                    logger.info("Telcal not ready. Waiting {0:.1f} s...".format(throttletime))
+                    sleep(throttletime)
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -746,9 +751,10 @@ class realfast_controller(Controller):
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
 
-    def cleanup_retry(self):
+    def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
         This will clean up futures showing in scheduler bokeh app.
+        timeout not yet implemented.
         """
 
         futs = []
@@ -758,6 +764,7 @@ class realfast_controller(Controller):
             fut.retry()
             futs.append(fut)
 
+        # TODO: implement timeout
         for fut in distributed.as_completed(futs):
             logger.info("Future {0} completed. Releasing it.".format(fut.key))
             fut.release()
@@ -782,7 +789,7 @@ class realfast_controller(Controller):
             if (elapsedtime > timeout) and (timeout >= 0):
                 badstatuslist += ['pending']
             self.cleanup(badstatuslist=badstatuslist)
-            sleep(10)
+            sleep(5)
 
     def set_telcalfile(self, scanId):
         """ Find and set telcalfile in state prefs, if not set already.
