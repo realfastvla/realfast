@@ -758,6 +758,8 @@ class realfast_controller(Controller):
         timeout not yet implemented.
         """
 
+        t0 = time.Time.now().unix
+
         futs = []
         for k in self.client.who_has():
             logger.info("Retrying {0}".format(k))
@@ -765,10 +767,21 @@ class realfast_controller(Controller):
             fut.retry()
             futs.append(fut)
 
-        # TODO: implement timeout
-        for fut in distributed.as_completed(futs):
-            logger.info("Future {0} completed. Releasing it.".format(fut.key))
-            fut.release()
+        while time.Time.now().unix-t0 < timeout and len(futs):
+            logger.info("Checking {0} retried futures".format(len(futs)))
+            remove = []
+            for fut in futs:
+                if fut.done():
+                    logger.info("Future {0} completed. Releasing it.".format(fut.key))
+                    fut.release()
+                    remove.append(fut)
+
+            for f in remove:
+                futs.remove(f)
+
+            if len(futs):
+                sleep(5)
+
 
     def cleanup_loop(self, timeout=None):
         """ Clean up until all jobs gone or timeout elapses.
