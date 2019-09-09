@@ -9,8 +9,8 @@ from datetime import date
 import gc
 import random
 import distributed
-from astropy import time
 from time import sleep
+from astropy import time
 import dask.utils
 from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
@@ -24,6 +24,7 @@ ch = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s %(levelname)8s %(name)s | %(message)s')
 ch.setFormatter(formatter)
 logger = logging.getLogger('realfast_controller')
+logger.setLevel(20)
 
 _vys_cfile_prod = '/home/cbe-master/realfast/lustre_workdir/vys.conf'  # production file
 _vys_cfile_test = '/home/cbe-master/realfast/soft/vysmaw_apps/vys.conf'  # test file
@@ -236,11 +237,10 @@ class realfast_controller(Controller):
                                       futurelist))))
                      for scanId, futurelist in iteritems(self.futures)])
 
-    def initialize(self):
+    def initialize(self, timeout=200):
         """ Check versions and run imports on workers to set them up for work.
+        timeout is time to wait in seconds for initialization of workers.
         """
-
-        from time import sleep
 
         while len(self.workernames.values()) == 0:
             logger.info("Waiting for workers to start...")
@@ -250,12 +250,14 @@ class realfast_controller(Controller):
 #        logger.info("This should complete in about one minute, but sometimes fails. Use ctrl-c if it takes too long.")
 #        _ = self.client.run(util.initialize_worker)
         jobs = [self.client.submit(util.initialize_worker, workers=w, pure=False) for w in list(self.workernames.values())]
+        starttime = time.Time.now().unix
         try:
             while True:
-                if all([job.status=='finished' for job in jobs]):
+                if all([job.status=='finished' for job in jobs]) or time.Time.now().unix-starttime > timeout:
                     break
                 else:
-                    sleep(1)
+                    logger.info("Waiting for workers to initialize...")
+                    sleep(5)
         except KeyboardInterrupt:
             logger.warn("Exiting worker initialization. Some workers may still take time to start up.")
 
@@ -263,6 +265,8 @@ class realfast_controller(Controller):
             versions = self.client.get_versions(check=True)
         except ValueError:
             logger.warn("Scheduler/worker version mismatch")
+
+        logger.info("Initialization complete")
 
     def restart(self):
         self.client.restart()
@@ -318,6 +322,10 @@ class realfast_controller(Controller):
                 logger.warn("datasetId {0} not in nameincludes {1}"
                             .format(config.datasetId, self.nameincludes))
                 return
+
+        if not config.otf:
+            logger.warn("handle_subscan called for non-OTF subscan. Skipping...")
+            return
 
         # set up OTF info
         # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
@@ -533,6 +541,9 @@ class realfast_controller(Controller):
                 telcalset = self.set_telcalfile(scanId)
                 if telcalset:
                     logger.info("Set calibration for scanId {0}".format(scanId))
+                else:
+                    logger.info("Telcal not ready. Waiting {0:.1f} s...".format(throttletime))
+                    sleep(throttletime)
 
             # submit if cluster ready and telcal available
             if (heuristics.reader_memory_ok(self.client, w_memlim) and
@@ -639,9 +650,10 @@ class realfast_controller(Controller):
         # run memory logging
         memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10])
         if memory_summary:
-            workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10]
-            self.client.run(logging_statement, memory_summary, workers=workers_highmem)
             logger.info("High memory usage on cluster: {0}".format(memory_summary))
+            workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10]
+            for w in workers_highmem:
+                distributed.fire_and_forget(self.client.submit(logging_statement, memory_summary, workers=workers_highmem, pure=False))
 
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
@@ -740,10 +752,13 @@ class realfast_controller(Controller):
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
 
-    def cleanup_retry(self):
+    def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
         This will clean up futures showing in scheduler bokeh app.
+        timeout not yet implemented.
         """
+
+        t0 = time.Time.now().unix
 
         futs = []
         for k in self.client.who_has():
@@ -752,9 +767,21 @@ class realfast_controller(Controller):
             fut.retry()
             futs.append(fut)
 
-        for fut in distributed.as_completed(futs):
-            logger.info("Future {0} completed. Releasing it.".format(fut.key))
-            fut.release()
+        while time.Time.now().unix-t0 < timeout and len(futs):
+            logger.info("Checking {0} retried futures".format(len(futs)))
+            remove = []
+            for fut in futs:
+                if fut.done():
+                    logger.info("Future {0} completed. Releasing it.".format(fut.key))
+                    fut.release()
+                    remove.append(fut)
+
+            for f in remove:
+                futs.remove(f)
+
+            if len(futs):
+                sleep(5)
+
 
     def cleanup_loop(self, timeout=None):
         """ Clean up until all jobs gone or timeout elapses.
@@ -776,7 +803,7 @@ class realfast_controller(Controller):
             if (elapsedtime > timeout) and (timeout >= 0):
                 badstatuslist += ['pending']
             self.cleanup(badstatuslist=badstatuslist)
-            sleep(10)
+            sleep(5)
 
     def set_telcalfile(self, scanId):
         """ Find and set telcalfile in state prefs, if not set already.
@@ -831,10 +858,19 @@ class realfast_controller(Controller):
             self.errors[scanId] += len(removelist)
             for removefuts in removelist:
                 (seg, data, cc, acc) = removefuts
-                dataloc = self.workernames[self.client.who_has()[data.key][0]]
-                logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
-                            .format(scanId, seg, data.status, cc.status,
-                                    acc.status, dataloc))
+                if len(self.client.who_has()[data.key]):
+                    try:
+                        dataloc = self.workernames[self.client.who_has()[data.key][0]]
+                    except KeyError:
+                        dataloc = '[key lost]'
+
+                    logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status, dataloc))
+                else:
+                    logger.info('{0}, {1}: {2}, {3}, {4}.'
+                                .format(scanId, seg, data.status, cc.status,
+                                        acc.status))
 
             # clean them up
             errworkers = [(fut, self.client.who_has(fut))

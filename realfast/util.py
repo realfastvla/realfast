@@ -16,6 +16,7 @@ from elasticsearch import NotFoundError
 
 import logging
 logger = logging.getLogger(__name__)
+logger.setLevel(20)
 
 _candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots'
 _candplot_url_prefix = 'http://realfast.nrao.edu/plots'
