@@ -30,6 +30,7 @@ The realfast application is build upon the following libraries:
 * [elasticsearch](https://github.com/elastic/elasticsearch-py),
 * [supervisor](http://supervisord.org) (to manage/daemonize processes)
 * [click](http://click.pocoo.org)
+* [fetch](https://github.com/devanshkv/fetch) (incl cuda, tensorflow, etc.)
  
 Install
 ------
