@@ -762,10 +762,13 @@ class realfast_controller(Controller):
 
         futs = []
         for k in self.client.who_has():
-            logger.info("Retrying {0}".format(k))
-            fut = distributed.Future(k)
-            fut.retry()
-            futs.append(fut)
+            if 'read' in k or 'prep' in k:
+                logger.info("Retrying {0}".format(k))
+                fut = distributed.Future(k)
+                fut.retry()
+                futs.append(fut)
+            else:
+                logger.info("Skipping retry of {0}".format(k))
 
         while time.Time.now().unix-t0 < timeout and len(futs):
             logger.info("Checking {0} retried futures".format(len(futs)))
