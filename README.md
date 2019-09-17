@@ -27,7 +27,7 @@ The realfast application is build upon the following libraries:
 * [rfpipe](http://github.com/realfastvla/rfpipe)
 * [rfgpu](http://github.com/realfastvla/rfgpu)
 * [sdmpy](https://github.com/demorest/sdmpy) (to read/write sdm/bdf data)
-* [elasticsearch](https://github.com/elastic/elasticsearch-py),
+* [elasticsearch](https://github.com/elastic/elasticsearch-py) (version<7.0)
 * [supervisor](http://supervisord.org) (to manage/daemonize processes)
 * [click](http://click.pocoo.org)
 * [fetch](https://github.com/devanshkv/fetch) (incl cuda, tensorflow, etc.)
