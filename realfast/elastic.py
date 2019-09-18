@@ -811,11 +811,14 @@ def move_consensus(indexprefix1='new', indexprefix2='final',
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='majority',
-                  res='consensus', newtags=None):
+                  res='consensus', match='identical', newtags=None):
     """ Get candidtes with consensus over at least nop user tag fields.
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
     Returns dicts with either consensus and noconsensus candidates.
     This includes original user tags plus new "tags" field with data state.
+    match defines how tags are compared ("identical" => string match,
+    "bad" => find rfi, instrumental, or delete in tags),
+    "notify" => notify found.
     newtags is a comma-delimited string that sets tags to apply to all.
     """
 
@@ -831,33 +834,60 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     for n in range(nop, 10):  # do not expect more than 10 voters
         ids += get_ids(index=index, tagcount=nop)
 
+    assert match in ['identical', 'bad', 'notify']
+
+    badlist = ["rfi", "instrumental", "delete", "unsure/noise"]
     consensus = {}
     noconsensus = {}
     for Id in ids:
-        doc = es.get(index=index, doc_type=doc_type, id=Id)
-        tagsdict = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+        tagsdict = gettags(indexprefix=indexprefix, Id=Id)
         logger.debug("Id {0} has {1} tags: {2}".format(Id, len(tagsdict), tagsdict))
         tagslist = list(tagsdict.values())
 
         # add Id and tags to dict according to consensus opinion
         if consensustype == 'absolute':
-            if all([tagslist[0] == val for val in tagslist]):
-                tagsdict['tags'] = tagslist[0]
-                if newtags is not None:
-                    tagsdict['tags'] += ','+newtags
-                consensus[Id] = tagsdict
-            else:
-                noconsensus[Id] = tagsdict
+            if match == 'identical':
+                if all([tagslist[0] == val for val in tagslist]):
+                    tagsdict['tags'] = tagslist[0]
+                    if newtags is not None:
+                        tagsdict['tags'] += ','+newtags
+                    consensus[Id] = tagsdict
+                else:
+                    noconsensus[Id] = tagsdict
+            elif match == 'bad':
+                if all([tag in badlist for tags in tagslist for tag in tags.split(',')]):
+                    tagsdict['tags'] = tagslist[0]
+                    if newtags is not None:
+                        tagsdict['tags'] += ','+newtags
+                    consensus[Id] = tagsdict
+                else:
+                    noconsensus[Id] = tagsdict
+            elif match == 'notify':
+                if all(['notify' in tags for tags in tagslist]):
+                    tagsdict['tags'] = tagslist[0]
+                    if newtags is not None:
+                        tagsdict['tags'] += ','+newtags
+                    consensus[Id] = tagsdict
+                else:
+                    noconsensus[Id] = tagsdict
+
         elif consensustype == 'majority':
             # break out all tags (could be multiple per user)
             alltags = [tag for tags in tagslist for tag in tags.split(',')]
+
+            # TODO: add match=='bad' logic
 
             # sort by whether tag is agreed upon by majority
             consensus_tags = []
             noconsensus_tags = []
             for tag in alltags:
                 if alltags.count(tag) >= len(tagslist)//2+1:
-                    consensus_tags.append(tag)
+                    if match == 'identical':
+                        consensus_tags.append(tag)
+                    elif (match == 'bad') and (tag in badlist):
+                        consensus_tags.append(tag)
+                    else:
+                        noconsensus_tags.append(tag)
                 else:
                     noconsensus_tags.append(tag)
 
@@ -884,6 +914,19 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     elif res == 'noconsensus':
         logger.info("Returning candidates without consensus")
         return noconsensus
+
+
+def gettags(indexprefix, Id):
+    """ Get cand Id in for indexprefix
+    return dict with all tags.
+    """
+
+    index = indexprefix+'cands'
+    doc_type = index.rstrip('s')
+
+    doc = es.get(index=index, doc_type=doc_type, id=Id)
+    tagsdict = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+    return tagsdict
 
 
 def copy_doc(index1, index2, Id, deleteorig=False, force=False):
