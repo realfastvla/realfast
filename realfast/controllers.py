@@ -689,8 +689,8 @@ class realfast_controller(Controller):
                     # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir
                     fut = self.client.submit(util.indexcands_and_plots, cc,
-                                             scanId, self.tags, self.indexprefix,
-                                             workdir, retries=3)
+                                             scanId, self.tags, self.indexprefix, workdir,
+                                             workers=self.fetchworkers, retries=3)
                     if self.classify:
                         # classify cands on special workers
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
