@@ -7,7 +7,7 @@ import os.path
 import subprocess
 import shutil
 from time import sleep
-from elasticsearch import Elasticsearch, RequestError, TransportError, helpers
+from elasticsearch import Elasticsearch, RequestError, TransportError, helpers, NotFoundError
 from urllib3.connection import ConnectionError, NewConnectionError
 import logging
 logging.getLogger('elasticsearch').setLevel(30)
@@ -581,8 +581,10 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
     # TODO: remove png and html files after last move
 
 
-def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
-    """ Given scanId or candId, move all associated docs from 1 to 2.
+def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=False):
+    """ Move docs from 1 to 2 that are associated with a candId or scanId.
+    scanId includes multiple candIds, which will all be moved.
+    Specifying a candId will only move the candidate, scanId, and associated products (not all cands).
     Associated docs include scanId, preferences, mocks, etc.
     If scanId provided, all docs moved.
     If candId provided, only that one will be selected from all in scanId.
@@ -600,7 +602,10 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
         for k, v in iddict.items():
             for Id in v:
                 if (candId is None) or (candId == Id):
-                    result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id)
+                    try:
+                        result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id, force=force)
+                    except NotFoundError:
+                        logger.warn("Id {0} not found in {1}".format(Id, k))
 
                     # update png_url to new prefix and move plot
                     if (k == indexprefix1+'cands') and result:
@@ -642,10 +647,28 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None):
     return iddict
 
 
+def clean_bdfs(iddict):
+    """ Given a list of candidate ids in dict, remove bdfs
+    work in progress!
+    """
+
+    import os.path
+
+    for candId in iddict['newcands']: 
+        doc = get_doc('newcands', Id=candId) 
+        if 'sdmname' in doc['_source']: 
+            sdmname = doc['_source']['sdmname'] 
+            bdfint = sdmname.split('_')[-1] 
+            bdfname = '/lustre/evla/wcbe/data/realfast/uid____evla_realfastbdf_' + bdfint 
+            print(os.path.exists(bdfname)) 
+
+
 def find_docids(indexprefix, candId=None, scanId=None):
-    """ Given a candId or scanId, find all associated docs.
+    """ Find docs associated with a candId or scanId.
     Finds relations based on scanId, which ties all docs together.
     Returns a dict with keys of the index name and values of the related ids.
+    scanId includes multiple candIds, which will all be moved.
+    Specifying a candId will only move the candidate, scanId, and associated products (not all cands).
     A full index set has:
         - cands indexed by candId (has scanId field)
         - scans indexed by scanId
@@ -665,15 +688,25 @@ def find_docids(indexprefix, candId=None, scanId=None):
         # use scanId to get ids with one-to-many mapping
         for ind in ['cands', 'mocks', 'noises']:
             index = indexprefix + ind
-            ids = get_ids(index, scanId=scanId)
-            docids[index] = ids
+            try:
+                ids = get_ids(index, scanId=scanId)
+                # if searching by candId, then only define that one
+                if ((candId is not None) and (ind == 'cands')):
+                    docids[index] = [candId]
+                else:
+                    docids[index] = ids
+            except NotFoundError:
+                logger.warn("Id {0} not found in {1}".format(scanId, index))
 
         # get prefsname from scans index
-        index = indexprefix + 'scans'
-        docids[index] = [scanId]
-        prefsname = es.get(index=index, doc_type=index.rstrip('s'), id=scanId)['_source']['prefsname']
-        index = indexprefix + 'preferences'
-        docids[index] = [prefsname]
+        try:
+            index = indexprefix + 'scans'
+            docids[index] = [scanId]
+            prefsname = es.get(index=index, doc_type=index.rstrip('s'), id=scanId)['_source']['prefsname']
+            index = indexprefix + 'preferences'
+            docids[index] = [prefsname]
+        except NotFoundError:
+            logger.warn("Id {0} not found in {1}".format(scanId, index))
 
     return docids
 
@@ -766,14 +799,14 @@ def audit_indexprefix(indexprefix):
     logger.info("{0} of {1} noiseIds have issues".format(failed, len(noiseIds)))
 
 
-def move_consensus(indexprefix1='new', indexprefix2='final',
+def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
                    consensustype='majority', nop=3, newtags=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
     """
 
-    consensus = get_consensus(indexprefix=indexprefix1, nop=nop,
+    consensus = get_consensus(indexprefix=indexprefix1, nop=nop, match=match,
                               consensustype=consensustype, newtags=newtags)
 
     logger.info("Moving {0} consensus candidates from {1} to {2}"
@@ -881,7 +914,10 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
             consensus_tags = []
             noconsensus_tags = []
             for tag in alltags:
-                if alltags.count(tag) >= len(tagslist)//2+1:
+                if (tag in consensus_tags) or (tag in noconsensus_tags):
+                    continue
+
+                if (alltags.count(tag) >= len(tagslist)//2+1):
                     if match == 'identical':
                         consensus_tags.append(tag)
                     elif (match == 'bad') and (tag in badlist):
@@ -895,10 +931,10 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
                 for newtag in newtags.split(','):
                     consensus_tags.append(newtag)
 
-            if res == 'consensus':
+            if res == 'consensus' and len(consensus_tags):
                 tagsdict['tags'] = ','.join(consensus_tags)
                 consensus[Id] = tagsdict
-            elif res == 'noconsensus':
+            elif res == 'noconsensus' and len(noconsensus_tags):
                 tagsdict['tags'] = ','.join(noconsensus_tags)
                 noconsensus[Id] = tagsdict
         else:

@@ -13,7 +13,7 @@ setup(
     package_data={'realfast': ['xsd/*.xsd']},
     data_files=[('conf', glob.glob('conf/*'))],
 #    scripts=['scripts/sdm_chop-n-serve.pl'],   # add non-python scripts
-    install_requires=['rfpipe', 'evla_mcast', 'sdmpy', 'click', 'dask',
+    install_requires=['rfpipe', 'evla_mcast', 'sdmpy', 'click', 'dask', 'requests',
                       'elasticsearch>=6.0.0,<7.0.0', 'distributed', 'future'],
                       # 'rfgpu', 'vysmaw_reader'],
     entry_points='''
