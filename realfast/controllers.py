@@ -684,19 +684,13 @@ class realfast_controller(Controller):
                                                                    scanId,
                                                                    acc=acc,
                                                                    indexprefix=self.indexprefix,
-                                                                   workers=self.fetchworkers,
                                                                    retries=3))
 
                     # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir
-                    distributed.fire_and_forget(self.client.submit(util.indexcands_and_plots,
-                                                                   cc,
-                                                                   scanId,
-                                                                   self.tags,
-                                                                   self.indexprefix,
-                                                                   workdir,
-                                                                   workers=self.fetchworkers,
-                                                                   retries=3))
+                    fut = self.client.submit(util.indexcands_and_plots, cc,
+                                             scanId, self.tags, self.indexprefix,
+                                             workdir, retries=3)
                     if self.classify:
                         # classify cands on special workers
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,
@@ -709,7 +703,7 @@ class realfast_controller(Controller):
                     # optionally save and archive sdm/bdfs for segment
                     indexprefix = self.indexprefix if self.indexresults else None
                     distributed.fire_and_forget(self.client.submit(util.createproducts,
-                                                                   cc, data,
+                                                                   fut, data,
                                                                    indexprefix=indexprefix,
                                                                    retries=3))
 

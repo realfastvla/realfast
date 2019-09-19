@@ -139,11 +139,24 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
 
     sdmloc = '/home/mctest/evla/mcaf/workspace/'
     sdmname_full = os.path.join(sdmloc, sdmname)
-
-    shutil.copytree(sdmname_full, os.path.join('.', sdmname))
+    if os.path.exists(sdmname_full):
+        shutil.copytree(sdmname_full, os.path.join('.', sdmname))
+    else:
+        logger.info("Trying realfast temp archive...")
+        sdmloc = '/lustre/evla/test/realfast/archive/sdm_archive'
+        sdmname_full = os.path.join(sdmloc, sdmname)
+        if os.path.exists(sdmname_full):
+            shutil.copytree(sdmname_full, os.path.join('.', sdmname))
+        else:
+            logger.warn("No SDM found")
+            return
 
     bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
-    os.mkdir(bdfdestination)
+    if not os.path.exists(bdfdestination):
+        os.mkdir(bdfdestination)
+    else:
+        logger.warn("ASDMBinary directory already present. Stopping.")
+        return
 
     bdft = sdmname.split('_')[-1]
     # remove suffix for sdms created multiple times
@@ -239,14 +252,16 @@ def get_doc(index, _id):
 @cli2.command()
 @click.option('--prefix1', default='new')
 @click.option('--prefix2', default='final')
-@click.argument('datasetid')
-def move_dataset(prefix1, prefix2, datasetid):
-    """ Move datasetId from prefix1 to prefix2
+@click.option('--datasetid', default=None)
+@click.option('--scanid', default=None)
+@click.option('--force', is_flag=True)
+def move_dataset(prefix1, prefix2, datasetid, scanid, force):
+    """ Move datasetId or scanId from prefix1 to prefix2
     """
 
     from realfast import elastic
 
-    elastic.move_dataset(prefix1, prefix2, datasetid)
+    elastic.move_dataset(prefix1, prefix2, datasetId=datasetid, scanId=scanid, force=force)
 
 
 @cli2.command()
@@ -261,14 +276,16 @@ def move_consensus(prefix1, prefix2):
 
 @cli2.command()
 @click.option('--prefix', default='new')
-@click.argument('datasetid')
-def remove_dataset(prefix, datasetid):
+@click.option('--datasetid', default=None)
+@click.option('--scanid', default=None)
+@click.option('--force', is_flag=True)
+def remove_dataset(prefix, datasetid, scanid, force):
     """ Remove all data associated with given datasetid
     """
 
     from realfast import elastic
 
-    elastic.move_dataset(prefix, None, datasetid)
+    elastic.move_dataset(prefix, None, datasetId=datasetid, scanId=scanid, force=force)
 
 
 @cli2.command()

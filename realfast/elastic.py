@@ -525,8 +525,8 @@ def create_preference(index, Id):
 # Managing docs between indexprefixes
 ###
 
-def move_dataset(indexprefix1, indexprefix2, datasetId):
-    """ Given two index prefixes, move a datasetId and all associated docs over.
+def move_dataset(indexprefix1, indexprefix2, datasetId=None, scanId=None, force=False):
+    """ Given two index prefixes, move a datasetId or scanId and all associated docs over.
     This will delete the original documents in indexprefix1.
     If indexprefix2 is None, then datasetId is removed from indexprefix1.
     """
@@ -535,17 +535,25 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                indexprefix1+'mocks': [], indexprefix1+'noises': [],
                indexprefix1+'preferences': []}
 
-    scanids = get_ids(indexprefix1 + 'scans', datasetId=datasetId)
+    if scanId is None and datasetId is not None:
+        scanids = get_ids(indexprefix1 + 'scans', datasetId=datasetId)
+    else:
+        scanids = [scanId]
+
     for scanId in scanids:
-        iddict = copy_all_docs(indexprefix1, indexprefix2, scanId=scanId)
+        iddict = copy_all_docs(indexprefix1, indexprefix2, scanId=scanId, force=force)
         for k, v in iddict.items():
             for Id in v:
                 if Id not in iddict0[k]:
                     iddict0[k].append(Id)
 
     count = sum([len(v) for k, v in iteritems(iddict0)])
-    confirm = input("Remove dataset {0} from {1} with {2} ids in all indices?"
-                    .format(datasetId, indexprefix1, count))
+    if datasetId is not None:
+        confirm = input("Remove dataset {0} from {1} with {2} ids in all indices?"
+                        .format(datasetId, indexprefix1, count))
+    if scanId is not None:
+        confirm = input("Remove scanId {0} from {1} with {2} ids in all indices? {3}"
+                        .format(scanId, indexprefix1, count, iddict0))
 
     # first remove Ids
     if confirm.lower() in ['y', 'yes']:
@@ -558,7 +566,8 @@ def move_dataset(indexprefix1, indexprefix2, datasetId):
                 for Id in v:
                     candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
                                  .format(indexprefix1, Id))
-                    os.remove(candplot1)
+                    if os.path.exists(candplot1):
+                        os.remove(candplot1)
 
             # remove old summary htmls
             if k == indexprefix1 + 'scans':
@@ -647,20 +656,43 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
     return iddict
 
 
-def clean_bdfs(iddict):
-    """ Given a list of candidate ids in dict, remove bdfs
-    work in progress!
+def candid_bdf(indexprefix, candId):
+    """ Given candId in indexprefix, list the bdfname, if it exists.
     """
 
-    import os.path
+    doc = get_doc(indexprefix+'cands', Id=candId) 
+    if 'sdmname' in doc['_source']: 
+        sdmname = doc['_source']['sdmname'] 
+        logger.info("CandId {0} has sdmname {1}".format(candId, sdmname))
+        bdfint = sdmname.split('_')[-1] 
+        bdfname = '/lustre/evla/wcbe/data/realfast/uid____evla_realfastbdf_' + bdfint 
+        if os.path.exists(bdfname):
+            return bdfname
+        else:
+            logger.warn("No bdf found for {0}".format(sdmname))
+            return None
+    else:
+        logger.warn("No SDM found for {0}".format(candId))
+        return None
 
-    for candId in iddict['newcands']: 
-        doc = get_doc('newcands', Id=candId) 
-        if 'sdmname' in doc['_source']: 
-            sdmname = doc['_source']['sdmname'] 
-            bdfint = sdmname.split('_')[-1] 
-            bdfname = '/lustre/evla/wcbe/data/realfast/uid____evla_realfastbdf_' + bdfint 
-            print(os.path.exists(bdfname)) 
+
+def remove_scanid(indexprefix, scanId, force=False):
+    """ Use scanId to remove bdfs, indexed data, and plots/html.
+    On the CBE, this will remove bdfs, while at the AOC, it manages the rest.
+    """
+
+    if os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'):
+        logger.info("On the AOC, removing scanId from index and plots/html")
+        move_dataset(indexprefix, None, scanId=scanId, force=force)
+    else:
+        logger.info("On the CBE, removing bdfs")
+        Ids = get_ids(indexprefix + 'cands', scanId=scanId)
+
+        for Id in Ids:
+            bdfname = candid_bdf(indexprefix, Id) 
+            if bdfname is not None: 
+                os.remove(bdfname) 
+                logger.info('Removed {0}'.format(bdfname))
 
 
 def find_docids(indexprefix, candId=None, scanId=None):

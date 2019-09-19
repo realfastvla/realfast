@@ -57,6 +57,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     else:
         logger.info('No candidates or plots found.')
 
+    return cc
+
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
