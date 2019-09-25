@@ -27,7 +27,7 @@ _antflagger_parser = objectify.makeparser(
 _host = 'mctest.evla.nrao.edu'
 _flaghost = 'mchammer.evla.nrao.edu'
 _sdmpath = 'sdm-builder/offline'
-_antpath = 'evla-mcaf-test/dataset'
+_antpath = 'evla-mcaf-production/dataset'
 
 
 class SDMBuilder(object):
