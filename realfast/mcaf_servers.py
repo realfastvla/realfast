@@ -197,7 +197,7 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
     w.write_header()
     for i in range(nint):
         dat['crossData'] = data[i]
-        ts = startTime+metadata.inttime/2/86400.
+        ts = startTime + i*metadata.inttime/86400.
         w.write_integration(mjd=ts, interval=metadata.inttime, data=dat)
     w.close()
 
