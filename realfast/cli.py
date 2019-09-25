@@ -140,13 +140,13 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
     sdmloc = '/home/mctest/evla/mcaf/workspace/'
     sdmname_full = os.path.join(sdmloc, sdmname)
     if os.path.exists(sdmname_full):
-        shutil.copytree(sdmname_full, os.path.join('.', sdmname))
+        shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
     else:
         logger.info("Trying realfast temp archive...")
         sdmloc = '/lustre/evla/test/realfast/archive/sdm_archive'
         sdmname_full = os.path.join(sdmloc, sdmname)
         if os.path.exists(sdmname_full):
-            shutil.copytree(sdmname_full, os.path.join('.', sdmname))
+            shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
         else:
             logger.warn("No SDM found")
             return
@@ -154,9 +154,6 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
     bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
     if not os.path.exists(bdfdestination):
         os.mkdir(bdfdestination)
-    else:
-        logger.warn("ASDMBinary directory already present. Stopping.")
-        return
 
     bdft = sdmname.split('_')[-1]
     # remove suffix for sdms created multiple times
@@ -166,10 +163,15 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
     bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
     if len(bdf0) == 1:
         bdf0 = bdf0[0].split('/')[-1]
-        if copybdf:
-            shutil.copy(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
-        else:
-            os.symlink(os.path.join(bdfdir, bdf0), os.path.join(bdfdestination, bdf0))
+        newbdfpath = os.path.join(bdfdestination, bdf0)
+        if os.path.exists(newbdfpath) and copybdf and os.path.islink(newbdfpath):
+            os.unlink(newbdfpath)
+
+        if not os.path.exists(newbdfpath):
+            if copybdf:
+                shutil.copy(os.path.join(bdfdir, bdf0), newbdfpath)
+            else:
+                os.symlink(os.path.join(bdfdir, bdf0), newbdfpath)
     elif len(bdf0) == 0:
         logger.warn("No bdf found for {0}".format(sdmname))
     else:

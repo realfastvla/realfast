@@ -610,48 +610,51 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
         assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
         for k, v in iddict.items():
             for Id in v:
-                if (candId is None) or (candId == Id):
-                    try:
-                        result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id, force=force)
-                    except NotFoundError:
-                        logger.warn("Id {0} not found in {1}".format(Id, k))
+                if (candId is not None) and (candId != Id) and (k == indexprefix1 + 'cands'):
+                    pass
+                try:
+                    result = copy_doc(k, k.replace(indexprefix1, indexprefix2), Id, force=force)
+                except NotFoundError:
+                    logger.warn("Id {0} not found in {1}".format(Id, k))
+                        
+                # update png_url to new prefix and move plot
+                if (k == indexprefix1+'cands') and result:
+                    png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
+                    update_field(indexprefix2+'cands', 'png_url',
+                                 png_url.replace(indexprefix1, indexprefix2),
+                                 Id=Id)
+                    candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix1, Id))
+                    candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                                 .format(indexprefix2, Id))
+                    if os.path.exists(candplot1):
+                        success = shutil.copy(candplot1, candplot2)
 
-                    # update png_url to new prefix and move plot
-                    if (k == indexprefix1+'cands') and result:
-                        png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
-                        update_field(indexprefix2+'cands', 'png_url',
-                                     png_url.replace(indexprefix1, indexprefix2),
-                                     Id=Id)
-                        candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                     .format(indexprefix1, Id))
-                        candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
-                                     .format(indexprefix2, Id))
-                        if os.path.exists(candplot1):
-                            success = shutil.copy(candplot1, candplot2)
-
-                            if success:
-                                logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                            .format(Id, indexprefix1,
-                                                    indexprefix2))
-                            else:
-                                logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                            .format(Id, indexprefix1,
-                                                    indexprefix2))
+                        if success:
+                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                        .format(Id, indexprefix1,
+                                                indexprefix2))
+                            if os.path.exists(candplot1):
+                                os.remove(candplot1)
                         else:
-                            logger.warn("Could not find file {0}".format(candplot1))
+                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+                                        .format(Id, indexprefix1,
+                                                indexprefix2))
+                    else:
+                        logger.warn("Could not find file {0}".format(candplot1))
 
-                    elif not result:
-                        logger.info("Did not copy {0} from {1} to {2}"
-                                    .format(Id, indexprefix1, indexprefix2))
+                elif not result:
+                    logger.info("Did not copy {0} from {1} to {2}"
+                                .format(Id, indexprefix1, indexprefix2))
 
-                # copy summary html file
-                if k == indexprefix1+'scans':
-                    summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                                .format(indexprefix1, v[0]))
-                    summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
-                                .format(indexprefix2, v[0]))
-                    if os.path.exists(summary1):
-                        success = shutil.copy(summary1, summary2)
+            # copy summary html file
+            if k == indexprefix1+'scans':
+                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix1, v[0]))
+                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+                            .format(indexprefix2, v[0]))
+                if os.path.exists(summary1):
+                    success = shutil.copy(summary1, summary2)
 
     return iddict
 
@@ -688,13 +691,20 @@ def remove_scanid(indexprefix, scanId, force=False):
         logger.info("On the CBE, removing bdfs")
         Ids = get_ids(indexprefix + 'cands', scanId=scanId)
 
-        for Id in Ids:
-            bdfname = candid_bdf(indexprefix, Id) 
-            if bdfname is not None: 
-                os.remove(bdfname) 
-                logger.info('Removed {0}'.format(bdfname))
+        remove_bdfs(indexprefix, Ids)
 
+        
+def remove_bdfs(indexprefix, candIds):
+    """ Given candIds, look up bdf name in indexprefix and then remove bdf
+    """
 
+    for Id in candIds:
+        bdfname = candid_bdf(indexprefix, Id) 
+        if bdfname is not None: 
+            os.remove(bdfname) 
+            logger.info('Removed {0}'.format(bdfname))
+
+            
 def find_docids(indexprefix, candId=None, scanId=None):
     """ Find docs associated with a candId or scanId.
     Finds relations based on scanId, which ties all docs together.
@@ -897,7 +907,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
 
     ids = []
     for n in range(nop, 10):  # do not expect more than 10 voters
-        ids += get_ids(index=index, tagcount=nop)
+        ids += get_ids(index=index, tagcount=n)
 
     assert match in ['identical', 'bad', 'notify']
 
@@ -906,7 +916,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     noconsensus = {}
     for Id in ids:
         tagsdict = gettags(indexprefix=indexprefix, Id=Id)
-        logger.debug("Id {0} has {1} tags: {2}".format(Id, len(tagsdict), tagsdict))
+        logger.debug("Id {0} has {1} tags".format(Id, len(tagsdict)))
         tagslist = list(tagsdict.values())
 
         # add Id and tags to dict according to consensus opinion
