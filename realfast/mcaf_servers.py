@@ -25,6 +25,7 @@ _antflagger_parser = objectify.makeparser(
         schema=etree.XMLSchema(file=_antflagger_xsd))
 
 _host = 'mctest.evla.nrao.edu'
+_flaghost = 'mchammer.evla.nrao.edu'
 _sdmpath = 'sdm-builder/offline'
 _antpath = 'evla-mcaf-test/dataset'
 
@@ -215,7 +216,7 @@ def getblflags(datasetId, blarr, startTime=None, endTime=None):
         query += 'startTime={0}&'.format(startTime)
     if endTime is not None:
         query += 'endTime={0}'.format(endTime)
-    url = 'https://{0}/{1}/{2}/flags{3}'.format(_host, _antpath, datasetId,
+    url = 'https://{0}/{1}/{2}/flags{3}'.format(_flaghost, _antpath, datasetId,
                                                 query)
     # call server and parse response
     response_xml = urlopen(url).read()
