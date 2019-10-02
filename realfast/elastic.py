@@ -906,8 +906,10 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     doc_type = index.rstrip('s')
 
     ids = []
-    for n in range(nop, 10):  # do not expect more than 10 voters
-        ids += get_ids(index=index, tagcount=n)
+    for ni in range(nop, 10):  # do not expect more than 10 voters
+        idlist = get_ids(index=index, tagcount=ni)
+        logger.info("Got {0} cands with tagcount={1}".format(len(idlist), ni))
+        ids += idlist
 
     assert match in ['identical', 'bad', 'notify']
 

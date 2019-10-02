@@ -116,13 +116,15 @@ class realfast_controller(Controller):
                     'throttle', 'classify',
                     'read_overhead', 'read_totfrac',
                     'indexprefix', 'daskdir', 'requirecalibration',
-                    'data_logging']
+                    'data_logging', 'rsync_with_fetch', 'rsync_with_reader']
 
         for attr in allattrs:
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
                 setattr(self, attr, 0.8)  # submit relative to realtime
+            elif 'rsync' in attr:
+                setattr(self, attr, False)
             else:
                 setattr(self, attr, None)
 
@@ -688,11 +690,15 @@ class realfast_controller(Controller):
 
                     # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir
+                    kwargs = {'retries': 3}
+                    if self.rsync_with_fetch:
+                        kwargs['workers'] = self.fetchworkers
+                    if self.rsync_with_reader:
+                        kwargs['resources'] = {'READER': 1}
+
                     fut = self.client.submit(util.indexcands_and_plots, cc,
                                              scanId, self.tags, self.indexprefix, workdir,
-#                                             workers=self.fetchworkers,
-                                             resources={'READER': 1},
-                                             retries=3) # returns cc
+                                             **kwargs) # returns cc
                     if self.classify:
                         # classify cands on special workers
                         distributed.fire_and_forget(self.client.submit(util.classify_candidates,

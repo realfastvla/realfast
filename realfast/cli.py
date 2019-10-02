@@ -87,7 +87,9 @@ def config_catcher(preffile, inprefs):
 @click.option('--mode', default='deployment')
 @click.option('--preffile', default=default_preffile)
 @click.option('--threshold', type=float, default=None)
-def run(mode, preffile, threshold):
+@click.option('--rsync_with_fetch', is_flag=True)
+@click.option('--rsync_with_reader', is_flag=True)
+def run(mode, preffile, threshold, rsync_with_fetch, rsync_with_reader):
     """ Run realfast controller to catch scan configs and start rfpipe.
     mode can be "deployment" or "development", which defines scheduler IP.
     preffile can be realfast.yml or another yml config file.
@@ -108,7 +110,8 @@ def run(mode, preffile, threshold):
         inprefs['sigma_image1'] = threshold
 
     try:
-        rfc = controllers.realfast_controller(host=host, preffile=preffile, inprefs=inprefs)
+        rfc = controllers.realfast_controller(host=host, preffile=preffile, inprefs=inprefs,
+                                              rsync_with_reader=rsync_with_reader, rsync_with_fetch=rsync_with_fetch)
         rfc.initialize()
         rfc.run()
     except KeyboardInterrupt:

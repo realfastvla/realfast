@@ -8,7 +8,7 @@ import os
 import shutil
 import subprocess
 import numpy as np
-from astropy import time
+from astropy import time, coordinates, units
 from time import sleep
 from realfast import elastic, mcaf_servers
 import distributed
@@ -198,7 +198,7 @@ def createproducts(candcollection, data, indexprefix=None,
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         # TODO: fill in annotation dict as defined in confluence doc on realfast collections
-        annotation = {}
+        annotation = cc_to_annotation(candcollection)
 
 # now retrieved from candcollection
 #        calScanTime = np.unique(calibration.getsols(st)['mjd'])
@@ -231,6 +231,44 @@ def createproducts(candcollection, data, indexprefix=None,
                         .format(metadata.datasetId, startTime, endTime))
 
     return sdmlocs
+
+
+def cc_to_annotation(cc):
+    """ Takes candcollection and returns dict to be passed to sdmbuilder.
+    Dict has standard fields to fill annotations table for archiving queries.
+    """
+
+    from rfpipe import candidates
+
+    maxcand = np.where(cc.snrtot == cc.snrtot.max())[0][0]
+    l1 = cc.candl[maxcand]
+    m1 = cc.candm[maxcand]
+    ra_ctr, dec_ctr = cc.metadata.radec
+    ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+
+    uvres = cc.state.uvres
+    npix = min(cc.state.npixx, cc.state.npixy)  # estimate worst loc
+    pixel_sec = np.degrees(1/(uvres*npix))*3600
+
+    dmarr = cc.state.dmarr
+
+    annotation = {'primary_filesetId': cc.metadata.datasetId,
+                  'transient_RA': ra,
+                  'transient_RA_error': float(pixel_sec),
+                  'transient_Dec': dec,
+                  'transient_Dec_error': float(pixel_sec),
+                  'transient_SNR': cc.snrtot[maxcand],
+                  'transient_DM': cc.canddm[maxcand],
+                  'transient_DM_error': dmarr[1]-dmarr[0],
+                  'preaverage_time': cc.canddt[maxcand],
+                  'rfpipe_version': cc.prefs.rfpipe_version,
+                  'prefs_Id': cc.prefs.name}
+# TODO: get noises and classifications in
+#                  'rf_QA_label': None,  
+#                  'rf_QA_zero_fraction': None,
+#                  'rf_QA_visibility_noise': None,
+#                  'rf_QA_image_noise': None}
+    return annotation
 
 
 def classify_candidates(cc, indexprefix='new', devicenum=None):
