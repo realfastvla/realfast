@@ -137,7 +137,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     Use indexprefix='new' for production.
     """
 
-    from numpy import degrees
+    from numpy import degrees, cos
 
     if tags is None:
         tags = ''
@@ -166,9 +166,9 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         # get reference ra, dec
         segment = canddict['segment']
         if candcollection.state.otfcorrections is not None:
-            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]
+            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]  # TODO: radians or degrees returned?
         else:
-            ra_ctr, dec_ctr = degrees(candcollection.metadata.radec)
+            ra_ctr, dec_ctr = candcollection.metadata.radec
 
         # fill optional fields
         canddict['scanId'] = scanId
@@ -185,8 +185,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         canddict['cluster'] = int(cluster[i])
         canddict['clustersize'] = int(clustersize[i])
         canddict['snrtot'] = float(snrtot[i])
-        canddict['ra'] = ra_ctr + degrees(canddict['l1'])
-        canddict['dec'] = dec_ctr + degrees(canddict['m1'])
+        canddict['ra'] = degrees(ra_ctr + canddict['l1']/cos(dec_ctr))
+        canddict['dec'] = degrees(dec_ctr + canddict['m1'])
         canddict['png_url'] = ''
         if prefs.name:
             canddict['prefsname'] = prefs.name
