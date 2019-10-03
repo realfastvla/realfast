@@ -257,10 +257,10 @@ def cc_to_annotation(cc):
                   'transient_RA_error': float(pixel_sec),
                   'transient_Dec': dec,
                   'transient_Dec_error': float(pixel_sec),
-                  'transient_SNR': cc.snrtot[maxcand],
-                  'transient_DM': cc.canddm[maxcand],
-                  'transient_DM_error': dmarr[1]-dmarr[0],
-                  'preaverage_time': cc.canddt[maxcand],
+                  'transient_SNR': float(cc.snrtot[maxcand]),
+                  'transient_DM': float(cc.canddm[maxcand]),
+                  'transient_DM_error': float(dmarr[1]-dmarr[0]),
+                  'preaverage_time': float(cc.canddt[maxcand]),
                   'rfpipe_version': cc.prefs.rfpipe_version,
                   'prefs_Id': cc.prefs.name}
 # TODO: get noises and classifications in

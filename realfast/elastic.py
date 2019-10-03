@@ -168,7 +168,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         if candcollection.state.otfcorrections is not None:
             ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]  # TODO: radians or degrees returned?
         else:
-            ra_ctr, dec_ctr = candcollection.metadata.radec
+            ra_ctr, dec_ctr = candcollection.metadata.radec  # radians
 
         # fill optional fields
         canddict['scanId'] = scanId
@@ -951,8 +951,6 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
         elif consensustype == 'majority':
             # break out all tags (could be multiple per user)
             alltags = [tag for tags in tagslist for tag in tags.split(',')]
-
-            # TODO: add match=='bad' logic
 
             # sort by whether tag is agreed upon by majority
             consensus_tags = []
