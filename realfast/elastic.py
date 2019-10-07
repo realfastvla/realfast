@@ -679,19 +679,26 @@ def candid_bdf(indexprefix, candId):
         return None
 
 
-def remove_scanid(indexprefix, scanId, force=False):
-    """ Use scanId to remove bdfs, indexed data, and plots/html.
+def remove_dataset(indexprefix, datasetId=None, scanId=None, force=False):
+    """ Use dataset or scanId to remove bdfs, indexed data, and plots/html.
     On the CBE, this will remove bdfs, while at the AOC, it manages the rest.
     """
 
     if os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'):
         logger.info("On the AOC, removing scanId from index and plots/html")
-        move_dataset(indexprefix, None, scanId=scanId, force=force)
+        move_dataset(indexprefix, None, datasetId=datasetId, scanId=scanId, force=force)
     else:
         logger.info("On the CBE, removing bdfs")
-        Ids = get_ids(indexprefix + 'cands', scanId=scanId)
+        if scanId is not None:
+            Ids = get_ids(indexprefix + 'cands', scanId=scanId)
+            Id = scanId
+        elif datasetId is not None:
+            Ids = get_ids(indexprefix + 'cands', datasetId=datasetId)
+            Id = datasetId
 
-        remove_bdfs(indexprefix, Ids)
+        confirm = input("Remove bdfs associated with {0} candidates in {1}?".format(len(Ids), Id))
+        if confirm.lower() in ['y', 'yes']:        
+            remove_bdfs(indexprefix, Ids)
 
         
 def remove_bdfs(indexprefix, candIds):

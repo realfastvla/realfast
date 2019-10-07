@@ -290,7 +290,7 @@ def remove_dataset(prefix, datasetid, scanid, force):
 
     from realfast import elastic
 
-    elastic.move_dataset(prefix, None, datasetId=datasetid, scanId=scanid, force=force)
+    elastic.remove_dataset(prefix, datasetId=datasetid, scanId=scanid, force=force)
 
 
 @cli2.command()
