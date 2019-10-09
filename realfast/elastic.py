@@ -628,18 +628,16 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
                     candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
                                  .format(indexprefix2, Id))
                     if os.path.exists(candplot1):
-                        success = shutil.copy(candplot1, candplot2)
-
-                        if success:
-                            logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
-                            if os.path.exists(candplot1):
-                                os.remove(candplot1)
-                        else:
-                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
-                                        .format(Id, indexprefix1,
-                                                indexprefix2))
+                        shutil.move(candplot1, candplot2)
+                        logger.info("Updated png_url field and moved plot for {0} from {1} to {2}"
+                                    .format(Id, indexprefix1,
+                                            indexprefix2))
+#                        if os.path.exists(candplot1):
+#                            os.remove(candplot1)
+#                        else:
+#                            logger.warn("Problem updating or moving png_url {0} from {1} to {2}"
+#                                        .format(Id, indexprefix1,
+#                                                indexprefix2))
                     else:
                         logger.warn("Could not find file {0}".format(candplot1))
 

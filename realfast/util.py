@@ -211,6 +211,8 @@ def createproducts(candcollection, data, indexprefix=None,
                                       data_cut, calScanTime,
                                       annotation=annotation)
         if sdmloc is not None:
+            sdmpath = os.path.dirname(sdmloc)
+            sdmloc = os.path.basename(sdmloc)  # ignore internal mcaf path from here on
             # update index to link to new sdm
             if indexprefix is not None:
                 candIds = elastic.candid(cc=candcollection)
@@ -222,7 +224,7 @@ def createproducts(candcollection, data, indexprefix=None,
                         logger.warn("elasticsearch cannot find Id {0} in index {1}. Exception: {2}".format(Id, indexprefix+'cands', exc))
                         
             sdmlocs.append(sdmloc)
-            logger.info("Created new SDMs at: {0}".format(sdmloc))
+            logger.info("Created new SDM in {0} called {1}".format(sdmpath, sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)
@@ -240,35 +242,41 @@ def cc_to_annotation(cc):
 
     from rfpipe import candidates
 
-    maxcand = np.where(cc.snrtot == cc.snrtot.max())[0][0]
-    l1 = cc.candl[maxcand]
-    m1 = cc.candm[maxcand]
-    ra_ctr, dec_ctr = cc.metadata.radec
-    ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
-
+    # fixed in cc
     uvres = cc.state.uvres
     npix = min(cc.state.npixx, cc.state.npixy)  # estimate worst loc
     pixel_sec = np.degrees(1/(uvres*npix))*3600
-
     dmarr = cc.state.dmarr
+    ra_ctr, dec_ctr = cc.metadata.radec
+    scanid = cc.metadata.scanId
 
-    annotation = {'primary_filesetId': cc.metadata.datasetId,
-                  'transient_RA': ra,
-                  'transient_RA_error': float(pixel_sec),
-                  'transient_Dec': dec,
-                  'transient_Dec_error': float(pixel_sec),
-                  'transient_SNR': float(cc.snrtot[maxcand]),
-                  'transient_DM': float(cc.canddm[maxcand]),
-                  'transient_DM_error': float(dmarr[1]-dmarr[0]),
-                  'preaverage_time': float(cc.canddt[maxcand]),
-                  'rfpipe_version': cc.prefs.rfpipe_version,
-                  'prefs_Id': cc.prefs.name}
+    annotations = []
+    for i in range(len(cc)):
+        l1 = cc.candl[i]
+        m1 = cc.candm[i]
+        ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+        segment, integration, dmind, dtind, beamnum = cc.locs[i]
+        candid = '{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind)
+
+        annotations.append({'primary_filesetId': cc.metadata.datasetId,
+                            'cand_Id': candid,
+#                            'transient_mjd': None,  # TODO
+                            'transient_RA': ra,
+                            'transient_RA_error': float(pixel_sec),
+                            'transient_Dec': dec,
+                            'transient_Dec_error': float(pixel_sec),
+                            'transient_SNR': float(cc.snrtot[i]),
+                            'transient_DM': float(cc.canddm[i]),
+                            'transient_DM_error': float(dmarr[1]-dmarr[0]),
+                            'preaverage_time': float(cc.canddt[i]),
+                            'rfpipe_version': cc.prefs.rfpipe_version,
+                            'prefs_Id': cc.prefs.name})
 # TODO: get noises and classifications in
 #                  'rf_QA_label': None,  
 #                  'rf_QA_zero_fraction': None,
 #                  'rf_QA_visibility_noise': None,
 #                  'rf_QA_image_noise': None}
-    return annotation
+    return annotations
 
 
 def classify_candidates(cc, indexprefix='new', devicenum=None):
