@@ -68,7 +68,9 @@ class realfast_controller(Controller):
         - read_totfrac, throttle param requires fraction of total READER memory be available,
         - searchintents, a list of intent names to search,
         - ignoreintents, a list of intent names to not search,
-        - indexprefix, a string defining set of indices to save results.
+        - indexprefix, a string defining set of indices to save results,
+        - rsync_with_fetch, boolean to force rsync onto fetchworkers,
+        - rsync_with_reader, boolean to require rsync jobs to use a READER resource (avoiding read jobs).
         """
 
         super(realfast_controller, self).__init__()
