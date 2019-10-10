@@ -213,19 +213,22 @@ def createproducts(candcollection, data, indexprefix=None,
         if sdmloc is not None:
             sdmpath = os.path.dirname(sdmloc)
             sdmloc = os.path.basename(sdmloc)  # ignore internal mcaf path from here on
+            logger.info("Created new SDM in {0} called {1}".format(sdmpath, sdmloc))
+            sdmlocs.append(sdmloc)
+
             # update index to link to new sdm
             if indexprefix is not None:
                 candIds = elastic.candid(cc=candcollection)
                 for Id in candIds:
                     try:
+                        logger.info("Updating index {0}, Id {1}, with sdmname {2}".format(indexprefix+'cands', Id, sdmloc))
                         elastic.update_field(indexprefix+'cands', 'sdmname',
                                              sdmloc, Id=Id)
                     except NotFoundError as exc:
                         logger.warn("elasticsearch cannot find Id {0} in index {1}. Exception: {2}".format(Id, indexprefix+'cands', exc))
                         
-            sdmlocs.append(sdmloc)
-            logger.info("Created new SDM in {0} called {1}".format(sdmpath, sdmloc))
             # TODO: migrate bdfdir to newsdmloc once ingest tool is ready
+            logger.info("Making bdf for time {0}-{1}".format(startTime, endTime))
             mcaf_servers.makebdf(startTime, endTime, metadata, data_cut,
                                  bdfdir=savebdfdir)
         else:

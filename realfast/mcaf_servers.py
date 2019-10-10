@@ -93,7 +93,7 @@ class SDMBuilder(object):
         return url
 
     def send(self):
-        response_xml = urlopen(self._url, timeout=60).read()
+        response_xml = urlopen(self._url, timeout=600).read()
         self.response = None
         if b'error' in response_xml:
             logger.warn("error in sdmbuilder response xml: {0}"
