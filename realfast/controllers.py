@@ -144,6 +144,7 @@ class realfast_controller(Controller):
         # TODO: set defaults for these
         assert self.read_overhead and self.read_totfrac
 
+        self.who_has_count = 999  # initialize to ensure it is tested in submission loop
         logger.info("Initialized controller with attributes {0} and inprefs {1}"
                     .format([(attr, getattr(self, attr)) for attr in allattrs], self.inprefs))
 
@@ -746,12 +747,15 @@ class realfast_controller(Controller):
                     pass
 
         # hack to clean up residual jobs in bokeh
-        if not len(self.processing) and len(self.client.who_has()):
+        if not len(self.processing) and len(self.client.who_has()) and (len(self.client.who_has()) != self.who_has_count):
+            self.who_has_count = len(self.client.who_has())
             logger.info("Retrying {0} scheduler jobs without futures."
                         .format(len(self.client.who_has())))
             self.cleanup_retry()
             sleep(5)
             self.client.run(gc.collect)
+        else:
+            logger.info("Not retrying jobs without futures")
 
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
