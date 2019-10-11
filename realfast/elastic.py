@@ -847,14 +847,16 @@ def audit_indexprefix(indexprefix):
 
 
 def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
-                   consensustype='majority', nop=3, newtags=None):
+                   consensustype='majority', nop=3, newtags=None, consensus=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
+    Can optionally define consensus elsewhere and pass it in.
     """
 
-    consensus = get_consensus(indexprefix=indexprefix1, nop=nop, match=match,
-                              consensustype=consensustype, newtags=newtags)
+    if consensus is None:
+        consensus = get_consensus(indexprefix=indexprefix1, nop=nop, match=match,
+                                  consensustype=consensustype, newtags=newtags)
 
     logger.info("Moving {0} consensus candidates from {1} to {2}"
                 .format(len(consensus), indexprefix1, indexprefix2))
@@ -891,15 +893,19 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
 
 
 def get_consensus(indexprefix='new', nop=3, consensustype='majority',
-                  res='consensus', match='identical', newtags=None):
+                  res='consensus', match='identical', newtags=None,
+                  datasetId=None):
     """ Get candidtes with consensus over at least nop user tag fields.
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
-    Returns dicts with either consensus and noconsensus candidates.
-    This includes original user tags plus new "tags" field with data state.
-    match defines how tags are compared ("identical" => string match,
-    "bad" => find rfi, instrumental, or delete in tags),
-    "notify" => notify found.
+    Returns dicts with either consensus and noconsensus candidates (can add "tags" too).
+    match defines how tags are compared:
+    - "identical" => string match,
+    - "bad" => find rfi, instrumental, delete, unsure/noise in tags
+    -- bad+absolute => all must be in bad list
+    -- bad+majority => majority must be "delete".
+    "notify" => notify found (only implemented for absolute).
     newtags is a comma-delimited string that sets tags to apply to all.
+    Can optionally only consider candidates in datasetId.
     """
 
     assert consensustype in ["absolute", "majority"]
@@ -922,6 +928,10 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     consensus = {}
     noconsensus = {}
     for Id in ids:
+        # select only datasetId candidates, if desired
+        if datasetId is not None and Id not in datasetId:
+            continue
+
         tagsdict = gettags(indexprefix=indexprefix, Id=Id)
         logger.debug("Id {0} has {1} tags".format(Id, len(tagsdict)))
         tagslist = list(tagsdict.values())
@@ -967,7 +977,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
                 if (alltags.count(tag) >= len(tagslist)//2+1):
                     if match == 'identical':
                         consensus_tags.append(tag)
-                    elif (match == 'bad') and (tag in badlist):
+                    elif (match == 'bad') and (tag == 'delete'):
                         consensus_tags.append(tag)
                     else:
                         noconsensus_tags.append(tag)
@@ -997,6 +1007,40 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     elif res == 'noconsensus':
         logger.info("Returning candidates without consensus")
         return noconsensus
+
+
+def resolve_consensus(indexprefix='new', nop=3, consensustype='majority',
+                      match='identical', datasetId=None):
+
+    """ Step through noconsensus candidates and decide their fate.
+    """
+
+    nocon = get_consensus(indexprefix=indexprefix, nop=nop,
+                          consensustype=consensustype, res='noconsensus',
+                          match=match, datasetId=None)
+
+    baseurl = 'http://realfast.nrao.edu/plots/' + indexprefix
+    con = {}
+    try:
+        for k,v in nocon.items(): 
+            logger.info("Candidate {0}:".format(k))
+            logger.info("\tpng_url\t{0}/cands_{1}.png".format(baseurl, k))
+            tags = v['tags'].split(',')
+            logger.info("\tUser tags\t{0}".format([(vk, vv) for (vk, vv) in v.items() if '_tags' in vk]))
+            selection = input("Set consensus tags (<int>,<int> or <cr> to skip): {0}".format(list(enumerate(tags))))
+            if selection:
+                selection = selection.replace(',', ' ').split()
+                selection = reversed(sorted([int(sel) for sel in selection]))  # preserves order used in web app
+                newtags = []
+                for sel in selection:
+                    newtags.append(tags[sel])
+                v['tags'] = ','.join(newtags)
+                con[k] = v
+    except KeyboardInterrupt:
+        logger.info("Escaping loop")
+        return con
+
+    return con
 
 
 def gettags(indexprefix, Id):
