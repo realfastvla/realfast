@@ -197,8 +197,7 @@ def createproducts(candcollection, data, indexprefix=None,
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        # TODO: fill in annotation dict as defined in confluence doc on realfast collections
-        annotation = cc_to_annotation(candcollection)
+        annotation = cc_to_annotation(candcollection, mode='dict')
 
 # now retrieved from candcollection
 #        calScanTime = np.unique(calibration.getsols(st)['mjd'])
@@ -238,12 +237,15 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def cc_to_annotation(cc):
+def cc_to_annotation(cc, mode='dict'):
     """ Takes candcollection and returns dict to be passed to sdmbuilder.
     Dict has standard fields to fill annotations table for archiving queries.
+    mode can be 'dict' to return single dict at max snrtot or 'list' to return list of dicts.
     """
 
     from rfpipe import candidates
+
+    assert mode in ['dict', 'list']
 
     # fixed in cc
     uvres = cc.state.uvres
@@ -252,34 +254,47 @@ def cc_to_annotation(cc):
     dmarr = cc.state.dmarr
     ra_ctr, dec_ctr = cc.metadata.radec
     scanid = cc.metadata.scanId
+    maxsnr = cc.snrtot.max()
 
-    annotations = []
+    if mode == 'list':
+        annotation = []
+    elif mode == 'dict':
+        maxsnr = cc.snrtot.max()
+
     for i in range(len(cc)):
+        snr = cc.snrtot[i]
+        if snr != maxsnr and mode == 'dict':
+            continue
         l1 = cc.candl[i]
         m1 = cc.candm[i]
         ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
         segment, integration, dmind, dtind, beamnum = cc.locs[i]
         candid = '{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind)
-
-        annotations.append({'primary_filesetId': cc.metadata.datasetId,
-                            'cand_Id': candid,
-#                            'transient_mjd': None,  # TODO
-                            'transient_RA': ra,
-                            'transient_RA_error': float(pixel_sec),
-                            'transient_Dec': dec,
-                            'transient_Dec_error': float(pixel_sec),
-                            'transient_SNR': float(cc.snrtot[i]),
-                            'transient_DM': float(cc.canddm[i]),
-                            'transient_DM_error': float(dmarr[1]-dmarr[0]),
-                            'preaverage_time': float(cc.canddt[i]),
-                            'rfpipe_version': cc.prefs.rfpipe_version,
-                            'prefs_Id': cc.prefs.name})
+        dd = {'primary_filesetId': cc.metadata.datasetId,
+              'cand_Id': candid,
+#              'transient_mjd': None,  # TODO
+              'transient_RA': ra,
+              'transient_RA_error': float(pixel_sec),
+              'transient_Dec': dec,
+              'transient_Dec_error': float(pixel_sec),
+              'transient_SNR': float(snr),
+              'transient_DM': float(cc.canddm[i]),
+              'transient_DM_error': float(dmarr[1]-dmarr[0]),
+              'preaverage_time': float(cc.canddt[i]),
+              'rfpipe_version': cc.prefs.rfpipe_version,
+              'prefs_Id': cc.prefs.name}
 # TODO: get noises and classifications in
 #                  'rf_QA_label': None,  
 #                  'rf_QA_zero_fraction': None,
 #                  'rf_QA_visibility_noise': None,
 #                  'rf_QA_image_noise': None}
-    return annotations
+
+        if mode == 'list':
+            annotation.append(dd)
+        elif mode == 'dict':
+            annotation = dd
+
+    return annotation
 
 
 def classify_candidates(cc, indexprefix='new', devicenum=None):
