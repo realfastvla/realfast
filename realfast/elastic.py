@@ -929,7 +929,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     noconsensus = {}
     for Id in ids:
         # select only datasetId candidates, if desired
-        if datasetId is not None and Id not in datasetId:
+        if datasetId is not None and datasetId not in Id:
             continue
 
         tagsdict = gettags(indexprefix=indexprefix, Id=Id)
