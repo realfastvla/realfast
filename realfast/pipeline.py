@@ -71,7 +71,7 @@ def pipeline_seg(st, segment, cl, cfile=None,
 
     data = cl.submit(source.read_segment, st, segment, timeout=vys_timeout,
                      cfile=cfile, resources={'READER': 1, 'MEMORY': mem_read},
-                     retries=3)
+                     retries=1)
 
     if segment == mockseg:
         st.prefs.simulated_transient = 1
@@ -81,9 +81,9 @@ def pipeline_seg(st, segment, cl, cfile=None,
     candcollection = cl.submit(prep_and_search, st, segment, data,
                                resources={'MEMORY': mem_search, 'GPU': 2},
 #                               resources={'MEMORY': mem_search, 'READER': 1},
-                               retries=3)
+                               retries=1)
 
-    acc = cl.submit(analyze_cc, candcollection, retries=3)
+    acc = cl.submit(analyze_cc, candcollection, retries=1)
 
     return (segment, data, candcollection, acc)
 

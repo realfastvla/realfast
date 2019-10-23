@@ -706,7 +706,7 @@ def remove_bdfs(indexprefix, candIds):
     for Id in candIds:
         bdfname = candid_bdf(indexprefix, Id) 
         if bdfname is not None: 
-            os.remove(bdfname) 
+            os.remove(bdfname)
             logger.info('Removed {0}'.format(bdfname))
 
             
