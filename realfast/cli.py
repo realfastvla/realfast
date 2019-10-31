@@ -209,9 +209,10 @@ def backup(globstr):
 @click.option('--notebook', default='Search_and_refine.ipynb')
 @click.option('--on_rfnode', type=bool, default=True)
 @click.option('--preffile', default=None)
-def refine(sdmname, notebook, on_rfnode, preffile):
+def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
     """ Compile notebook
     """
+
     import subprocess, os
     notebookpath = '/home/cbe-master/realfast/soft/realfast/realfast/notebooks'
 
@@ -227,7 +228,42 @@ def refine(sdmname, notebook, on_rfnode, preffile):
     if not status:
         os.remove(sdmname + '.ipynb')
 
+@cli.command()
+@click.argument('candid')
+@click.option('--indexprefix', default='new')
+def refine(candid, indexprefix):
+    """ Compile notebook
+    """
 
+    from rfpipe import reproduce
+    from realfast import elastic
+
+    doc = elastic.get_doc(indexprefix+'cands', Id=candid) 
+    if 'sdmname' in doc['_source']: 
+        sdmname = doc['_source']['sdmname'] 
+    else:
+        logger.warn("No SDM found for candId {0}".format(candid))
+
+    sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
+    sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
+    sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
+    assert os.path.exists(sdmname_full)
+
+    dm = doc['_source']['canddm']
+    reproduce.refine_sdm(sdmname, dm, preffile='realfast.yml', npix_max=None,
+                         refine=True, classify=True, dm_frac=0.2, dm_steps = 100,
+                         bdfdir='/lustre/evla/wcbe/data/realfast')
+
+    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
+    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refine.png".format(sdmname), "--exclude", "*", '.', destination]
+    status = subprocess.call(args)
+    if not status:
+        logger.info("Refinement plot moved to http://realfast.nrao.edu/plots/refinement/cands_{0}_refined.png".format(sdmname))
+        os.remove(sdmname + '.ipynb')
+    else:
+        logger.warn("Refinement plot rsync failed for {0}".format(sdmname))
+
+        
 @click.group('realfast_portal')
 def cli2():
     pass
