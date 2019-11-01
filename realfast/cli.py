@@ -231,7 +231,10 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 @cli.command()
 @click.argument('candid')
 @click.option('--indexprefix', default='new')
-def refine(candid, indexprefix):
+@click.option('--ddm', default=50)
+@click.option('--dm_steps', default=50)
+@click.option('--npix_max', default=None)
+def refine(candid, indexprefix, ddm, dm_steps, npix_max):
     """ Compile notebook
     """
 
@@ -250,8 +253,8 @@ def refine(candid, indexprefix):
     assert os.path.exists(sdmname_full)
 
     dm = doc['_source']['canddm']
-    reproduce.refine_sdm(sdmname, dm, preffile='realfast.yml', npix_max=None,
-                         refine=True, classify=True, dm_frac=0.2, dm_steps = 100,
+    reproduce.refine_sdm(sdmname, dm, preffile='realfast.yml', npix_max=npix_max,
+                         refine=True, classify=True, ddm=ddm, dm_steps=dm_steps,
                          bdfdir='/lustre/evla/wcbe/data/realfast')
 
     destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
