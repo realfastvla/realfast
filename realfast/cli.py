@@ -5,6 +5,7 @@ from io import open
 
 import click
 import shutil
+import subprocess
 import os
 import glob
 import logging
@@ -36,7 +37,6 @@ def grep(mode, line, filepath, globstr, age):
 
     import os.path
     import glob
-    import subprocess
     import time
     now = time.time()
 
@@ -191,7 +191,7 @@ def backup(globstr):
     """ Get all SDMs in sdm building directory and run buildsdm on them to save locally.
     """
 
-    import subprocess, os, glob
+    import glob
 
     sdmnames = glob.glob(globstr)
     for sdmname in sdmnames:
@@ -213,7 +213,6 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
     """ Compile notebook
     """
 
-    import subprocess, os
     notebookpath = '/home/cbe-master/realfast/soft/realfast/realfast/notebooks'
 
     # report-mode just shows output of each cell
@@ -234,12 +233,23 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 @click.option('--ddm', default=50)
 @click.option('--dm_steps', default=50)
 @click.option('--npix_max', default=None)
-def refine(candid, indexprefix, ddm, dm_steps, npix_max):
+@click.option('--mode', default='development')
+def refine(candid, indexprefix, ddm, dm_steps, npix_max, mode):
     """ Compile notebook
     """
 
     from rfpipe import reproduce
     from realfast import elastic
+    import distributed
+    
+    if mode == 'deployment':
+        host = '10.80.200.201:8786'
+    elif mode == 'development':
+        host = '10.80.200.201:8796'
+    else:
+        logger.warn("mode not recognized (deployment or development allowed)")
+        return
+    cl = distributed.Client(host)
 
     doc = elastic.get_doc(indexprefix+'cands', Id=candid) 
     if 'sdmname' in doc['_source']: 
@@ -251,20 +261,16 @@ def refine(candid, indexprefix, ddm, dm_steps, npix_max):
     sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
     sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
     assert os.path.exists(sdmname_full)
-
     dm = doc['_source']['canddm']
-    reproduce.refine_sdm(sdmname, dm, preffile='realfast.yml', npix_max=npix_max,
-                         refine=True, classify=True, ddm=ddm, dm_steps=dm_steps,
-                         bdfdir='/lustre/evla/wcbe/data/realfast')
+
+    fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
+                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps)
+#                    bdfdir='/lustre/evla/wcbe/data/realfast')
+    distributed.fire_and_forget(fut)
 
     destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
     args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refine.png".format(sdmname), "--exclude", "*", '.', destination]
-    status = subprocess.call(args)
-    if not status:
-        logger.info("Refinement plot moved to http://realfast.nrao.edu/plots/refinement/cands_{0}_refined.png".format(sdmname))
-        os.remove(sdmname + '.ipynb')
-    else:
-        logger.warn("Refinement plot rsync failed for {0}".format(sdmname))
+#    distributed.fire_and_forget(cl.submit(subprocess.call, args))
 
         
 @click.group('realfast_portal')
