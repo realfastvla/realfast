@@ -237,42 +237,9 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 def refine(candid, indexprefix, ddm, dm_steps, npix_max, mode):
     """ Compile notebook
     """
+    util.refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode)
 
-    from rfpipe import reproduce
-    from realfast import elastic
-    import distributed
-    
-    if mode == 'deployment':
-        host = '10.80.200.201:8786'
-    elif mode == 'development':
-        host = '10.80.200.201:8796'
-    else:
-        logger.warn("mode not recognized (deployment or development allowed)")
-        return
-    cl = distributed.Client(host)
 
-    doc = elastic.get_doc(indexprefix+'cands', Id=candid) 
-    if 'sdmname' in doc['_source']: 
-        sdmname = doc['_source']['sdmname'] 
-    else:
-        logger.warn("No SDM found for candId {0}".format(candid))
-
-    sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
-    sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
-    sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
-    assert os.path.exists(sdmname_full)
-    dm = doc['_source']['canddm']
-
-    fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
-                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps)
-#                    bdfdir='/lustre/evla/wcbe/data/realfast')
-    distributed.fire_and_forget(fut)
-
-    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
-    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refine.png".format(sdmname), "--exclude", "*", '.', destination]
-#    distributed.fire_and_forget(cl.submit(subprocess.call, args))
-
-        
 @click.group('realfast_portal')
 def cli2():
     pass
