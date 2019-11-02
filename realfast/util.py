@@ -319,6 +319,7 @@ def refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode):
         sdmname = doc['_source']['sdmname'] 
     else:
         logger.warn("No SDM found for candId {0}".format(candid))
+        return
 
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
     sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
@@ -327,7 +328,7 @@ def refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode):
     dm = doc['_source']['canddm']
 
     fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
-                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps)
+                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir='/lustre/evla/test/realfast/archive/refine')
     distributed.fire_and_forget(fut)
 
 # move plot to portal

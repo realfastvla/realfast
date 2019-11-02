@@ -237,6 +237,8 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 def refine(candid, indexprefix, ddm, dm_steps, npix_max, mode):
     """ Compile notebook
     """
+    from realfast import util
+    
     util.refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode)
 
 
