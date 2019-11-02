@@ -328,7 +328,8 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
     dm = doc['_source']['canddm']
 
     fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
-                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir='/lustre/evla/test/realfast/archive/refine')
+                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir='/lustre/evla/test/realfast/archive/refine',
+                    resources={"GPU": 1})
     distributed.fire_and_forget(fut)
 
 # move plot to portal
