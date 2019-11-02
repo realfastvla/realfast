@@ -297,7 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode):
+def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='development'):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
