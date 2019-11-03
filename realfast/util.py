@@ -297,7 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='development'):
+def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='development', devicenum=None):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
@@ -321,19 +321,26 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
         logger.warn("No SDM found for candId {0}".format(candid))
         return
 
+    workdir = '/lustre/evla/test/realfast/archive/refine'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
     sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
     sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
     assert os.path.exists(sdmname_full)
     dm = doc['_source']['canddm']
-
-    fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
-                    refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir='/lustre/evla/test/realfast/archive/refine',
-                    resources={"GPU": 1})
-    distributed.fire_and_forget(fut)
+    scanId = doc['_source']['scanId']
+    refineplot = os.path.join(workdir, 'cands_{0}.1.1_refined.png'.format(sdmname))
+    if os.path.exists(refineplot):
+        logger.info("Refined candidate plot already made for candId {0} and sdm {1}".format(candid, sdmname))
+        return
+    else:
+        logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
+        fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
+                        refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir=workdir,
+                        resources={"GPU": 2}, devicenum=devicenum, retries=2)
+        distributed.fire_and_forget(fut)
 
 # move plot to portal
-#    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refinement'
+#    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refine'
 #    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refine.png".format(sdmname), "--exclude", "*", '.', destination]
 #    distributed.fire_and_forget(cl.submit(subprocess.call, args))
 
