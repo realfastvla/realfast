@@ -262,8 +262,10 @@ def refine_all(query, indexprefix, confirm, mode):
 
 @cli.command()
 @click.option('--confirm', default=True, type=bool)
-def archive_local(confirm):
+@click.option('--mode', default='archive')
+def archive_local(confirm, mode):
     """ Move data from lustre workdir into local archive
+    mode can be 'archive' or 'tests' and defines directory where products are moved.
     """
     
     import datetime
@@ -271,12 +273,14 @@ def archive_local(confirm):
     import glob
     import shutil
 
+    assert mode in ['tests', 'archive']
+
     if os.getcwd() == '/lustre/evla/test/realfast':
         now = datetime.datetime.now()
-        dirname = 'archive/{0}{1}{2:02}'.format(now.year-2000, now.strftime("%b").lower(), now.day)
+        dirname = '{0}/{1}{2}{3:02}'.format(mode, now.year-2000, now.strftime("%b").lower(), now.day)
         if not os.path.exists(dirname): 
             os.mkdir(dirname) 
-            logger.info("Creating directory {0} in local archive".format(dirname))
+            logger.info("Creating directory {0} for products".format(dirname))
         filelist = glob.glob("cands_*[html|pkl|png]")
         if confirm:
             yn = input("Move {0} files to {1}?".format(len(filelist), dirname))
