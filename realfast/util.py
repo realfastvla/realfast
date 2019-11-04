@@ -297,7 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='development', devicenum=None):
+def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='deployment', devicenum=None):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
@@ -316,12 +316,11 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
     workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items()]
     assert any(['fetch' in name for name in workernames])
 
-    doc = elastic.get_doc(indexprefix+'cands', Id=candid) 
-    if 'sdmname' in doc['_source']: 
-        sdmname = doc['_source']['sdmname'] 
-    else:
+    doc = elastic.get_doc(indexprefix+'cands', Id=candid)
+    if 'sdmname' not in doc['_source']:
         logger.warn("No SDM found for candId {0}".format(candid))
         return
+    sdmname = doc['_source']['sdmname']
 
     workdir = '/lustre/evla/test/realfast/archive/refine'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
@@ -330,10 +329,18 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
     assert os.path.exists(sdmname_full)
     dm = doc['_source']['canddm']
     scanId = doc['_source']['scanId']
-    refineplot = os.path.join(workdir, 'cands_{0}.1.1_refined.png'.format(sdmname))
-    if os.path.exists(refineplot):
-        logger.info("Refined candidate plot already made for candId {0} and sdm {1}".format(candid, sdmname))
-        return
+    refined_png = 'cands_{0}.1.1_refined.png'.format(sdmname)
+    refined_loc = os.path.join(workdir, refined_png)
+    refined_url = os.path.join(_candplot_url_prefix, 'refined', refined_png)
+
+    # decide whether to submit or update index for known plots
+    if os.path.exists(refined_loc):
+        logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
+        if 'refined_url' not in doc['_source']:
+            Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+            logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
+            for Id in Ids:
+                elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
     else:
         logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
         fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
@@ -342,9 +349,15 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
         distributed.fire_and_forget(fut)
 
 # move plot to portal
-#    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refine'
-#    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refine.png".format(sdmname), "--exclude", "*", '.', destination]
+#    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined'
+#    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refined.png".format(sdmname), "--exclude", "*", '.', destination]
 #    distributed.fire_and_forget(cl.submit(subprocess.call, args))
+# if transfer works, then:
+#        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+#        logger.info("Setting refined_url for {0} candidates with sdmname {1}.".format(len(Ids), sdmname))
+#        for Id in Ids:
+#            elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
+
     cl.close()
 
 

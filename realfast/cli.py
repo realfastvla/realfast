@@ -233,13 +233,32 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 @click.option('--ddm', default=50)
 @click.option('--dm_steps', default=50)
 @click.option('--npix_max', default=None)
-@click.option('--mode', default='development')
-def refine(candid, indexprefix, ddm, dm_steps, npix_max, mode):
+@click.option('--mode', default='deployment')
+def refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode):
     """ Compile notebook
     """
     from realfast import util
     
     util.refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode)
+
+
+@cli.command()
+@click.argument('query')
+@click.option('--indexprefix', default='new')
+@click.option('--confirm', default=True)
+@click.option('--mode', default='deployment')
+def refine_all(query, indexprefix, confirm, mode):
+    """ Refines all candidates matching query
+    """
+
+    from realfast import elastic, util
+
+    Ids = elastic.get_ids(indexprefix+'cands', query)
+    if confirm:
+        yn = input("Refine {0} candidates matching query {1}?".format(len(Ids), query))
+        if yn.lower() in ['y', 'yes']:
+            for Id in Ids: 
+                util.refine_candid(Id, mode=mode)
 
 
 @click.group('realfast_portal')
