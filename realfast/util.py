@@ -322,7 +322,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
         return
     sdmname = doc['_source']['sdmname']
 
-    workdir = '/lustre/evla/test/realfast/archive/refine'
+    workdir = '/lustre/evla/test/realfast/archive/refined'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
     sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
     sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
