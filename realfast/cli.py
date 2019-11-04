@@ -260,6 +260,29 @@ def refine_all(query, indexprefix, confirm, mode):
             for Id in Ids: 
                 util.refine_candid(Id, mode=mode)
 
+@cli.command()
+@click.option('--confirm', default=True, type=bool)
+def archive_local(confirm):
+    """ Move data from lustre workdir into local archive
+    """
+    
+    import datetime
+    import os
+    import glob
+    import shutil
+
+    if os.getcwd() == '/lustre/evla/test/realfast':
+        now = datetime.datetime.now()
+        dirname = 'archive/{0}{1}{2:02}'.format(now.year-2000, now.strftime("%b").lower(), now.day)
+        if not os.path.exists(dirname): 
+            os.mkdir(dirname) 
+            logger.info("Creating directory {0} in local archive".format(dirname))
+        filelist = glob.glob("cands_*[html|pkl|png]")
+        if confirm:
+            yn = input("Move {0} files to {1}?".format(len(filelist), dirname))
+            if yn.lower() in ['y', 'yes']:
+                for fp in filelist:
+                    shutil.move(fp, dirname)
 
 @click.group('realfast_portal')
 def cli2():
