@@ -245,7 +245,7 @@ def refine_candid(candid, indexprefix, ddm, dm_steps, npix_max, mode):
 @cli.command()
 @click.argument('query')
 @click.option('--indexprefix', default='new')
-@click.option('--confirm', default=True)
+@click.option('--confirm', default=True, type=bool)
 @click.option('--mode', default='deployment')
 def refine_all(query, indexprefix, confirm, mode):
     """ Refines all candidates matching query
@@ -254,11 +254,14 @@ def refine_all(query, indexprefix, confirm, mode):
     from realfast import elastic, util
 
     Ids = elastic.get_ids(indexprefix+'cands', query)
+
+    yn = 'yes'
     if confirm:
         yn = input("Refine {0} candidates matching query {1}?".format(len(Ids), query))
-        if yn.lower() in ['y', 'yes']:
-            for Id in Ids: 
-                util.refine_candid(Id, mode=mode)
+
+    if yn.lower() in ['y', 'yes']:
+        for Id in Ids: 
+            util.refine_candid(Id, mode=mode)
 
 @cli.command()
 @click.option('--confirm', default=True, type=bool)
@@ -282,11 +285,17 @@ def archive_local(confirm, mode):
             os.mkdir(dirname) 
             logger.info("Creating directory {0} for products".format(dirname))
         filelist = glob.glob("cands_*[html|pkl|png]")
+
+        yn = 'yes'
         if confirm:
             yn = input("Move {0} files to {1}?".format(len(filelist), dirname))
-            if yn.lower() in ['y', 'yes']:
-                for fp in filelist:
-                    shutil.move(fp, dirname)
+
+        if yn.lower() in ['y', 'yes']:
+            for fp in filelist:
+                shutil.move(fp, dirname)
+    else:
+        logger.warn("Need to be on CBE in lustre workdir")
+
 
 @click.group('realfast_portal')
 def cli2():
