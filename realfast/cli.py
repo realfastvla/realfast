@@ -261,7 +261,7 @@ def refine_all(query, indexprefix, confirm, mode):
 
     if yn.lower() in ['y', 'yes']:
         for Id in Ids: 
-            util.refine_candid(Id, mode=mode)
+            util.refine_candid(Id, indexprefix=indexprefix, mode=mode)
 
 @cli.command()
 @click.option('--confirm', default=True, type=bool)
