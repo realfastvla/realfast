@@ -313,8 +313,8 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
         logger.warn("mode not recognized (deployment or development allowed)")
         return
     cl = distributed.Client(host)
-    workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items()]
-    assert any(['fetch' in name for name in workernames])
+    workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
+    assert len(workernames)
 
     doc = elastic.get_doc(indexprefix+'cands', Id=candid)
     if 'sdmname' not in doc['_source']:
@@ -345,7 +345,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
         logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
         fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
                         refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir=workdir,
-                        resources={"GPU": 1}, devicenum=devicenum, retries=2)
+                        resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
         distributed.fire_and_forget(fut)
 
 # move plot to portal
