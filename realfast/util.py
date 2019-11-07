@@ -297,7 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, npix_max=2048, mode='deployment', devicenum=None):
+def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='deployment', devicenum=None):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
@@ -321,6 +321,9 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=2048, mode='deploy
         logger.warn("No SDM found for candId {0}".format(candid))
         return
     sdmname = doc['_source']['sdmname']
+    prefsname = doc['_source']['prefsname']
+    prefsdoc = elastic.get_doc(indexprefix+'preferences', Id=prefsname)
+    npix_max_orig = prefsdoc['_source']['npix_max']
 
     workdir = '/lustre/evla/test/realfast/archive/refined'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
@@ -343,7 +346,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=2048, mode='deploy
                 elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
     else:
         logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
-        fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
+        fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
                         refine=True, classify=True, ddm=ddm, workdir=workdir,
                         resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
         distributed.fire_and_forget(fut)

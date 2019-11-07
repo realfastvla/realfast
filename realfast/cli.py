@@ -231,14 +231,13 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 @click.argument('candid')
 @click.option('--indexprefix', default='new')
 @click.option('--ddm', default=50)
-@click.option('--npix_max', default=None)
 @click.option('--mode', default='deployment')
-def refine_candid(candid, indexprefix, ddm, npix_max, mode):
+def refine_candid(candid, indexprefix, ddm, mode):
     """ Compile notebook
     """
     from realfast import util
     
-    util.refine_candid(candid, indexprefix, ddm, npix_max, mode)
+    util.refine_candid(candid, indexprefix, ddm, mode)
 
 
 @cli.command()
