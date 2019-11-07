@@ -297,7 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048, mode='deployment', devicenum=None):
+def refine_candid(candid, indexprefix='new', ddm=50, npix_max=2048, mode='deployment', devicenum=None):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
@@ -344,7 +344,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, dm_steps=50, npix_max=2048,
     else:
         logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
         fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max=npix_max,
-                        refine=True, classify=True, ddm=ddm, dm_steps=dm_steps, workdir=workdir,
+                        refine=True, classify=True, ddm=ddm, workdir=workdir,
                         resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
         distributed.fire_and_forget(fut)
 
