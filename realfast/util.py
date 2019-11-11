@@ -297,24 +297,13 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='deployment', devicenum=None):
+def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='deployment', devicenum=None,
+                  distributed=True):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
     from rfpipe import reproduce
     from realfast import elastic
-    import distributed
-    
-    if mode == 'deployment':
-        host = '10.80.200.201:8786'
-    elif mode == 'development':
-        host = '10.80.200.201:8796'
-    else:
-        logger.warn("mode not recognized (deployment or development allowed)")
-        return
-    cl = distributed.Client(host)
-    workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
-    assert len(workernames)
 
     doc = elastic.get_doc(indexprefix+'cands', Id=candid)
     if 'sdmname' not in doc['_source']:
@@ -345,11 +334,29 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
             for Id in Ids:
                 elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
     else:
-        logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
-        fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
-                        refine=True, classify=True, ddm=ddm, workdir=workdir,
+        if distributed:
+            logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
+            import distributed
+    
+            if mode == 'deployment':
+                host = '10.80.200.201:8786'
+            elif mode == 'development':
+                host = '10.80.200.201:8796'
+            else:
+                logger.warn("mode not recognized (deployment or development allowed)")
+                return
+            cl = distributed.Client(host)
+            workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
+            assert len(workernames)
+
+            fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
+                            refine=True, classify=True, ddm=ddm, workdir=workdir,
                         resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
-        distributed.fire_and_forget(fut)
+            distributed.fire_and_forget(fut)
+        else:
+            logger.info("Running refinement for candId {0} and sdm {1}".format(candid, sdmname))
+            reproduce.refine_sdm(sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
+                                 refine=True, classify=True, ddm=ddm, workdir=workdir, devicenum=devicenum)
 
 # move plot to portal
 #    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined'
@@ -361,7 +368,8 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
 #        for Id in Ids:
 #            elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
 
-    cl.close()
+    if distributed:
+        cl.close()
 
 
 def classify_candidates(cc, indexprefix='new', devicenum=None):

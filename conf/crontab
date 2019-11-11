@@ -1,0 +1,5 @@
+SHELL=/bin/bash
+PATH=/home/cbe-master/realfast/anaconda/bin:$PATH
+30 0,12 * * * source /home/cbe-master/realfast/.bashrc && conda activate deployment3 && cd /lustre/evla/test/realfast/archive/sdm_archive && realfast backup > /home/cbe-master/realfast/soft/logs/cron_backup.log 2>&1
+30 6,18 * * * source /home/cbe-master/realfast/.bashrc && conda activate deployment3 && cd /lustre/evla/test/realfast/archive/refined && realfast refine-all notify --confirm False > /home/cbe-master/realfast/soft/logs/cron_refine.log 2>&1
+0 8 * * 1,4 source /home/cbe-master/realfast/.bashrc && conda activate deployment3 && cd /lustre/evla/test/realfast/ && realfast archive-local --confirm False > /home/cbe-master/realfast/soft/logs/cron_archive.log 2>&1
