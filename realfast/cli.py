@@ -237,7 +237,7 @@ def refine_candid(candid, indexprefix, ddm, mode):
     """
     from realfast import util
     
-    util.refine_candid(candid, indexprefix, ddm, mode)
+    util.refine_candid(candid, indexprefix=indexprefix, ddm=ddm, mode=mode)
 
 
 @cli.command()

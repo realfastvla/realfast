@@ -312,7 +312,8 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
     sdmname = doc['_source']['sdmname']
     prefsname = doc['_source']['prefsname']
     prefsdoc = elastic.get_doc(indexprefix+'preferences', Id=prefsname)
-    npix_max_orig = prefsdoc['_source']['npix_max']
+    if npix_max_orig is None:
+        npix_max_orig = prefsdoc['_source']['npix_max']
 
     workdir = '/lustre/evla/test/realfast/archive/refined'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
