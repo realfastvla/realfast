@@ -354,6 +354,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
                             refine=True, classify=True, ddm=ddm, workdir=workdir,
                         resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
             distributed.fire_and_forget(fut)
+            cl.close()
         else:
             logger.info("Running refinement for candId {0} and sdm {1}".format(candid, sdmname))
             reproduce.refine_sdm(sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
@@ -369,8 +370,6 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
 #        for Id in Ids:
 #            elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
 
-    if distributed:
-        cl.close()
 
 
 def classify_candidates(cc, indexprefix='new', devicenum=None):
