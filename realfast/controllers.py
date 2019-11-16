@@ -89,7 +89,12 @@ class realfast_controller(Controller):
 
         self.lock = dask.utils.SerializableLock()
         self.states = {}
-        self.futures = {}
+        # set futures from stored dataset, if it exists
+        if 'futures' in self.client.list_datasets():
+            self.futures = self.client.get_dataset('futures')
+        else:
+            self.futures = {}
+            self.client.publish_dataset(futures=self.futures)
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
@@ -277,7 +282,9 @@ class realfast_controller(Controller):
         self.client.restart()
         sleep(5)
         self.states = {}
+        self.client.unpublish_dataset('futures')
         self.futures = {}
+        self.client.publish_dataset(futures=self.futures)
         self.futures_removed = {}
         self.finished = {}
         self.errors = {}
@@ -644,6 +651,9 @@ class realfast_controller(Controller):
         keep defines a scanId (string) key that should not be removed from dicts.
         """
 
+        # update shared list of futures
+        self.client.publish_dataset(futures=self.futures)
+
         removed = 0
 
         scanIds = [scanId for scanId in self.futures]
@@ -759,6 +769,9 @@ class realfast_controller(Controller):
 
         if removed:
             logger.info('Removed {0} jobs'.format(removed))
+
+        # update shared list of futures
+        self.client.publish_dataset(futures=self.futures)
 
     def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
