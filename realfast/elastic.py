@@ -847,7 +847,8 @@ def audit_indexprefix(indexprefix):
 
 
 def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
-                   consensustype='majority', nop=3, newtags=None, consensus=None):
+                   consensustype='majority', nop=3, newtags=None, consensus=None,
+                   datasetId=None):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
@@ -856,7 +857,8 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
 
     if consensus is None:
         consensus = get_consensus(indexprefix=indexprefix1, nop=nop, match=match,
-                                  consensustype=consensustype, newtags=newtags)
+                                  consensustype=consensustype, newtags=newtags,
+                                  datasetId=datasetId)
 
     logger.info("Moving {0} consensus candidates from {1} to {2}"
                 .format(len(consensus), indexprefix1, indexprefix2))

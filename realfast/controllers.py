@@ -652,8 +652,6 @@ class realfast_controller(Controller):
         """
 
         # update shared list of futures
-        self.client.publish_dataset(futures=self.futures)
-
         removed = 0
 
         scanIds = [scanId for scanId in self.futures]
@@ -771,7 +769,8 @@ class realfast_controller(Controller):
             logger.info('Removed {0} jobs'.format(removed))
 
         # update shared list of futures
-        self.client.publish_dataset(futures=self.futures)
+        self.client.unpublish_dataset('futures')
+        self.client.publish_dataset(futures =self.futures)
 
     def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
