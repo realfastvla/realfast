@@ -101,8 +101,8 @@ def indexscanstatus(scanId, indexprefix='new', **kwargs):
     try:
         res = update_fields(index, fieldlist, valuelist, scanId)
         if res:
-            logger.info("Updated processing status of {0} fields for {1}"
-                        .format(len(fieldlist), scanId))
+            logger.info("Updated processing status for {0}: {1}"
+                        .format(scanId, list(zip(fieldlist, valuelist))))
         else:
             logger.warn("Update of status for scan {0} failed".format(scanId))
     except TransportError:
