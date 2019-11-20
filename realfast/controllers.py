@@ -700,7 +700,7 @@ class realfast_controller(Controller):
                                                                    retries=1))
 
                     # index cands and copy data from special workers
-                    workdir = self.states[scanId].prefs.workdir
+                    workdir = self.states[scanId].prefs.workdir if scanId in self.states else '/lustre/evla/test/realfast'
                     kwargs = {'retries': 1}
                     if self.rsync_with_fetch:
                         kwargs['workers'] = self.fetchworkers
@@ -746,9 +746,12 @@ class realfast_controller(Controller):
 
             for scanId in removeids:
                 _ = self.futures.pop(scanId)
-                _ = self.states.pop(scanId)
                 _ = self.finished.pop(scanId)
                 _ = self.errors.pop(scanId)
+                try:
+                    _ = self.states.pop(scanId)
+                except KeyError:
+                    pass
                 try:
                     _ = self.known_segments.pop(scanId)
                 except KeyError:
