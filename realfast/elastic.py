@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(20)
 
 # eventually should be updated to search.realfast.io/api with auth
-es = Elasticsearch(['realfast.nrao.edu:9200'], timeout=30, max_retries=3, retry_on_timeout=True)
+es = Elasticsearch(['realfast.nrao.edu:9200'], timeout=60, max_retries=3, retry_on_timeout=True)
 
 
 ###
@@ -848,7 +848,7 @@ def audit_indexprefix(indexprefix):
 
 def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
                    consensustype='majority', nop=3, newtags=None, consensus=None,
-                   datasetId=None):
+                   datasetId=None, candId=None, ignoretags=' '):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
@@ -858,7 +858,7 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
     if consensus is None:
         consensus = get_consensus(indexprefix=indexprefix1, nop=nop, match=match,
                                   consensustype=consensustype, newtags=newtags,
-                                  datasetId=datasetId)
+                                  datasetId=datasetId, candId=candId, ignoretags=ignoretags)
 
     logger.info("Moving {0} consensus candidates from {1} to {2}"
                 .format(len(consensus), indexprefix1, indexprefix2))
@@ -896,7 +896,7 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
 
 def get_consensus(indexprefix='new', nop=3, consensustype='majority',
                   res='consensus', match='identical', newtags=None,
-                  datasetId=None):
+                  datasetId=None, ignoretags=' ', candId=None):
     """ Get candidtes with consensus over at least nop user tag fields.
     Argument consensustype: "absolute" (all agree), "majority" (most agree).
     Returns dicts with either consensus and noconsensus candidates (can add "tags" too).
@@ -908,6 +908,7 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
     "notify" => notify found (only implemented for absolute).
     newtags is a comma-delimited string that sets tags to apply to all.
     Can optionally only consider candidates in datasetId.
+    Can optionally ignore tags from specific users with ignoretags.
     """
 
     assert consensustype in ["absolute", "majority"]
@@ -933,8 +934,10 @@ def get_consensus(indexprefix='new', nop=3, consensustype='majority',
         # select only datasetId candidates, if desired
         if datasetId is not None and datasetId not in Id:
             continue
+        if candId is not None and candId != Id:
+            continue
 
-        tagsdict = gettags(indexprefix=indexprefix, Id=Id)
+        tagsdict = gettags(indexprefix=indexprefix, Id=Id, ignore=ignoretags)
         logger.debug("Id {0} has {1} tags".format(Id, len(tagsdict)))
         tagslist = list(tagsdict.values())
 
@@ -1045,7 +1048,7 @@ def resolve_consensus(indexprefix='new', nop=3, consensustype='majority',
     return con
 
 
-def gettags(indexprefix, Id):
+def gettags(indexprefix, Id, ignore=' '):
     """ Get cand Id in for indexprefix
     return dict with all tags.
     """
@@ -1054,7 +1057,7 @@ def gettags(indexprefix, Id):
     doc_type = index.rstrip('s')
 
     doc = es.get(index=index, doc_type=doc_type, id=Id)
-    tagsdict = dict(((k, v) for (k, v) in doc['_source'].items() if '_tags' in k))
+    tagsdict = dict(((k, v) for (k, v) in doc['_source'].items() if ('_tags' in k) and (ignore not in k)))
     return tagsdict
 
 
@@ -1095,6 +1098,9 @@ def create_indices(indexprefix):
     """
 
     body = {"settings": {
+                "index": {
+                    "number_of_replicas": 0
+                },
                 "analysis": {
                     "analyzer": {
                         "default": {"tokenizer": "whitespace"}

@@ -232,12 +232,14 @@ def refinement_notebook(sdmname, notebook, on_rfnode, preffile):
 @click.option('--indexprefix', default='new')
 @click.option('--ddm', default=50)
 @click.option('--mode', default='deployment')
-def refine_candid(candid, indexprefix, ddm, mode):
+@click.option('--npix_max', default=8196)
+def refine_candid(candid, indexprefix, ddm, mode, npix_max):
     """ Compile notebook
     """
+
     from realfast import util
     
-    util.refine_candid(candid, indexprefix=indexprefix, ddm=ddm, mode=mode)
+    util.refine_candid(candid, indexprefix=indexprefix, ddm=ddm, mode=mode, npix_max=npix_max)
 
 
 @cli.command()
@@ -245,11 +247,13 @@ def refine_candid(candid, indexprefix, ddm, mode):
 @click.option('--indexprefix', default='new')
 @click.option('--confirm', default=True, type=bool)
 @click.option('--mode', default='deployment')
-def refine_all(query, indexprefix, confirm, mode):
+@click.option('--npix_max', default=8196)
+def refine_all(query, indexprefix, confirm, mode, npix_max):
     """ Refines all candidates matching query
     """
 
     from realfast import elastic, util
+    import distributed
 
     Ids = elastic.get_ids(indexprefix+'cands', query)
 
@@ -257,10 +261,21 @@ def refine_all(query, indexprefix, confirm, mode):
     if confirm:
         yn = input("Refine {0} candidates matching query {1}?".format(len(Ids), query))
 
+    if mode == 'deployment':
+        host = '10.80.200.201:8786'
+    elif mode == 'development':
+        host = '10.80.200.201:8796'
+    else:
+        logger.warn("mode not recognized (deployment or development allowed)")
+        return
+
+    cl = distributed.Client(host)
     if yn.lower() in ['y', 'yes']:
         for Id in Ids: 
-            util.refine_candid(Id, indexprefix=indexprefix, mode=mode)
+            util.refine_candid(Id, indexprefix=indexprefix, mode=mode, cl=cl, npix_max=npix_max)
+    cl.close()
 
+    
 @cli.command()
 @click.option('--confirm', default=True, type=bool)
 @click.option('--mode', default='archive')

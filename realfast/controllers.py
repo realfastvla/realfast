@@ -319,7 +319,7 @@ class realfast_controller(Controller):
                                     segments=segments)
 
         else:
-            logger.info("Config not suitable for realfast. Skipping.")
+            logger.info("Config not suitable for realfast. Skipping scan.")
 
         self.cleanup()
 
@@ -336,7 +336,14 @@ class realfast_controller(Controller):
                 return
 
         if not config.otf:
-            logger.warn("handle_subscan called for non-OTF subscan. Skipping...")
+            logger.warn("handle_subscan called for non-OTF subscan. Skipping subscan.")
+            return
+
+        if search_config(config, preffile=self.preffile, inprefs=self.inprefs,
+                         nameincludes=self.nameincludes,
+                         searchintents=self.searchintents,
+                         ignoreintents=self.ignoreintents):
+            logger.warn("Config not suitable for realfast. Skipping subscan.")
             return
 
         # set up OTF info

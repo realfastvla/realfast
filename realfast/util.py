@@ -297,8 +297,7 @@ def cc_to_annotation(cc, mode='dict'):
     return annotation
 
 
-def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='deployment', devicenum=None,
-                  distributed=True):
+def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_orig=None, mode='deployment', devicenum=None, cl=None):
     """ Given a candid, get SDM and refine it to make plot.
     """
 
@@ -326,42 +325,36 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max_orig=None, mode='d
     refined_loc = os.path.join(workdir, refined_png)
     refined_url = os.path.join(_candplot_url_prefix, 'refined', refined_png)
 
+    def mp(fut):
+        moveplots('archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
+        if os.path.exists(refined_loc):
+            logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
+            if 'refined_url' not in doc['_source']:
+                Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+                logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
+                for Id in Ids:
+                    elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
+
     # decide whether to submit or update index for known plots
-    if os.path.exists(refined_loc):
-        logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
-        if 'refined_url' not in doc['_source']:
-            Ids = elastic.get_ids(indexprefix+'cands', sdmname)
-            logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
-            for Id in Ids:
-                elastic.update_field(indexprefix+'cands', 'refined_url', refined_url, Id=Id)
-    else:
-        if distributed:
-            logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
-            import distributed
-    
-            if mode == 'deployment':
-                host = '10.80.200.201:8786'
-            elif mode == 'development':
-                host = '10.80.200.201:8796'
-            else:
-                logger.warn("mode not recognized (deployment or development allowed)")
-                return
-            cl = distributed.Client(host)
-            workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
-            assert len(workernames)
+    if cl is not None:
+        logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
+        workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
+        assert len(workernames)
 
-            fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
-                            refine=True, classify=True, ddm=ddm, workdir=workdir,
+        fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml',
+                        npix_max=npix_max, npix_max_orig=npix_max_orig,
+                        refine=True, classify=True, ddm=ddm, workdir=workdir,
                         resources={"GPU": 1}, devicenum=devicenum, retries=2, workers=workernames)
-            distributed.fire_and_forget(fut)
-            cl.close()
-        else:
-            logger.info("Running refinement for candId {0} and sdm {1}".format(candid, sdmname))
-            reproduce.refine_sdm(sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
-                                 refine=True, classify=True, ddm=ddm, workdir=workdir, devicenum=devicenum)
 
+        fut.add_done_callback(mp)
+        distributed.fire_and_forget(fut)
+    else:
+        logger.info("Running refinement for candId {0} and sdm {1}".format(candid, sdmname))
+        reproduce.refine_sdm(sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml', npix_max_orig=npix_max_orig,
+                             npix_max=npix_max, refine=True, classify=True, ddm=ddm, workdir=workdir, devicenum=devicenum)
+        mp(None)
+            
 # move plot to portal
-#    destination = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined'
 #    args = ["rsync", "-av", "--remove-source-files", "--include", "cands_{0}_refined.png".format(sdmname), "--exclude", "*", '.', destination]
 #    distributed.fire_and_forget(cl.submit(subprocess.call, args))
 # if transfer works, then:
