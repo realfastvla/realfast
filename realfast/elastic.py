@@ -848,7 +848,7 @@ def audit_indexprefix(indexprefix):
 
 def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
                    consensustype='majority', nop=3, newtags=None, consensus=None,
-                   datasetId=None, candId=None, ignoretags=' '):
+                   datasetId=None, candId=None, ignoretags=' ', force=False):
     """ Given candids, copies relevant docs from indexprefix1 to indexprefix2.
     newtags will append to the new "tags" field for all moved candidates.
     Default tags field will contain the user consensus tag.
@@ -869,7 +869,7 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
         datasetIds.append('.'.join(scanId.split('.')[:-2]))
 
         # check remaining docs
-        iddict = copy_all_docs(indexprefix1, indexprefix2, candId=candId)
+        iddict = copy_all_docs(indexprefix1, indexprefix2, candId=candId, force=force)
 
         # set tags field
         update_field(indexprefix2+'cands', 'tags',
@@ -889,7 +889,7 @@ def move_consensus(indexprefix1='new', indexprefix2='final', match='identical',
         if not ncands:
             logger.info("No cands from dataset {0} remain. Removing dataset from {1}"
                         .format(datasetId, indexprefix1))
-            move_dataset(indexprefix1, indexprefix2, datasetId)
+            move_dataset(indexprefix1, indexprefix2, datasetId, force=force)
         else:
             logger.info("{0} candidates remain for dataset {1}".format(ncands, datasetId))
 
