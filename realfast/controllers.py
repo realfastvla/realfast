@@ -92,12 +92,16 @@ class realfast_controller(Controller):
         # set futures from stored dataset, if it exists
         if 'futures' in self.client.list_datasets():
             self.futures = self.client.get_dataset('futures')
+            self.finished = self.client.get_dataset('finished')
+            self.errors = self.client.get_dataset('errors')
         else:
             self.futures = {}
+            self.finished = {}
+            self.errors = {}
             self.client.publish_dataset(futures=self.futures)
+            self.client.publish_dataset(futures=self.finished)
+            self.client.publish_dataset(futures=self.errors)
         self.futures_removed = {}
-        self.finished = {}
-        self.errors = {}
         self.known_segments = {}
 
         # define attributes from yaml file
@@ -285,9 +289,16 @@ class realfast_controller(Controller):
         self.client.unpublish_dataset('futures')
         self.futures = {}
         self.client.publish_dataset(futures=self.futures)
-        self.futures_removed = {}
+
+        self.client.unpublish_dataset('finished')
         self.finished = {}
+        self.client.publish_dataset(futures=self.finished)
+
+        self.client.unpublish_dataset('errors')
         self.errors = {}
+        self.client.publish_dataset(futures=self.errors)
+
+        self.futures_removed = {}
         self.known_segments = {}
 
     def handle_config(self, config, cfile=_vys_cfile_prod, segments=None):
@@ -780,7 +791,11 @@ class realfast_controller(Controller):
 
         # update shared list of futures
         self.client.unpublish_dataset('futures')
-        self.client.publish_dataset(futures =self.futures)
+        self.client.unpublish_dataset('finished')
+        self.client.unpublish_dataset('errors')
+        self.client.publish_dataset(futures = self.futures)
+        self.client.publish_dataset(futures = self.finished)
+        self.client.publish_dataset(futures = self.errors)
 
     def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
