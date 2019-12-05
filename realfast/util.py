@@ -325,14 +325,14 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
     refined_loc = os.path.join(workdir, refined_png)
     refined_url = os.path.join(_candplot_url_prefix, 'refined', refined_png)
 
-    def mp(cc):
-        moveplots('archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
+    def move_refined_plots(cc):
+        moveplots('lustre_workdir/archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
         if os.path.exists(refined_loc):
             logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
             if len(cc):
                 url = refined_url
             else:
-                url = 'None'
+                url = 'No candidate found during refinement'
             Ids = elastic.get_ids(indexprefix+'cands', sdmname)
             logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
             for Id in Ids:
