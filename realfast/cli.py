@@ -135,54 +135,9 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
     Can find it from sdmname or can look up by candid.
     """
 
-    if sdmname is None:
-        from realfast import elastic
-        if candid is None:
-            logger.exception("Need to provide canid or sdmname")
-        doc = elastic.get_doc(indexprefix + 'cands', candid)
-        assert 'sdmname' in doc['_source'], 'No sdmname associated with that candid'
-        sdmname = doc['_source']['sdmname'].split('/')[-1]
-        logger.info("Got sdmname {0} from {1}cands index".format(sdmname, indexprefix))
+    from realfast import util
 
-    sdmloc = '/home/mctest/evla/mcaf/workspace/'
-    sdmname_full = os.path.join(sdmloc, sdmname)
-    if os.path.exists(sdmname_full):
-        shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
-    else:
-        logger.info("Trying realfast temp archive...")
-        sdmloc = '/lustre/evla/test/realfast/archive/sdm_archive'
-        sdmname_full = os.path.join(sdmloc, sdmname)
-        if os.path.exists(sdmname_full):
-            shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
-        else:
-            logger.warn("No SDM found")
-            return
-
-    bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
-    if not os.path.exists(bdfdestination):
-        os.mkdir(bdfdestination)
-
-    bdft = sdmname.split('_')[-1]
-    # remove suffix for sdms created multiple times
-    if bdft[-2] is '.':
-        bdft = bdft[:-2]
-    bdfdir = '/lustre/evla/wcbe/data/realfast/'
-    bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
-    if len(bdf0) == 1:
-        bdf0 = bdf0[0].split('/')[-1]
-        newbdfpath = os.path.join(bdfdestination, bdf0)
-        if os.path.exists(newbdfpath) and copybdf and os.path.islink(newbdfpath):
-            os.unlink(newbdfpath)
-
-        if not os.path.exists(newbdfpath):
-            if copybdf:
-                shutil.copy(os.path.join(bdfdir, bdf0), newbdfpath)
-            else:
-                os.symlink(os.path.join(bdfdir, bdf0), newbdfpath)
-    elif len(bdf0) == 0:
-        logger.warn("No bdf found for {0}".format(sdmname))
-    else:
-        logger.warn("Could not find unique bdf for {0} in {1}. No bdf copied.".format(sdmname, bdf0))
+    util.buildsdm(sdmname, candid, indexprefix, copybdf)
 
 
 @cli.command()
