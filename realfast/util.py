@@ -327,18 +327,20 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
 
     def move_refined_plots(cc):
         moveplots('/lustre/evla/test/realfast/archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
-        if os.path.exists(refined_loc):
-            logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
-            if len(cc):
-                url = refined_url
-            else:
-                url = 'No candidate found during refinement'
-            Ids = elastic.get_ids(indexprefix+'cands', sdmname)
-            logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
-            for Id in Ids:
-                elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
+        if len(cc):
+            url = refined_url
+        else:
+            url = 'No candidate found during refinement'
+        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+        logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
+        for Id in Ids:
+            elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
 
     # decide whether to submit or update index for known plots
+    if os.path.exists(refined_loc):
+        logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally. Skipping.".format(candid, sdmname))
+        return
+
     if cl is not None:
         logger.info("Submitting refinement for candId {0} and sdm {1}".format(candid, sdmname))
         workernames = [v['id'] for k, v in cl.scheduler_info()['workers'].items() if 'fetch' in v['id']]
@@ -373,7 +375,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
                         .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
 
             for cd in cc.canddata:
-                frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
+                frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=str(devicenum))
                 elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
         else:
             logger.info("No canddata available for scanId {0}, segment {1}."
