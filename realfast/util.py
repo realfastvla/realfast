@@ -335,7 +335,11 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
         logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
         for Id in Ids:
             elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
-
+            for k,v in elastic.gettags(indexprefix, Id).items(): 
+                if 'notify' in v: 
+                    newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
+                    elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
+            
     # decide whether to submit or update index for known plots
     if os.path.exists(refined_loc):
         logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally. Skipping.".format(candid, sdmname))
