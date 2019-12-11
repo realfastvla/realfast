@@ -327,19 +327,21 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
 
     def move_refined_plots(cc):
         moveplots('/lustre/evla/test/realfast/archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
-        if len(cc):
-            url = refined_url
-        else:
-            url = 'No candidate found during refinement'
-        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
-        logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
-        for Id in Ids:
-            elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
-            for k,v in elastic.gettags(indexprefix, Id).items(): 
-                if 'notify' in v: 
-                    newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
-                    elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
-            
+        if os.path.exists(refined_loc):
+            logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
+            if len(cc):
+                url = refined_url
+            else:
+                url = 'No candidate found during refinement'
+            Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+            logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
+            for Id in Ids:
+                elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
+                for k,v in elastic.gettags(indexprefix, Id).items(): 
+                    if 'notify' in v: 
+                        newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
+                        elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
+
     # decide whether to submit or update index for known plots
     if os.path.exists(refined_loc):
         logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally. Skipping.".format(candid, sdmname))
@@ -386,6 +388,62 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
                         .format(cc.metadata.scanId, cc.segment))
     except AttributeError:
         logger.info("CandCollection has no canddata attached. Not classifying.")
+
+
+def buildsdm(sdmname, candid, indexprefix, copybdf):
+    """ Build and SDM/BDF from the SDM and BDF.
+    """
+
+    import glob
+
+    if sdmname is None:
+        from realfast import elastic
+        if candid is None:
+            logger.exception("Need to provide canid or sdmname")
+        doc = elastic.get_doc(indexprefix + 'cands', candid)
+        assert 'sdmname' in doc['_source'], 'No sdmname associated with that candid'
+        sdmname = doc['_source']['sdmname'].split('/')[-1]
+        logger.info("Got sdmname {0} from {1}cands index".format(sdmname, indexprefix))
+
+    sdmloc = '/home/mctest/evla/mcaf/workspace/'
+    sdmname_full = os.path.join(sdmloc, sdmname)
+    if os.path.exists(sdmname_full):
+        shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
+    else:
+        logger.info("Trying realfast temp archive...")
+        sdmloc = '/lustre/evla/test/realfast/archive/sdm_archive'
+        sdmname_full = os.path.join(sdmloc, sdmname)
+        if os.path.exists(sdmname_full):
+            shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
+        else:
+            logger.warn("No SDM found")
+            return
+
+    bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')
+    if not os.path.exists(bdfdestination):
+        os.mkdir(bdfdestination)
+
+    bdft = sdmname.split('_')[-1]
+    # remove suffix for sdms created multiple times
+    if bdft[-2] is '.':
+        bdft = bdft[:-2]
+    bdfdir = '/lustre/evla/wcbe/data/realfast/'
+    bdf0 = glob.glob('{0}/*{1}'.format(bdfdir, bdft))
+    if len(bdf0) == 1:
+        bdf0 = bdf0[0].split('/')[-1]
+        newbdfpath = os.path.join(bdfdestination, bdf0)
+        if copybdf and os.path.islink(newbdfpath):
+            os.unlink(newbdfpath)
+
+        if not os.path.exists(newbdfpath):
+            if copybdf:
+                shutil.copy(os.path.join(bdfdir, bdf0), newbdfpath)
+            else:
+                os.symlink(os.path.join(bdfdir, bdf0), newbdfpath)
+    elif len(bdf0) == 0:
+        logger.warn("No bdf found for {0}".format(sdmname))
+    else:
+        logger.warn("Could not find unique bdf for {0} in {1}. No bdf copied.".format(sdmname, bdf0))
 
 
 def get_sdmname(candcollection):
