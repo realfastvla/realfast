@@ -390,13 +390,14 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
         logger.info("CandCollection has no canddata attached. Not classifying.")
 
 
-def buildsdm(sdmname, candid, indexprefix, copybdf):
+def buildsdm(sdmname, candid, indexprefix=None, copybdf=True):
     """ Build and SDM/BDF from the SDM and BDF.
     """
 
     import glob
 
     if sdmname is None:
+        assert indexprefix is not None
         from realfast import elastic
         if candid is None:
             logger.exception("Need to provide canid or sdmname")

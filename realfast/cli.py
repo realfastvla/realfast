@@ -137,7 +137,7 @@ def buildsdm(sdmname, candid, indexprefix, copybdf):
 
     from realfast import util
 
-    util.buildsdm(sdmname, candid, indexprefix, copybdf)
+    util.buildsdm(sdmname, candid, indexprefix=indexprefix, copybdf=copybdf)
 
 
 @cli.command()
