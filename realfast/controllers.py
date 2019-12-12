@@ -89,18 +89,26 @@ class realfast_controller(Controller):
 
         self.lock = dask.utils.SerializableLock()
         self.states = {}
+
         # set futures from stored dataset, if it exists
         if 'futures' in self.client.list_datasets():
             self.futures = self.client.get_dataset('futures')
-            self.finished = self.client.get_dataset('finished')
-            self.errors = self.client.get_dataset('errors')
         else:
             self.futures = {}
-            self.finished = {}
-            self.errors = {}
             self.client.publish_dataset(futures=self.futures)
-            self.client.publish_dataset(futures=self.finished)
-            self.client.publish_dataset(futures=self.errors)
+
+        if 'finished' in self.client.list_datasets():
+            self.finished = self.client.get_dataset('finished')
+        else:
+            self.finished = {}
+            self.client.publish_dataset(finished=self.finished)
+
+        if 'errors' in self.client.list_datasets():
+            self.errors = self.client.get_dataset('errors')
+        else:
+            self.errors = {}
+            self.client.publish_dataset(errors=self.errors)
+
         self.futures_removed = {}
         self.known_segments = {}
 
@@ -292,11 +300,11 @@ class realfast_controller(Controller):
 
         self.client.unpublish_dataset('finished')
         self.finished = {}
-        self.client.publish_dataset(futures=self.finished)
+        self.client.publish_dataset(finished=self.finished)
 
         self.client.unpublish_dataset('errors')
         self.errors = {}
-        self.client.publish_dataset(futures=self.errors)
+        self.client.publish_dataset(errors=self.errors)
 
         self.futures_removed = {}
         self.known_segments = {}
@@ -794,8 +802,8 @@ class realfast_controller(Controller):
         self.client.unpublish_dataset('finished')
         self.client.unpublish_dataset('errors')
         self.client.publish_dataset(futures = self.futures)
-        self.client.publish_dataset(futures = self.finished)
-        self.client.publish_dataset(futures = self.errors)
+        self.client.publish_dataset(finished = self.finished)
+        self.client.publish_dataset(errors = self.errors)
 
     def cleanup_retry(self, timeout=30):
         """ Get futures from client who_has and retry them.
