@@ -326,21 +326,26 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
     refined_url = os.path.join(_candplot_url_prefix, 'refined', refined_png)
 
     def move_refined_plots(cc):
-        moveplots('/lustre/evla/test/realfast/archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
         if os.path.exists(refined_loc):
-            logger.info("Refined candidate plot for candId {0} and sdm {1} exists locally".format(candid, sdmname))
-            if len(cc):
-                url = refined_url
-            else:
-                url = 'No candidate found during refinement'
-            Ids = elastic.get_ids(indexprefix+'cands', sdmname)
-            logger.info("\t candId {0} refinement plot exists, but is not indexed. Updating {1} candidates with this sdmname.".format(candid, len(Ids)))
-            for Id in Ids:
-                elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
-                for k,v in elastic.gettags(indexprefix, Id).items(): 
-                    if 'notify' in v: 
-                        newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
-                        elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
+            logger.info("Refined candidate plot for candId {0} and sdm {1} found. Copying...".format(candid, sdmname))
+            moveplots('/lustre/evla/test/realfast/archive/refined/', sdmname, destination='claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/plots/refined')
+        else:
+            logger.info("No refinement plot found for candId {0}.".format(candid))
+
+        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+        if cc is not None:
+            url = refined_url
+            logger.info("Updating refinement plot for {0} candidates with this sdmname with new refined_url.".format(len(Ids)))
+        else:
+            url = 'No candidate found during refinement'
+            logger.info("Updating refinement plot for {0} candidates with this sdmname for no refined_url.".format(len(Ids)))
+
+        for Id in Ids:
+            elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
+            for k,v in elastic.gettags(indexprefix, Id).items():   # remove notify tag
+                if 'notify' in v: 
+                    newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
+                    elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
 
     # decide whether to submit or update index for known plots
     if os.path.exists(refined_loc):
