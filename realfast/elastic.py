@@ -657,7 +657,7 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
     return iddict
 
 
-def candid_bdf(indexprefix, candId):
+def candid_bdf(indexprefix, candId, bdfdir='/lustre/evla/wcbe/data/realfast'):
     """ Given candId in indexprefix, list the bdfname, if it exists.
     """
 
@@ -666,7 +666,7 @@ def candid_bdf(indexprefix, candId):
         sdmname = doc['_source']['sdmname'] 
         logger.info("CandId {0} has sdmname {1}".format(candId, sdmname))
         bdfint = sdmname.split('_')[-1] 
-        bdfname = '/lustre/evla/wcbe/data/realfast/uid____evla_realfastbdf_' + bdfint 
+        bdfname = os.path.join(bdfdir, 'uid____evla_realfastbdf_' + bdfint)
         if os.path.exists(bdfname):
             return bdfname
         else:
