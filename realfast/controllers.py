@@ -479,6 +479,9 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
+### SHIELD change (maybe)
+#        inprefs['spw'] = [spw with fast inttime]
+
         # alternatively, overload prefs with compiled rules (req Python>= 3.5)
 #        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
 
@@ -1016,10 +1019,12 @@ def search_config(config, preffile=None, inprefs={},
             return False
 
     # 5) chansize changes between subbands
-    if not all([chansizes[0] == chansize for chansize in chansizes]):
-        logger.warn("Channel size changes between subbands: {0}"
-                    .format(chansizes))
-        return False
+#    if not all([chansizes[0] == chansize for chansize in chansizes]):
+#        logger.warn("Channel size changes between subbands: {0}"
+#                    .format(chansizes))
+#        return False
+### SHIELD change
+# These configs should be allowed
 
     # 6) start and stop time is after current time
     now = time.Time.now().unix
