@@ -479,11 +479,20 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-### SHIELD change (maybe)
-#        inprefs['spw'] = [spw with fast inttime]
-
-        # alternatively, overload prefs with compiled rules (req Python>= 3.5)
-#        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
+        ### SHIELD change
+        t_fast = 0.05   # TODO: parametrize better
+        spws = []
+        for i, subband in enumerate(config.get_subbands()):
+            inttime = subband.hw_time_res
+            if inttime < t_fast:
+                # need to compare to default spw list
+                if inprefs['spw'] is not None:
+                    if i in inprefs['spw']:
+                        spws.append(i)
+                else:
+                    spws.append(i)                        
+        newprefs['spw'] = spws
+        inprefs = {**inprefs, **newprefs}  # overload prefs (req Python>= 3.5)
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
@@ -1018,13 +1027,11 @@ def search_config(config, preffile=None, inprefs={},
                         .format(intent, ignoreintents))
             return False
 
-    # 5) chansize changes between subbands
+    # 5) chansize changes between subbands (these configs now allowed)
 #    if not all([chansizes[0] == chansize for chansize in chansizes]):
 #        logger.warn("Channel size changes between subbands: {0}"
 #                    .format(chansizes))
 #        return False
-### SHIELD change
-# These configs should be allowed
 
     # 6) start and stop time is after current time
     now = time.Time.now().unix
