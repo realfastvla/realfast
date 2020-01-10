@@ -479,21 +479,6 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-        ### SHIELD change to select fast spw
-        if config is not None:
-            t_fast = 0.05   # TODO: parametrize better
-            spws = []
-            for i, subband in enumerate(config.get_subbands()):
-                inttime = subband.hw_time_res
-                if inttime < t_fast:
-                    # need to compare to default spw list
-                    if inprefs['spw'] is not None:
-                        if i in inprefs['spw']:
-                            spws.append(i)
-                    else:
-                        spws.append(i)                        
-            inprefs['spw'] = spws
-
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir, validate=validate, showsummary=showsummary)
