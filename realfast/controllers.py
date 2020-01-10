@@ -479,20 +479,20 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-        ### SHIELD change
-        t_fast = 0.05   # TODO: parametrize better
-        spws = []
-        for i, subband in enumerate(config.get_subbands()):
-            inttime = subband.hw_time_res
-            if inttime < t_fast:
-                # need to compare to default spw list
-                if inprefs['spw'] is not None:
-                    if i in inprefs['spw']:
-                        spws.append(i)
-                else:
-                    spws.append(i)                        
-        newprefs = {'spw': spws}
-        inprefs = {**inprefs, **newprefs}  # overload prefs (req Python>= 3.5)
+        ### SHIELD change to select fast spw
+        if config is not None:
+            t_fast = 0.05   # TODO: parametrize better
+            spws = []
+            for i, subband in enumerate(config.get_subbands()):
+                inttime = subband.hw_time_res
+                if inttime < t_fast:
+                    # need to compare to default spw list
+                    if inprefs['spw'] is not None:
+                        if i in inprefs['spw']:
+                            spws.append(i)
+                    else:
+                        spws.append(i)                        
+            inprefs['spw'] = spws
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
@@ -1007,7 +1007,7 @@ def search_config(config, preffile=None, inprefs={},
             return False
 
     # 2) only if some fast sampling is done (faster than VLASS final inttime)
-    t_fast = 0.05
+    t_fast = 0.05  # TODO: set better
     if not any([inttime < t_fast for inttime in inttimes]):
         logger.warn("No subband has integration time faster than {0} s"
                     .format(t_fast))
@@ -1087,7 +1087,7 @@ def summarize(config):
     """ Print summary info for config
     """
 
-    t_fast = 0.05
+    t_fast = 0.05  # TODO: set better
     try:
         logger.info(':: ConfigID {0} ::'.format(config.configId))
         logger.info('\tScan {0}, source {1}, intent {2}'
