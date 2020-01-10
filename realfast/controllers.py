@@ -491,7 +491,7 @@ class realfast_controller(Controller):
                         spws.append(i)
                 else:
                     spws.append(i)                        
-        newprefs['spw'] = spws
+        newprefs = {'spw': spws}
         inprefs = {**inprefs, **newprefs}  # overload prefs (req Python>= 3.5)
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
@@ -1087,6 +1087,7 @@ def summarize(config):
     """ Print summary info for config
     """
 
+    t_fast = 0.05
     try:
         logger.info(':: ConfigID {0} ::'.format(config.configId))
         logger.info('\tScan {0}, source {1}, intent {2}'
@@ -1095,7 +1096,7 @@ def summarize(config):
 
         logger.info('\t(RA, Dec) = ({0}, {1})'
                     .format(config.ra_deg, config.dec_deg))
-        subbands = config.get_subbands()
+        subbands = [sb for sb in config.get_subbands() if sb.hw_time_res < t_fast]
         reffreqs = [subband.sky_center_freq for subband in subbands]
         logger.info('\tFreq: {0} - {1}'
                     .format(min(reffreqs), max(reffreqs)))
