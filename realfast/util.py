@@ -247,8 +247,8 @@ def cc_to_annotation(cc0):
 
     # fixed in cc
     maxsnr = cc0.snrtot.max()
-    snr = cc0.snrtot[i]
-    cc = cc0[np.where(cc.snrtot == maxsnr)]
+    ind = np.where(cc.snrtot == maxsnr)[0][0]
+    cc = cc0[ind]
 
     uvres = cc.state.uvres
     npix = min(cc.state.npixx, cc.state.npixy)  # estimate worst loc
@@ -259,19 +259,19 @@ def cc_to_annotation(cc0):
     l1 = cc.candl
     m1 = cc.candm
     ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
-    candids = ['{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind) for segment, integration, dmind, dtind, beamnum = cc0.locs]
+    candids = ','.join(['{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind) for segment, integration, dmind, dtind, beamnum in cc0.locs])
 
     dd = {'primary_filesetId': cc.metadata.datasetId,
-          'cand_Id': candid,
+          'portal_candidate_IDs': candids,
 #          'transient_mjd': None,  # TODO
-          'transient_RA': ra,
+          'transient_RA': ra[0].replace('h', ':').replace('m', ':').rstrip('s'),
           'transient_RA_error': float(pixel_sec),
-          'transient_Dec': dec,
+          'transient_Dec': dec[0].replace('d', ':').replace('m', ':').rstrip('s'),
           'transient_Dec_error': float(pixel_sec),
-          'transient_SNR': float(snr),
-          'transient_DM': float(cc.canddm[i]),
+          'transient_SNR': float(maxsnr),
+          'transient_DM': float(cc.canddm[ind]),
           'transient_DM_error': float(dmarr[1]-dmarr[0]),
-          'preaverage_time': float(cc.canddt[i]),
+          'preaverage_time': float(cc.canddt[ind]),
           'rfpipe_version': cc.prefs.rfpipe_version,
           'prefs_Id': cc.prefs.name}
 # TODO: get noises and classifications in
