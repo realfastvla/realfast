@@ -197,7 +197,7 @@ def createproducts(candcollection, data, indexprefix=None,
                     .format(nint, i, startTime, segment))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        annotation = cc_to_annotation(candcollection, mode='dict')
+        annotation = cc_to_annotation(candcollection)
 
 # now retrieved from candcollection
 #        calScanTime = np.unique(calibration.getsols(st)['mjd'])
