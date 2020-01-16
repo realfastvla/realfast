@@ -247,7 +247,7 @@ def cc_to_annotation(cc0):
 
     # fixed in cc
     maxsnr = cc0.snrtot.max()
-    ind = np.where(cc.snrtot == maxsnr)[0][0]
+    ind = np.where(cc0.snrtot == maxsnr)[0][0]
     cc = cc0[ind]
 
     uvres = cc.state.uvres
