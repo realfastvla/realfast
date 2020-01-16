@@ -479,9 +479,6 @@ class realfast_controller(Controller):
         inprefs = preferences.parsepreffile(self.preffile, name=prefsname,
                                             inprefs=self.inprefs)
 
-        # alternatively, overload prefs with compiled rules (req Python>= 3.5)
-#        inprefs = {**inprefs, **heuristics.band_prefs(inmeta)}
-
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
                          lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir, validate=validate, showsummary=showsummary)
@@ -995,7 +992,7 @@ def search_config(config, preffile=None, inprefs={},
             return False
 
     # 2) only if some fast sampling is done (faster than VLASS final inttime)
-    t_fast = 0.05
+    t_fast = 0.05  # TODO: set better
     if not any([inttime < t_fast for inttime in inttimes]):
         logger.warn("No subband has integration time faster than {0} s"
                     .format(t_fast))
@@ -1015,11 +1012,11 @@ def search_config(config, preffile=None, inprefs={},
                         .format(intent, ignoreintents))
             return False
 
-    # 5) chansize changes between subbands
-    if not all([chansizes[0] == chansize for chansize in chansizes]):
-        logger.warn("Channel size changes between subbands: {0}"
-                    .format(chansizes))
-        return False
+    # 5) chansize changes between subbands (these configs now allowed)
+#    if not all([chansizes[0] == chansize for chansize in chansizes]):
+#        logger.warn("Channel size changes between subbands: {0}"
+#                    .format(chansizes))
+#        return False
 
     # 6) start and stop time is after current time
     now = time.Time.now().unix
@@ -1075,6 +1072,7 @@ def summarize(config):
     """ Print summary info for config
     """
 
+    t_fast = 0.05  # TODO: set better
     try:
         logger.info(':: ConfigID {0} ::'.format(config.configId))
         logger.info('\tScan {0}, source {1}, intent {2}'
@@ -1083,7 +1081,7 @@ def summarize(config):
 
         logger.info('\t(RA, Dec) = ({0}, {1})'
                     .format(config.ra_deg, config.dec_deg))
-        subbands = config.get_subbands()
+        subbands = [sb for sb in config.get_subbands() if sb.hw_time_res < t_fast]
         reffreqs = [subband.sky_center_freq for subband in subbands]
         logger.info('\tFreq: {0} - {1}'
                     .format(min(reffreqs), max(reffreqs)))
