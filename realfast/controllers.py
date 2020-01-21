@@ -639,7 +639,7 @@ class realfast_controller(Controller):
                         self.client.run(gc.collect)
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                         justran = 1
-                    elif (int(segsubtime-t0) % 5):
+                    elif (int(segsubtime-t0) % 20):
                         justran = 0
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
@@ -649,7 +649,7 @@ class realfast_controller(Controller):
                         self.client.run(gc.collect)
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                         justran = 1
-                    elif (int(segsubtime-t0) % 5):
+                    elif (int(segsubtime-t0) % 20):
                         justran = 0
                 elif not (telcalset if self.requirecalibration else True):
                     if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
