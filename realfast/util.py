@@ -8,7 +8,7 @@ import os
 import shutil
 import subprocess
 import numpy as np
-from astropy import time, coordinates, units
+from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
 import distributed
@@ -64,14 +64,48 @@ def send_voevent(cc, destination='3.13.26.235'):
     """
 
     from rfpipe import candidates
+    cc = select_cc(cc, dm="FRB")
 
+    logger.info('Making {0} VOEvent xml files'.format(len(cc)))
     outnames = candidates.make_voevent(cc)
-    logger.info('Made {0} VOEvent xml files'.format(len(outnames)))
 
     # send to destination
     # for outname in outnames
     #     comet-sendvo -h destination -f outname
     logger.info("Not sending voevents to {0}".format(destination))
+
+
+def select_cc(cc, snrtot=None, dm=None):
+    """ Filter candcollections based on candidate properties.
+    If snrtot and dm are set, candidates must have larger values.
+    DM can be float in pc/cm3 or 'FRB', which uses NE2001 plus halo
+    model of YT2020. Uses implementation in pygedm.
+    Returns new subset cc that passes selection criteria.
+    """
+
+    if snrtot is not None:
+        sel = cc.snrtot > snrtot
+
+    if dm is not None:
+        if dm.upper() == "FRB":  # calc DM threshold per candidate
+            import pygedm
+            from astropy import coordinates
+            ra_ctr, dec_ctr = cc.metadata.radec
+            l1 = cc.candl
+            m1 = cc.candm
+            ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+            coords = coordinates.SkyCoord(ra, dec)
+            ls, bs = coords.galactic.l, coords.galactic.b
+            dmt = np.array([(pygedm.dist_to_dm(l, b, 10000, method='ne2001')[0] + pygedm.calculate_halo_dm(l, b)).value for (l, b) in zip(ls, bs)])
+        else:  # single DM threshold
+            assert isinstance(dm, float) or isinstance(dm, int)
+            dmt = dm
+        sel *= cc.canddm > dmt
+
+    logger.info("Selecting {0} of {1} candidates for dm={2} and snrtot={3}".format(len(sel), len(cc), dm, snrtot))
+    cc0 = sum([cc[i] for i in np.where(sel)[0]])
+
+    return cc0
 
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
