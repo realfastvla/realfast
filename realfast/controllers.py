@@ -982,6 +982,7 @@ def search_config(config, preffile=None, inprefs={},
     antnames = [str(ant.name) for ant in antennas]
     subbands = config.get_subbands()
     inttimes = [subband.hw_time_res for subband in subbands]
+    inttimes_final = [subband.final_time_res for subband in subbands]
     pols = [subband.pp for subband in subbands]
     nchans = [subband.spectralChannels for subband in subbands]
     chansizes = [subband.bw/subband.spectralChannels for subband in subbands]
@@ -1016,6 +1017,10 @@ def search_config(config, preffile=None, inprefs={},
                         .format(intent, ignoreintents))
             return False
 
+    # 5) only search true commensal (not recording hw inttime data)
+    if all([inttime == inttime_final for (inttime, inttime_final) in zip(inttimes, inttimes_final)]):
+        logger.warn("All spw have hardware integration time equal to final integration time (not commensal)")
+        return False
     # 5) chansize changes between subbands (these configs now allowed)
 #    if not all([chansizes[0] == chansize for chansize in chansizes]):
 #        logger.warn("Channel size changes between subbands: {0}"
