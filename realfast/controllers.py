@@ -996,7 +996,7 @@ def search_config(config, preffile=None, inprefs={},
             return False
 
     # 2) only if some fast sampling is done (faster than VLASS final inttime)
-    t_fast = 0.05  # TODO: set better
+    t_fast = 0.04  # TODO: set better
     if not any([inttime < t_fast for inttime in inttimes]):
         logger.warn("No subband has integration time faster than {0} s"
                     .format(t_fast))
@@ -1076,7 +1076,7 @@ def summarize(config):
     """ Print summary info for config
     """
 
-    t_fast = 0.05  # TODO: set better
+    t_fast = 0.04  # TODO: set better
     try:
         logger.info(':: ConfigID {0} ::'.format(config.configId))
         logger.info('\tScan {0}, source {1}, intent {2}'
