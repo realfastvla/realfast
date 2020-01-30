@@ -132,7 +132,7 @@ class realfast_controller(Controller):
         allattrs = ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                     'searchintents',  'ignoreintents',
-                    'throttle', 'classify',
+                    'throttle', 'classify', 'voevent',
                     'read_overhead', 'read_totfrac',
                     'indexprefix', 'daskdir', 'requirecalibration',
                     'data_logging', 'rsync_with_fetch', 'rsync_with_reader']
@@ -143,6 +143,8 @@ class realfast_controller(Controller):
             elif attr == 'throttle':
                 setattr(self, attr, 0.8)  # submit relative to realtime
             elif 'rsync' in attr:
+                setattr(self, attr, False)
+            elif attr == 'voevent':
                 setattr(self, attr, False)
             else:
                 setattr(self, attr, None)
@@ -748,7 +750,9 @@ class realfast_controller(Controller):
                                                                    fut, data,
                                                                    indexprefix=indexprefix,
                                                                    retries=1))
-
+                if self.voevent:
+                    distributed.fire_and_forget(self.client.submit(util.send_voevent, cc,
+                                                                   retries=1))
                 # remove job from list
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup
                 self.futures[scanId].remove(futures)

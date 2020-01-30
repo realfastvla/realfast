@@ -59,6 +59,20 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     return cc
 
+def send_voevent(cc, destination='3.13.26.235'):
+    """ Runs make_voevent and then (eventually?) sends it
+    """
+
+    from rfpipe import candidates
+
+    outnames = candidates.make_voevent(cc)
+    logger.info('Made {0} VOEvent xml files'.format(len(outnames)))
+
+    # send to destination
+    # for outname in outnames
+    #     comet-sendvo -h destination -f outname
+    logger.info("Not sending voevents to {0}".format(destination))
+
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
     """ For given fileroot, move candidate plots to public location
