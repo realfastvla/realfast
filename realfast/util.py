@@ -370,8 +370,12 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
 
         Ids = elastic.get_ids(indexprefix+'cands', sdmname)
         if cc is not None:
-            url = refined_url
-            logger.info("Updating refinement plot for {0} candidates with this sdmname with new refined_url.".format(len(Ids)))
+            if len(cc):
+                url = refined_url
+                logger.info("Updating refinement plot for {0} candidates with this sdmname with new refined_url.".format(len(Ids)))
+            else:
+                url = 'No candidate found during refinement'
+                logger.info("Updating refinement plot for {0} candidates with this sdmname for no refined_url.".format(len(Ids)))
         else:
             url = 'No candidate found during refinement'
             logger.info("Updating refinement plot for {0} candidates with this sdmname for no refined_url.".format(len(Ids)))
