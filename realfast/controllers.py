@@ -1074,6 +1074,17 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     else:
         prefsname = 'default'
 
+    if band == 'S' and meta.inttime == 0.018 and len(meta.spw_orig) == 16:
+        subbands = config.get_subbands()
+        inttimes_final = [subband.final_time_res for subband in subbands]
+        if inttimes_final[0] == 0.45:
+            prefsname = 'VLASS'
+            logger.info("Looks like this is VLASS S band")
+        else:
+            logger.info("Looks like this is not VLASS final inttime")
+    else:
+        logger.info("Looks like this is not VLASS spw/hw_inttime")
+            
     return prefsname
 
 
