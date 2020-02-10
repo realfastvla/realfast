@@ -1057,6 +1057,7 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     """ Given a scan, set the name of the realfast preferences to use
     Allows configuration of pipeline based on scan properties.
     (e.g., galactic/extragal, FRB/pulsar).
+    Can also infer VLASS mode.
     """
 
     from rfpipe import metadata
@@ -1074,16 +1075,14 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     else:
         prefsname = 'default'
 
-    if band == 'S' and meta.inttime == 0.018 and len(meta.spw_orig) == 16:
+    if (config is not None) and (band == 'S'):
         subbands = config.get_subbands()
         inttimes_final = [subband.final_time_res for subband in subbands]
-        if inttimes_final[0] == 0.45:
+        if (meta.inttime < 0.02) and (len(meta.spw_orig) == 16) and (inttimes_final[0] < 0.5):
             prefsname = 'VLASS'
             logger.info("Looks like this is VLASS S band")
         else:
-            logger.info("Looks like this is not VLASS final inttime")
-    else:
-        logger.info("Looks like this is not VLASS spw/hw_inttime")
+            logger.info("Looks like this is not VLASS S band")
             
     return prefsname
 
