@@ -75,11 +75,11 @@ def send_voevent(cc, destination='3.13.26.235'):
     logger.info("Not sending voevents to {0}".format(destination))
 
 
-def select_cc(cc, snrtot=None, dm=None):
+def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
     """ Filter candcollections based on candidate properties.
     If snrtot and dm are set, candidates must have larger values.
     DM can be float in pc/cm3 or 'FRB', which uses NE2001 plus halo
-    model of YT2020. Uses implementation in pygedm.
+    model of YT2020. Uses implementation in FRB/ne2001.
     Returns new subset cc that passes selection criteria.
     """
 
@@ -88,15 +88,16 @@ def select_cc(cc, snrtot=None, dm=None):
 
     if dm is not None:
         if dm.upper() == "FRB":  # calc DM threshold per candidate
-            import pygedm
             from astropy import coordinates
+            from ne2001 import ne_io, density
+            ne = density.ElectronDensity(**ne_io.Params())
             ra_ctr, dec_ctr = cc.metadata.radec
             l1 = cc.candl
             m1 = cc.candm
             ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
             coords = coordinates.SkyCoord(ra, dec)
             ls, bs = coords.galactic.l, coords.galactic.b
-            dmt = np.array([(pygedm.dist_to_dm(l, b, 10000, method='ne2001')[0] + pygedm.calculate_halo_dm(l, b)).value for (l, b) in zip(ls, bs)])
+            dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
         else:  # single DM threshold
             assert isinstance(dm, float) or isinstance(dm, int)
             dmt = dm
