@@ -66,13 +66,16 @@ def send_voevent(cc, destination='3.13.26.235'):
     from rfpipe import candidates
     cc = select_cc(cc, dm="FRB")
 
-    logger.info('Making {0} VOEvent xml files'.format(len(cc)))
-    outnames = candidates.make_voevent(cc)
+    if len(cc):
+        logger.info('Making {0} VOEvent xml files'.format(len(cc)))
+        outnames = candidates.make_voevent(cc)
 
-    # send to destination
-    # for outname in outnames
-    #     comet-sendvo -h destination -f outname
-    logger.info("Not sending voevents to {0}".format(destination))
+        # send to destination
+#       for outname in outnames
+#           comet-sendvo -h destination -f outname
+        logger.info("Not sending voevents to {0}".format(destination))
+    else:
+        logger.info("No candidates meet criteria for voevent generation.")
 
 
 def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
@@ -83,28 +86,39 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
     Returns new subset cc that passes selection criteria.
     """
 
-    if snrtot is not None:
-        sel = cc.snrtot > snrtot
+    from rfpipe import candidates
+    from astropy import coordinates
+    from ne2001 import ne_io, density
 
-    if dm is not None:
-        if dm.upper() == "FRB":  # calc DM threshold per candidate
-            from astropy import coordinates
-            from ne2001 import ne_io, density
-            ne = density.ElectronDensity(**ne_io.Params())
-            ra_ctr, dec_ctr = cc.metadata.radec
-            l1 = cc.candl
-            m1 = cc.candm
-            ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
-            coords = coordinates.SkyCoord(ra, dec)
-            ls, bs = coords.galactic.l, coords.galactic.b
-            dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
-        else:  # single DM threshold
-            assert isinstance(dm, float) or isinstance(dm, int)
+    sel = [True]*len(cc)
+
+    if snrtot is not None:
+        sel *= cc.snrtot > snrtot
+
+    if len(cc):
+        dmt = 0.
+        if isinstance(dm, str):
+            if dm.upper() == "FRB":  # calc DM threshold per candidate
+                ne = density.ElectronDensity(**ne_io.Params())
+                ra_ctr, dec_ctr = cc.metadata.radec
+                l1 = cc.candl
+                m1 = cc.candm
+                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+                coords = coordinates.SkyCoord(ra, dec)
+                ls, bs = coords.galactic.l, coords.galactic.b
+                dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
+        elif isinstance(dm, float) or isinstance(dm, int):  # single DM threshold
             dmt = dm
         sel *= cc.canddm > dmt
+        sel = np.where(sel)[0]
+        if len(sel):
+            cc0 = sum([cc[i] for i in sel])
+        else:
+            cc0 = []
+    else:
+        cc0 = cc
 
     logger.info("Selecting {0} of {1} candidates for dm={2} and snrtot={3}".format(len(sel), len(cc), dm, snrtot))
-    cc0 = sum([cc[i] for i in np.where(sel)[0]])
 
     return cc0
 
