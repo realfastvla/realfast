@@ -383,24 +383,24 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
         else:
             logger.info("No refinement plot found for candId {0}.".format(candid))
 
-        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
+#        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
         if cc is not None:
             if len(cc):
                 url = refined_url
-                logger.info("Updating refinement plot for {0} candidates with this sdmname with new refined_url.".format(len(Ids)))
+                logger.info("Updating refinement plot for new new refined_url.")
             else:
                 url = 'No candidate found during refinement'
-                logger.info("Updating refinement plot for {0} candidates with this sdmname for no refined_url.".format(len(Ids)))
+                logger.info("Updating refinement plot for no refined_url.")
         else:
             url = 'No candidate found during refinement'
-            logger.info("Updating refinement plot for {0} candidates with this sdmname for no refined_url.".format(len(Ids)))
+            logger.info("Updating refinement plot for no refined_url.")
 
-        for Id in Ids:
-            elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=Id)
-            for k,v in elastic.gettags(indexprefix, Id).items():   # remove notify tag
-                if 'notify' in v: 
-                    newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
-                    elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
+#        for Id in Ids:
+        elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=candid)
+        for k,v in elastic.gettags(indexprefix, Id).items():   # remove notify tag
+            if 'notify' in v: 
+                newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
+                elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
 
     # decide whether to submit or update index for known plots
     if os.path.exists(refined_loc):
