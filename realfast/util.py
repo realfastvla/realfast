@@ -261,7 +261,7 @@ def createproducts(candcollection, data, indexprefix=None,
         nint = floor(86400*(endTime-startTime)/metadata.inttime)
         logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}."
                     .format(nint, i, startTime, segment))
-        logger.info("Input shape {0}. Reshaping to {1}".format(data.shape, (nint, nbl, nspw, 1, nchan, npol)))
+        logger.info("Input shape {0}. Cutting then reshaping to {1}".format(data.shape, (nint, nbl, nspw, 1, nchan, npol)))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         annotation = cc_to_annotation(candcollection)
