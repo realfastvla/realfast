@@ -750,8 +750,8 @@ class realfast_controller(Controller):
                                                                    fut, data,
                                                                    indexprefix=indexprefix,
                                                                    retries=1))
-                if self.voevent:
-                    distributed.fire_and_forget(self.client.submit(util.send_voevent, cc,
+                if self.voevent is not False:
+                    distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
                                                                    retries=1))
                 # remove job from list
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup

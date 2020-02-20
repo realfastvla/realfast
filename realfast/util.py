@@ -59,12 +59,12 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     return cc
 
-def send_voevent(cc, destination='3.13.26.235'):
+def send_voevent(cc, dm='FRB', snrtot=None, destination='3.13.26.235'):
     """ Runs make_voevent and then (eventually?) sends it
     """
 
     from rfpipe import candidates
-    cc = select_cc(cc, dm="FRB")
+    cc = select_cc(cc, dm=dm, snrtot=snrtot)
 
     if len(cc):
         logger.info('Making {0} VOEvent xml files'.format(len(cc)))
@@ -215,6 +215,8 @@ def createproducts(candcollection, data, indexprefix=None,
     if len(candcollection) == 0:
         logger.info('No candidates to generate products for.')
         return []
+    else:
+        logger.info('Generating products for {0} candidates in this segment.'.format(len(candcollection))))
 
     if isinstance(data, distributed.Future):
         data = data.result()
