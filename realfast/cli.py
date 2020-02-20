@@ -253,6 +253,10 @@ def archive_local(confirm, mode):
             os.mkdir(dirname) 
             logger.info("Creating directory {0} for products".format(dirname))
         filelist = glob.glob("cands_*[html|pkl|png]")
+        xmlfilelist = glob.glob("rfcand*xml")
+        if len(xmlfilelist):
+            logger.info("Found {0} xml files.".format(len(xmlfilelist)))
+        filelist += xmlfilelist
 
         yn = 'yes'
         if confirm:
