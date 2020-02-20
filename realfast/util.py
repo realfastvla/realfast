@@ -216,9 +216,10 @@ def createproducts(candcollection, data, indexprefix=None,
         logger.info('No candidates to generate products for.')
         return []
     else:
-        logger.info('Generating products for {0} candidates in this segment.'.format(len(candcollection))))
+        logger.info('Generating products for {0} candidates in this segment.'.format(len(candcollection)))
 
     if isinstance(data, distributed.Future):
+        logger.info("Calling data in...")
         data = data.result()
 
     assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
@@ -258,8 +259,9 @@ def createproducts(candcollection, data, indexprefix=None,
     for (startTime, endTime) in set(candranges):
         i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = floor(86400*(endTime-startTime)/metadata.inttime)
-        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}"
+        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}."
                     .format(nint, i, startTime, segment))
+        logger.info("Input shape {0}. Reshaping to {1}".format(data.shape, (nint, nbl, nspw, 1, nchan, npol)))
         data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
 
         annotation = cc_to_annotation(candcollection)
