@@ -59,21 +59,34 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     return cc
 
-def send_voevent(cc, dm='FRB', snrtot=None, destination='3.13.26.235'):
-    """ Runs make_voevent and then (eventually?) sends it
+def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
+    """ Runs make_voevent for some selection of candidates and optionall sends them.
+    mode can be 'max' or 'all', which selects whether to make/send for all cands
+    or just max of snrtot.
     """
 
     from rfpipe import candidates
+    assert mode in ['max', 'all']
+
     cc = select_cc(cc, dm=dm, snrtot=snrtot)
 
     if len(cc):
-        logger.info('Making {0} VOEvent xml files'.format(len(cc)))
+        if mode == 'max':
+            cc0 = cc[np.where(cc.snrtot == max(cc.snrtot))[0][0]]
+            logger.info('Making VOEvent xml file for max snrtot')
+        else:
+            cc0 = cc
+            logger.info('Making {0} VOEvent xml files'.format(len(cc0)))
+
         outnames = candidates.make_voevent(cc)
 
         # send to destination
-#       for outname in outnames
-#           comet-sendvo -h destination -f outname
-        logger.info("Not sending voevents to {0}".format(destination))
+        if destination is not None:
+            logger.info("Sending voevent(s) to {0}".format(destination))
+            for outname in outnames:
+                res = subprocess.call(["comet-sendvo", "-h", destination, "-f", outname])
+        else:
+            logger.info("Not sending voevent(s)")
     else:
         logger.info("No candidates meet criteria for voevent generation.")
 

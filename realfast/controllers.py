@@ -132,8 +132,8 @@ class realfast_controller(Controller):
         allattrs = ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                     'searchintents',  'ignoreintents',
-                    'throttle', 'classify', 'voevent',
-                    'read_overhead', 'read_totfrac',
+                    'throttle', 'classify', 'voevent', 'voevent_destination',
+                    'voevent_snrtot', 'read_overhead', 'read_totfrac',
                     'indexprefix', 'daskdir', 'requirecalibration',
                     'data_logging', 'rsync_with_fetch', 'rsync_with_reader']
 
@@ -752,6 +752,8 @@ class realfast_controller(Controller):
                                                                    retries=1))
                 if self.voevent is not False:
                     distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
+                                                                   snrtot=self.voevent_snrtot,
+                                                                   destination=self.voevent_destination,
                                                                    retries=1))
                 # remove job from list
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup
