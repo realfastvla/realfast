@@ -78,7 +78,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
             cc0 = cc
             logger.info('Making {0} VOEvent xml files'.format(len(cc0)))
 
-        outnames = candidates.make_voevent(cc)
+        outnames = candidates.make_voevent(cc0)
 
         # send to destination
         if destination is not None:
