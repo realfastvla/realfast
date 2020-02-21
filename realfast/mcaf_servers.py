@@ -7,8 +7,8 @@ from future.moves.urllib.request import urlopen
 from future.moves.urllib.error import HTTPError
 
 import os.path
-from lxml import etree, objectify
 import json
+from lxml import etree, objectify
 from astropy import time
 import numpy as np
 import logging

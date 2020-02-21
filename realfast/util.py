@@ -85,6 +85,9 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
             logger.info("Sending voevent(s) to {0}".format(destination))
             for outname in outnames:
                 res = subprocess.call(["comet-sendvo", "-h", destination, "-f", outname])
+#                rsync outname claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/voevents/
+#                outname0 = outname.split('/')[-1]
+#                ssh claw@nmpost-master "conda activate rfs; comet-sendvo -h 3.13.26.235 -f /lustre/aoc/projects/fasttransients/realfast/voevents/{outname0}"
         else:
             logger.info("Not sending voevent(s)")
     else:
