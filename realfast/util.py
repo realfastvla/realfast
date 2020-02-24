@@ -68,6 +68,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
     from rfpipe import candidates
     assert mode in ['max', 'all']
 
+    voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
     cc = select_cc(cc, dm=dm, snrtot=snrtot)
 
     if len(cc):
@@ -84,10 +85,13 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
         if destination is not None:
             logger.info("Sending voevent(s) to {0}".format(destination))
             for outname in outnames:
-                res = subprocess.call(["comet-sendvo", "-h", destination, "-f", outname])
-#                rsync outname claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast/voevents/
-#                outname0 = outname.split('/')[-1]
-#                ssh claw@nmpost-master "conda activate rfs; comet-sendvo -h 3.13.26.235 -f /lustre/aoc/projects/fasttransients/realfast/voevents/{outname0}"
+#                res = subprocess.call(["comet-sendvo", "-h", destination, "-f", outname])
+                success = rsync(outname, 'claw@nmpost-master:' + voeventdir)
+                if success:
+                    outname0 = voeventdir + outname.split('/')[-1]
+                    subprocess.call(['ssh', 'claw@nmpost-master', 'conda activate rfs; comet-sendvo -h {0} -f {1}'.format(destination, outname0)])
+                else:
+                    logger.warn("rsync of voevent xml file failed.")
         else:
             logger.info("Not sending voevent(s)")
     else:
