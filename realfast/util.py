@@ -112,10 +112,10 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
 
     sel = [True]*len(cc)
 
-    if snrtot is not None:
-        sel *= cc.snrtot > snrtot
-
     if len(cc):
+        if snrtot is not None:
+            sel *= cc.snrtot > snrtot
+
         dmt = 0.
         if isinstance(dm, str):
             if dm.upper() == "FRB":  # calc DM threshold per candidate
