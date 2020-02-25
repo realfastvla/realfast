@@ -689,7 +689,7 @@ class realfast_controller(Controller):
         memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10])
         if memory_summary:
             logger.info("High memory usage on cluster: {0}".format(memory_summary))
-            workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 10]
+            workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 12]
             for w in workers_highmem:
                 distributed.fire_and_forget(self.client.submit(logging_statement, memory_summary, workers=workers_highmem, pure=False))
 
