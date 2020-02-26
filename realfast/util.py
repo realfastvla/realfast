@@ -113,9 +113,11 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
     sel = [True]*len(cc)
 
     if len(cc):
+        # snr selection
         if snrtot is not None:
             sel *= cc.snrtot > snrtot
 
+        # dm selection
         dmt = 0.
         if isinstance(dm, str):
             if dm.upper() == "FRB":  # calc DM threshold per candidate
@@ -127,9 +129,25 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
                 coords = coordinates.SkyCoord(ra, dec)
                 ls, bs = coords.galactic.l, coords.galactic.b
                 dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
+            else:
+                logger.warn("dm string ({0}) not recognized".format(dm))
         elif isinstance(dm, float) or isinstance(dm, int):  # single DM threshold
             dmt = dm
         sel *= cc.canddm > dmt
+
+        # frbprob selection
+#        candId = cc...
+#        while timeout:
+#            doc = elastic.get_doc('newcands', candId)
+#            if 'frbprob' in doc['_source']:
+#                frbprob = doc['_source']['frbprob']
+#                break
+#            sleep(5)
+#        else:
+#            frbprob = None
+#        if frbprob is not None:
+#            sel *= frbprob > frbprobt
+
         sel = np.where(sel)[0]
         if len(sel):
             cc0 = sum([cc[i] for i in sel])
