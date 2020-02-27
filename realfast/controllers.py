@@ -394,6 +394,7 @@ class realfast_controller(Controller):
                                showsummary=False,
                                inmeta={'datasource': 'vys',
                                        'endtime_mjd_': endtime_mjd_,
+                                       'nints_': None,
                                        'phasecenters': phasecenters})
             else:
                 logger.info("No submitted segments for scanId {0}. Submitting "
@@ -401,6 +402,7 @@ class realfast_controller(Controller):
                 self.set_state(config0.scanId, config=config0,
                                inmeta={'datasource': 'vys',
                                        'endtime_mjd_': endtime_mjd_,
+                                       'nints_': None,
                                        'phasecenters': phasecenters})
 
             allsegments = list(range(self.states[config0.scanId].nsegment))
