@@ -144,7 +144,7 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
         if (frbprobt > 0.) and (True in sel):
             probset = sel == False  # cands that need frbprob to be set
             t0 = time.Time.now().mjd
-            while (time.Time.now().mjd-t0 < timeout) or (not all(probset)):
+            while time.Time.now().mjd-t0 < timeout:
                 for i, candId in enumerate(cc.candids):
                     if (sel[i] == True) and (probset[i] == False):
                         doc = elastic.get_doc('newcands', candId)
@@ -156,10 +156,14 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
                             else:
                                 sel[i] = False
                                 probset[i] = True
-                count = len(np.where(probset)[0])
-                logger.info("{0} of {1} candidates need an frbprob ({2}s timeout)".format(len(sel)-count, len(sel), timeout))
-                sleep(5)
-                t0 = time.Time.now().mjd
+
+                if all(probset):
+                    break
+                else:
+                    count = len(np.where(probset)[0])
+                    logger.info("{0} of {1} candidates need an frbprob ({2}s timeout)".format(len(sel)-count, len(sel), timeout))
+                    sleep(5)
+                    t0 = time.Time.now().mjd
 
         sel = np.where(sel)[0]
         if len(sel):
