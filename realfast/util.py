@@ -79,13 +79,16 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
             cc0 = cc
             logger.info('Making {0} VOEvent xml files'.format(len(cc0)))
 
-        outnames = candidates.make_voevent(cc0)
+        if destination is None:
+            mode = 'test'
+        else:
+            mode = 'observation'
+        outnames = candidates.make_voevent(cc0, mode=mode)
 
         # send to destination
         if destination is not None:
             logger.info("Sending voevent(s) to {0}".format(destination))
             for outname in outnames:
-#                res = subprocess.call(["comet-sendvo", "-h", destination, "-f", outname])
                 success = rsync(outname, 'claw@nmpost-master:' + voeventdir)
                 if success:
                     outname0 = voeventdir + outname.split('/')[-1]
@@ -98,11 +101,13 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
         logger.info("No candidates meet criteria for voevent generation.")
 
 
-def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
+def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
     """ Filter candcollections based on candidate properties.
     If snrtot and dm are set, candidates must have larger values.
     DM can be float in pc/cm3 or 'FRB', which uses NE2001 plus halo
     model of YT2020. Uses implementation in FRB/ne2001.
+    frbprob sets threshold on fetch classifier output.
+    timeout is time in seconds before giving up on fetch classification.
     Returns new subset cc that passes selection criteria.
     """
 
@@ -135,18 +140,26 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
             dmt = dm
         sel *= cc.canddm > dmt
 
-        # frbprob selection
-#        candId = cc...
-#        while timeout:
-#            doc = elastic.get_doc('newcands', candId)
-#            if 'frbprob' in doc['_source']:
-#                frbprob = doc['_source']['frbprob']
-#                break
-#            sleep(5)
-#        else:
-#            frbprob = None
-#        if frbprob is not None:
-#            sel *= frbprob > frbprobt
+        # query portal to get frbprob for interesting cands
+        if (frbprobt > 0.) and (True in sel):
+            probset = sel == False  # cands that need frbprob to be set
+            t0 = time.Time.now().mjd
+            while (time.Time.now().mjd-t0 < timeout) or (not all(probset)):
+                for i, candId in enumerate(cc.candids):
+                    if (sel[i] == True) and (probset[i] == False):
+                        doc = elastic.get_doc('newcands', candId)
+                        if 'frbprob' in doc['_source']:
+                            frbprob = doc['_source']['frbprob']
+                            if frbprob > frbprobt:
+                                sel[i] = True
+                                probset[i] = True
+                            else:
+                                sel[i] = False
+                                probset[i] = True
+                count = len(np.where(probset)[0])
+                logger.info("{0} of {1} candidates need an frbprob ({2}s timeout)".format(len(sel)-count, len(sel), timeout))
+                sleep(5)
+                t0 = time.Time.now().mjd
 
         sel = np.where(sel)[0]
         if len(sel):
@@ -156,7 +169,7 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10):
     else:
         cc0 = cc
 
-    logger.info("Selecting {0} of {1} candidates for dm={2} and snrtot={3}".format(len(sel), len(cc), dm, snrtot))
+    logger.info("Selecting {0} of {1} candidates for dm={2}, snrtot={3}, frbprobt={4}".format(len(sel), len(cc), dm, snrtot, frbprobt))
 
     return cc0
 
