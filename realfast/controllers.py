@@ -133,8 +133,8 @@ class realfast_controller(Controller):
                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                     'searchintents',  'ignoreintents',
                     'throttle', 'classify', 'voevent', 'voevent_destination',
-                    'voevent_snrtot', 'read_overhead', 'read_totfrac',
-                    'indexprefix', 'daskdir', 'requirecalibration',
+                    'voevent_snrtot', 'voevent_frbprobt', 'read_overhead',
+                    'read_totfrac', 'indexprefix', 'daskdir', 'requirecalibration',
                     'data_logging', 'rsync_with_fetch', 'rsync_with_reader']
 
         for attr in allattrs:
@@ -755,6 +755,7 @@ class realfast_controller(Controller):
                 if self.voevent is not False:
                     distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
                                                                    snrtot=self.voevent_snrtot,
+                                                                   frbprobt=self.voevent_frbprobt,
                                                                    destination=self.voevent_destination,
                                                                    retries=1))
                 # remove job from list

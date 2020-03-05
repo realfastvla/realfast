@@ -59,7 +59,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     return cc
 
-def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
+def send_voevent(cc, dm='FRB', snrtot=None, frbprobt=None, mode='max', destination=None):
     """ Runs make_voevent for some selection of candidates and optionall sends them.
     mode can be 'max' or 'all', which selects whether to make/send for all cands
     or just max of snrtot.
@@ -69,7 +69,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
     assert mode in ['max', 'all']
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    cc = select_cc(cc, dm=dm, snrtot=snrtot)
+    cc = select_cc(cc, dm=dm, snrtot=snrtot, frbprobt=frbprobt)
 
     if len(cc):
         if mode == 'max':
@@ -101,7 +101,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, mode='max', destination=None):
         logger.info("No candidates meet criteria for voevent generation.")
 
 
-def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
+def select_cc(cc, snrtot=None, dm=None, frbprobt=None, dm_halo=10, timeout=300):
     """ Filter candcollections based on candidate properties.
     If snrtot and dm are set, candidates must have larger values.
     DM can be float in pc/cm3 or 'FRB', which uses NE2001 plus halo
@@ -114,6 +114,9 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
     from rfpipe import candidates
     from astropy import coordinates
     from ne2001 import ne_io, density
+
+    if frbprobt is None:
+        frbprobt = 0.
 
     sel = [True]*len(cc)
 
@@ -162,8 +165,10 @@ def select_cc(cc, snrtot=None, dm=None, dm_halo=10, frbprobt=0., timeout=300):
                 else:
                     count = len(np.where(probset)[0])
                     logger.info("{0} of {1} candidates need an frbprob ({2}s timeout)".format(len(sel)-count, len(sel), timeout))
-                    sleep(5)
+                    sleep(10)
                     t0 = time.Time.now().mjd
+            if time.Time.now().mjd-t0 > timeout:
+                logger.warn("Timed out of frbprob queries")
 
         sel = np.where(sel)[0]
         if len(sel):

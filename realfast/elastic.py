@@ -137,7 +137,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     Use indexprefix='new' for production.
     """
 
-    from numpy import degrees, cos
+    from numpy import degrees, cos, radians
 
     if tags is None:
         tags = ''
@@ -166,7 +166,9 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
         # get reference ra, dec
         segment = canddict['segment']
         if candcollection.state.otfcorrections is not None:
-            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]  # TODO: radians or degrees returned?
+            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]
+            ra_ctr = radians(ra_ctr)
+            dec_ctr = radians(dec_ctr)
         else:
             ra_ctr, dec_ctr = candcollection.metadata.radec  # radians
 
