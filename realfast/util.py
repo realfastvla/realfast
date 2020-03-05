@@ -456,10 +456,10 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
 
 #        for Id in Ids:
         elastic.update_field(indexprefix+'cands', 'refined_url', url, Id=candid)
-        for k,v in elastic.gettags(indexprefix, Id).items():   # remove notify tag
+        for k,v in elastic.gettags(indexprefix, candid).items():   # remove notify tag
             if 'notify' in v: 
                 newtags = ','.join([tag for tag in v.split(',') if tag != 'notify'])
-                elastic.update_field(indexprefix+'cands', k, newtags, Id=Id)
+                elastic.update_field(indexprefix+'cands', k, newtags, Id=candid)
 
     # decide whether to submit or update index for known plots
     if os.path.exists(refined_loc):
