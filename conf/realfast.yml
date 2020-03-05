@@ -6,8 +6,8 @@ rfpipe:
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
-    sigma_image1: 6.4
-    sigma_kalman: 0.
+#    sigma_image1: 6.4
+#    sigma_kalman: 0.
     npix_max: 2048
     badspwpol: 2.
     uvoversample: 1.5
@@ -29,8 +29,8 @@ rfpipe:
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
-    sigma_image1: 6.8
-    sigma_kalman: 2.8
+#    sigma_image1: 6.8
+#    sigma_kalman: 2.8
     npix_max: 2048
     badspwpol: 2.
     uvoversample: 1.5
@@ -44,7 +44,7 @@ rfpipe:
     fftmode: 'cuda'
     clustercands: !!python/tuple [3, 5]
     cluster_downsampling: 2
-    memory_limit: 3.0 # in GB
+    memory_limit: 5.0 # in GB
   NRAOdefaultC:   # C-band 4-8 GHz, 16 spw, 2 MHz channels, 10 ms, 4 pols
     nthread: 2
     dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
@@ -52,8 +52,8 @@ rfpipe:
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
-    sigma_image1: 7.0
-    sigma_kalman: 2.8
+#    sigma_image1: 7.0
+#    sigma_kalman: 0.0  # snr1=7.5 and snrk=2.8 gives snrtot=8
     npix_max: 2048
     badspwpol: 2.
     uvoversample: 1.5
@@ -67,7 +67,7 @@ rfpipe:
     fftmode: 'cuda'
     clustercands: !!python/tuple [3, 5]
     cluster_downsampling: 2
-    memory_limit: 3.0 # in GB
+    memory_limit: 5.0 # in GB
   NRAOdefaultS:   # S-band 2-4 GHz, 16 spw, 2 MHz channels, 10 ms, 4 pols
     nthread: 2
     dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
@@ -75,8 +75,10 @@ rfpipe:
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
-    sigma_image1: 7.5
-    sigma_kalman: 2.8  # snr1=7.5 and snrk=2.8 gives snrtot=8
+#    sigma_image1: 7.0
+#    sigma_kalman: 0.0  # snr1=7.5 and snrk=2.8 gives snrtot=8
+#    sigma_image1: 7.5
+#    sigma_kalman: 2.8  # snr1=7.5 and snrk=2.8 gives snrtot=8
     npix_max: 2048
     badspwpol: 2.
     uvoversample: 1.5
@@ -90,18 +92,45 @@ rfpipe:
     fftmode: 'cuda'
     clustercands: !!python/tuple [3, 5]
     cluster_downsampling: 2
-    memory_limit: 3.0 # in GB
+    memory_limit: 5.0 # in GB
+  VLASS:   # S-band 2-4 GHz, 16 spw, 2 MHz channels, 18 ms, 4 pols
+    nthread: 2
+    dtarr: [1,2,4]   # integer to integrate in time for independent searches
+    maxdm: 2000
+    flagantsol: True
+    timesub: 'mean'
+    searchtype: 'image'
+    sigma_image1: 7.0
+#    sigma_kalman: 0.0  # snr1=7.5 and snrk=2.8 gives snrtot=8
+#    sigma_image1: 7.5
+#    sigma_kalman: 2.8  # snr1=7.5 and snrk=2.8 gives snrtot=8
+    npix_max: 2048
+    spw: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    badspwpol: 2.
+    uvoversample: 1.5
+    savenoise: False
+    savecandcollection: True
+    savecanddata: False
+    returncanddata: True
+    saveplots: True
+    savesols: False
+    selectpol: 'auto'
+    fftmode: 'cuda'
+    clustercands: !!python/tuple [3, 5]
+    cluster_downsampling: 2
+    memory_limit: 5.0 # in GB
   NRAOdefaultL:   # L-band 1-2 GHz, 16 spw, 1 MHz channels, 10 ms, 4 pols
     nthread: 2
     dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
     maxdm: 1500
+#    maxdm: 1000
     flagantsol: True
     timesub: 'mean'
     searchtype: 'image'
-    sigma_image1: 7.5
-    sigma_kalman: 2.8  # snr1=7.5 and snrk=2.8 gives snrtot=8
+#    sigma_image1: 7.0
+#    sigma_kalman: 0.0  # snr1=7.5 and snrk=2.8 gives snrtot=8
     npix_max: 2048
-    spw: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]  # only required for older rfpipe. remove after update to master!
+    spw: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: False
@@ -114,7 +143,31 @@ rfpipe:
     fftmode: 'cuda'
     clustercands: !!python/tuple [3, 5]
     cluster_downsampling: 2
-    memory_limit: 3 # in GB
+    memory_limit: 5.0 # in GB
+  NRAOdefaultP:
+    nthread: 2
+    dtarr: [1,2,4,8]   # integer to integrate in time for independent searches
+    maxdm: 500
+    flagantsol: True
+    timesub: 'mean'
+    searchtype: 'image'
+#    sigma_image1: 7.0
+#    sigma_kalman: 0.0  # snr1=7.5 and snrk=2.8 gives snrtot=8
+    npix_max: 2048
+#    spw: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    badspwpol: 2.
+    uvoversample: 1.5
+    savenoise: False
+    savecandcollection: True
+    savecanddata: False
+    returncanddata: True
+    saveplots: True
+    savesols: False
+    selectpol: 'auto'
+    fftmode: 'cuda'
+    clustercands: !!python/tuple [3, 5]
+    cluster_downsampling: 2
+    memory_limit: 5.0 # in GB
 
 realfast:
   vys_timeout: 2 # fixed timeout factor relative to realtime reading
@@ -130,3 +183,7 @@ realfast:
   indexresults: True  # push info to elasticsearch indices
   createproducts: True  # save minisdm
   classify: True  # use fetch to classify and index results
+  voevent: 'FRB'  # False, 'FRB', or DM value to select cands for voevent xml generation
+  voevent_destination: '3.13.26.235' # ip address or comment out to set to None
+  voevent_snrtot: 8.5  # filter candidates based on snrtot
+  voevent_frbprobt: 0.1  # filter candidates based on frbprob
