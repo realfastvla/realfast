@@ -448,7 +448,8 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
             logger.info("No refinement plot found for candId {0}.".format(candid))
 
 #        Ids = elastic.get_ids(indexprefix+'cands', sdmname)
-        if cc is not None:
+#        if cc is not None:
+        if os.path.exists(refined_loc):
             if len(cc):
                 url = refined_url
                 logger.info("Updating refinement plot for new new refined_url.")
