@@ -576,7 +576,7 @@ class realfast_controller(Controller):
                 sleep(throttletime)
 
             # try setting telcal
-            if not telcalset:
+            if not telcalset and self.requirecalibration:
                 telcalset = self.set_telcalfile(scanId)
                 if telcalset:
                     logger.info("Set calibration for scanId {0}".format(scanId))
