@@ -80,10 +80,10 @@ def send_voevent(cc, dm='FRB', snrtot=None, frbprobt=None, mode='max', destinati
             logger.info('Making {0} VOEvent xml files'.format(len(cc0)))
 
         if destination is None:
-            mode = 'test'
+            role = 'test'
         else:
-            mode = 'observation'
-        outnames = candidates.make_voevent(cc0, mode=mode)
+            role = 'observation'
+        outnames = candidates.make_voevent(cc0, role=role)
 
         # send to destination
         if destination is not None:
