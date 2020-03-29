@@ -269,6 +269,8 @@ def createproducts(candcollection, data, indexprefix=None,
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
+    from rfpipe.source import apply_otfcorrections
+
     if isinstance(candcollection, distributed.Future):
         candcollection = candcollection.result()
 
@@ -313,6 +315,10 @@ def createproducts(candcollection, data, indexprefix=None,
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
     nspw = metadata.nspw_orig
+
+    # if otf, then phase shift data to central phase center
+    if st.otfcorrections is not None:
+        apply_otfcorrections(st, segment, data)
 
     sdmlocs = []
     # make sdm for each unique time range (e.g., segment)
