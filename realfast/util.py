@@ -319,6 +319,7 @@ def createproducts(candcollection, data, indexprefix=None,
     # if otf, then phase shift data to central phase center
     if st.otfcorrections is not None:
         apply_otfcorrections(st, segment, data)
+        # TODO: also correct some metadata and/or times for new phase center?
 
     sdmlocs = []
     # make sdm for each unique time range (e.g., segment)
