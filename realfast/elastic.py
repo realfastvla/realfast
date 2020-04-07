@@ -550,12 +550,15 @@ def move_dataset(indexprefix1, indexprefix2, datasetId=None, scanId=None, force=
                     iddict0[k].append(Id)
 
     count = sum([len(v) for k, v in iteritems(iddict0)])
-    if datasetId is not None:
-        confirm = input("Remove dataset {0} from {1} with {2} ids in all indices?"
-                        .format(datasetId, indexprefix1, count))
-    if scanId is not None:
-        confirm = input("Remove scanId {0} from {1} with {2} ids in all indices? {3}"
-                        .format(scanId, indexprefix1, count, iddict0))
+    if not force:
+        if (datasetId is not None):
+            confirm = input("Remove dataset {0} from {1} with {2} ids in all indices?"
+                            .format(datasetId, indexprefix1, count))
+        if (scanId is not None):
+            confirm = input("Remove scanId {0} from {1} with {2} ids in all indices? {3}"
+                            .format(scanId, indexprefix1, count, iddict0))
+    else:
+        confirm = 'y'
 
     # first remove Ids
     if confirm.lower() in ['y', 'yes']:
