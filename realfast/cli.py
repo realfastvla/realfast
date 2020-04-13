@@ -315,16 +315,20 @@ def move_dataset(prefix1, prefix2, datasetid, scanid, force):
 
 
 @cli2.command()
-@click.argument('consensusstr')
+@click.option('--consensusstr', type=str, default=None)
+@click.option('--consensusfile', type=click.File('r'), default=None)
 @click.option('--prefix1', default='new')
 @click.option('--prefix2', default='final')
-def move_consensus(consensusstr, prefix1, prefix2):
+def move_consensus(consensusstr, consensusfile, prefix1, prefix2):
     """ Use consensus to move candidates from 1 to 2 with a given consensus.
     Designed to be executed remotely (from rfnode on aoc).
     """
 
     from realfast import elastic
     import json
+    if consensusstr is None and consensusfile is not None:
+        with consensusfile:
+            consensusstr = consensusfile.read()
     consensus = json.loads(consensusstr)
     elastic.move_consensus(consensus=consensus, indexprefix1=prefix1, indexprefix2=prefix2, force=True)
 
