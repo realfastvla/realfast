@@ -165,12 +165,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
 
         # get reference ra, dec
         segment = canddict['segment']
-        if candcollection.state.otfcorrections is not None:
-            ints, ra_ctr, dec_ctr = candcollection.state.otfcorrections[segment][0]
-            ra_ctr = radians(ra_ctr)
-            dec_ctr = radians(dec_ctr)
-        else:
-            ra_ctr, dec_ctr = candcollection.metadata.radec  # radians
+        ra_ctr, dec_ctr = state.get_radec(segment)
 
         # fill optional fields
         canddict['scanId'] = scanId

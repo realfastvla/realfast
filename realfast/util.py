@@ -122,6 +122,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
     sel = [True]*len(cc)
 
     if len(cc):
+        st = cc.state
         # snr selection
         if snrtot is not None:
             sel *= cc.snrtot > snrtot
@@ -131,7 +132,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
         if isinstance(dm, str):
             if dm.upper() == "FRB":  # calc DM threshold per candidate
                 ne = density.ElectronDensity(**ne_io.Params())
-                ra_ctr, dec_ctr = cc.metadata.radec
+                ra_ctr, dec_ctr = st.get_radec(cc.segment)
                 l1 = cc.candl
                 m1 = cc.candm
                 ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
@@ -388,12 +389,13 @@ def cc_to_annotation(cc0):
     maxsnr = cc0.snrtot.max()
     ind = np.where(cc0.snrtot == maxsnr)[0][0]
     cc = cc0[ind]
+    st = cc.state
 
-    uvres = cc.state.uvres
-    npix = min(cc.state.npixx, cc.state.npixy)  # estimate worst loc
+    uvres = st.uvres
+    npix = min(st.npixx, st.npixy)  # estimate worst loc
     pixel_sec = np.degrees(1/(uvres*npix))*3600
-    dmarr = cc.state.dmarr
-    ra_ctr, dec_ctr = cc.metadata.radec
+    dmarr = st.dmarr
+    ra_ctr, dec_ctr = st.get_radec(cc.segment)
     scanid = cc.metadata.scanId
     l1 = cc.candl
     m1 = cc.candm
