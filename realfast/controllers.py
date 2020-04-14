@@ -754,6 +754,7 @@ class realfast_controller(Controller):
                                                                    retries=1))
                 if self.voevent is not False:
                     distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
+                                                                   dt=0.039,  # exclude wide pulses
                                                                    snrtot=self.voevent_snrtot,
                                                                    frbprobt=self.voevent_frbprobt,
                                                                    destination=self.voevent_destination,

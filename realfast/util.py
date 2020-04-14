@@ -59,7 +59,8 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     return cc
 
-def send_voevent(cc, dm='FRB', snrtot=None, frbprobt=None, mode='max', destination=None):
+
+def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', destination=None):
     """ Runs make_voevent for some selection of candidates and optionall sends them.
     mode can be 'max' or 'all', which selects whether to make/send for all cands
     or just max of snrtot.
@@ -69,7 +70,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, frbprobt=None, mode='max', destinati
     assert mode in ['max', 'all']
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    cc = select_cc(cc, dm=dm, snrtot=snrtot, frbprobt=frbprobt)
+    cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
     if len(cc):
         if mode == 'max':
@@ -101,7 +102,7 @@ def send_voevent(cc, dm='FRB', snrtot=None, frbprobt=None, mode='max', destinati
         logger.info("No candidates meet criteria for voevent generation.")
 
 
-def select_cc(cc, snrtot=None, dm=None, frbprobt=None, dm_halo=10, timeout=300):
+def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, timeout=300):
     """ Filter candcollections based on candidate properties.
     If snrtot and dm are set, candidates must have larger values.
     DM can be float in pc/cm3 or 'FRB', which uses NE2001 plus halo
@@ -143,6 +144,10 @@ def select_cc(cc, snrtot=None, dm=None, frbprobt=None, dm_halo=10, timeout=300):
             dmt = dm
         sel *= cc.canddm > dmt
 
+        # select by max width
+        if dt is not None:
+            sel *= cc.canddt < dt
+        
         # query portal to get frbprob for interesting cands
         if (frbprobt > 0.) and (True in sel):
             probset = sel == False  # cands that need frbprob to be set
@@ -178,7 +183,7 @@ def select_cc(cc, snrtot=None, dm=None, frbprobt=None, dm_halo=10, timeout=300):
     else:
         cc0 = cc
 
-    logger.info("Selecting {0} of {1} candidates for dm={2}, snrtot={3}, frbprobt={4}".format(len(sel), len(cc), dm, snrtot, frbprobt))
+    logger.info("Selecting {0} of {1} candidates for dm={2}, dt={3}, snrtot={4}, frbprobt={5}".format(len(sel), len(cc), dm, dt, snrtot, frbprobt))
 
     return cc0
 
