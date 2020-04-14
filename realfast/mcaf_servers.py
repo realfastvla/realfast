@@ -190,10 +190,12 @@ def makebdf(startTime, endTime, metadata, data, bdfdir='.'):
 
     uid = ('uid:///evla/realfastbdf/{0}'
            .format(int(time.Time(startTime, format='mjd').unix*1e3)))
+    logger.info("Creating BDFWriter for {0}".format(uid))
     w = bdf.BDFWriter(bdfdir, start_mjd=startTime, uid=uid,
                       num_antenna=metadata.nants_orig, spws=spws, scan_idx=1,
                       corr_mode='c')
 
+    logger.info("Writing data to bdf")
     dat = {}
     w.write_header()
     for i in range(nint):

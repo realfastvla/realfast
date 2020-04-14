@@ -317,6 +317,7 @@ def createproducts(candcollection, data, indexprefix=None,
     calScanTime = candcollection.soltime  # solution saved during search
     logger.info('Getting data for candidate time ranges {0} in segment {1}.'
                 .format(candranges, segment))
+    annotation = cc_to_annotation(candcollection)
 
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
@@ -325,27 +326,20 @@ def createproducts(candcollection, data, indexprefix=None,
     # if otf, then phase shift data to central phase center
     if st.otfcorrections is not None:
         apply_otfcorrections(st, segment, data, raw=True)
-        # TODO: also correct some metadata and/or times for new phase center?
+        # TODO: also correct metadata in output SDM for new phase center
 
     sdmlocs = []
     # make sdm for each unique time range (e.g., segment)
     for (startTime, endTime) in set(candranges):
-        i = (86400*(startTime-st.segmenttimes[segment][0])/metadata.inttime).astype(int)
         nint = floor(86400*(endTime-startTime)/metadata.inttime)
-        logger.info("Cutting {0} ints from int {1} for candidate at {2} in segment {3}."
-                    .format(nint, i, startTime, segment))
-        logger.info("Input shape {0}. Cutting then reshaping to {1}".format(data.shape, (nint, nbl, nspw, 1, nchan, npol)))
-        data_cut = data[i:i+nint].reshape(nint, nbl, nspw, 1, nchan, npol)
+        logger.info("Cutting {0} ints for candidate at {1} in segment {2}."
+                    .format(nint, startTime, segment))
+        logger.info("Input shape {0}".format(data.shape))
+        data_cut = data[:nint]
+        logger.info("Cut to {0} and reshaping to {1}".format(nint, (nint, nbl, nspw, 1, nchan, npol)))
+        data_cut = data_cut.reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        annotation = cc_to_annotation(candcollection)
-
-# now retrieved from candcollection
-#        calScanTime = np.unique(calibration.getsols(st)['mjd'])
-#        if len(calScanTime) > 1:
-#            logger.warn("Using first of multiple cal times: {0}."
-#                        .format(calScanTime))
-#        calScanTime = calScanTime[0]
-
+        logger.info("Creating SDM in {0}".format(sdmpath))
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
                                       data_cut, calScanTime,
                                       annotation=annotation)
