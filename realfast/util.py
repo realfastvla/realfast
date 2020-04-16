@@ -339,7 +339,7 @@ def createproducts(candcollection, data, indexprefix=None,
         logger.info("Cut to {0} and reshaping to {1}".format(nint, (nint, nbl, nspw, 1, nchan, npol)))
         data_cut = data_cut.reshape(nint, nbl, nspw, 1, nchan, npol)
 
-        logger.info("Creating SDM in {0}".format(sdmpath))
+        logger.info("Creating SDM")
         sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
                                       data_cut, calScanTime,
                                       annotation=annotation)
@@ -404,9 +404,9 @@ def cc_to_annotation(cc0):
           'transient_Dec': dec[0].replace('d', ':').replace('m', ':').rstrip('s'),
           'transient_Dec_error': float(pixel_sec),
           'transient_SNR': float(maxsnr),
-          'transient_DM': float(cc.canddm[ind]),
+          'transient_DM': float(cc.canddm[0]),
           'transient_DM_error': float(dmarr[1]-dmarr[0]),
-          'preaverage_time': float(cc.canddt[ind]),
+          'preaverage_time': float(cc.canddt[0]),
           'rfpipe_version': cc.prefs.rfpipe_version,
           'prefs_Id': cc.prefs.name}
 # TODO: get noises and classifications in

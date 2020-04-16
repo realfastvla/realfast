@@ -132,10 +132,12 @@ class realfast_controller(Controller):
         allattrs = ['tags', 'nameincludes', 'mockprob', 'vys_timeout',
                     'vys_sec_per_spec', 'indexresults', 'createproducts',
                     'searchintents',  'ignoreintents',
-                    'throttle', 'classify', 'voevent', 'voevent_destination',
-                    'voevent_snrtot', 'voevent_frbprobt', 'read_overhead',
-                    'read_totfrac', 'indexprefix', 'daskdir', 'requirecalibration',
-                    'data_logging', 'rsync_with_fetch', 'rsync_with_reader']
+                    'throttle', 'classify',
+                    'voevent', 'voevent_destination',
+                    'voevent_snrtot', 'voevent_frbprobt', 'voevent_dt',
+                    'read_overhead', 'read_totfrac', 'indexprefix', 'daskdir',
+                    'requirecalibration', 'data_logging', 'rsync_with_fetch',
+                    'rsync_with_reader']
 
         for attr in allattrs:
             if attr == 'indexprefix':
@@ -754,7 +756,7 @@ class realfast_controller(Controller):
                                                                    retries=1))
                 if self.voevent is not False:
                     distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
-                                                                   dt=0.039,  # exclude wide pulses
+                                                                   dt=self.voevent_dt,
                                                                    snrtot=self.voevent_snrtot,
                                                                    frbprobt=self.voevent_frbprobt,
                                                                    destination=self.voevent_destination,
