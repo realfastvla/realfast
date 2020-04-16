@@ -734,7 +734,7 @@ class realfast_controller(Controller):
                     if self.rsync_with_reader:
                         kwargs['resources'] = {'READER': 1}
  
-                   fut = self.client.submit(util.indexcands_and_plots, cc,
+                    fut = self.client.submit(util.indexcands_and_plots, cc,
                                              scanId, self.tags, self.indexprefix, workdir,
                                              **kwargs) # returns cc
                     if self.classify:
