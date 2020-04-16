@@ -157,6 +157,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
     cluster = candcollection.cluster
     clustersize = candcollection.clustersize
     snrtot = candcollection.snrtot
+    st = candcollection.state
 
     res = 0
     for i in range(len(candarr)):
@@ -165,7 +166,7 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
 
         # get reference ra, dec
         segment = canddict['segment']
-        ra_ctr, dec_ctr = state.get_radec(segment)
+        ra_ctr, dec_ctr = st.get_radec(segment)
 
         # fill optional fields
         canddict['scanId'] = scanId
