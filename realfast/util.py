@@ -398,7 +398,6 @@ def cc_to_annotation(cc0):
 
     dd = {'primary_filesetId': cc.metadata.datasetId,
           'portal_candidate_IDs': candids,
-#          'transient_mjd': None,  # TODO
           'transient_RA': ra[0].replace('h', ':').replace('m', ':').rstrip('s'),
           'transient_RA_error': float(pixel_sec),
           'transient_Dec': dec[0].replace('d', ':').replace('m', ':').rstrip('s'),
@@ -408,12 +407,11 @@ def cc_to_annotation(cc0):
           'transient_DM_error': float(dmarr[1]-dmarr[0]),
           'preaverage_time': float(cc.canddt[0]),
           'rfpipe_version': cc.prefs.rfpipe_version,
-          'prefs_Id': cc.prefs.name}
-# TODO: get noises and classifications in
-#                  'rf_QA_label': None,  
-#                  'rf_QA_zero_fraction': None,
-#                  'rf_QA_visibility_noise': None,
-#                  'rf_QA_image_noise': None}
+          'prefs_Id': cc.prefs.name,
+          'rf_QA_label': None,     # generate from frbprob
+          'rf_QA_zero_fraction': None,   # take from noise
+          'rf_QA_visibility_noise': None,   # take from noise
+          'rf_QA_image_noise': None}   # take from noise
 
     annotation = dd
 
