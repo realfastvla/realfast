@@ -172,7 +172,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
                     count = len(np.where(probset)[0])
                     logger.info("{0} of {1} candidates need an frbprob ({2}s timeout)".format(len(sel)-count, len(sel), timeout))
                     sleep(10)
-                    t0 = time.Time.now().mjd
+
             if time.Time.now().mjd-t0 > timeout/(24*3600):
                 logger.warn("Timed out of frbprob queries")
 
