@@ -136,7 +136,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
                 ra_ctr, dec_ctr = st.get_radec(cc.segment)
                 l1 = cc.candl
                 m1 = cc.candm
-                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='hourstr')
                 coords = coordinates.SkyCoord(ra, dec)
                 ls, bs = coords.galactic.l, coords.galactic.b
                 dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
@@ -393,7 +393,7 @@ def cc_to_annotation(cc0):
     scanid = cc.metadata.scanId
     l1 = cc.candl
     m1 = cc.candm
-    ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1)
+    ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='hourstr')
     candids = ','.join(['{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind) for segment, integration, dmind, dtind, beamnum in cc0.locs])
 
     dd = {'primary_filesetId': cc.metadata.datasetId,
@@ -712,7 +712,7 @@ def initialize_worker():
     """ Function called to initialize python on workers
     """
 
-    from rfpipe import search, state, metadata, candidates, reproduce
+    from rfpipe import search, state, metadata, candidates, reproduce, source, util
     t0 = time.Time.now().mjd
     search.set_wisdom(512)
     st = state.State(inmeta=metadata.mock_metadata(t0, t0+0.001, 27, 16, 16*32, 4, 5e4, datasource='sim'))
