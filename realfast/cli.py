@@ -264,7 +264,10 @@ def archive_local(confirm, mode):
 
         if yn.lower() in ['y', 'yes']:
             for fp in filelist:
-                shutil.move(fp, dirname)
+                try:
+                    shutil.move(fp, dirname)
+                except shutil.Error:
+                    logger.info("File {0} already exists. Skipping".format(fp))
     else:
         logger.warn("Need to be on CBE in lustre workdir")
 
