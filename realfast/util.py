@@ -29,6 +29,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     from rfpipe import candidates
 
     if len(cc):
+        logger.info("Indexing candidates")
         nc = elastic.indexcands(cc, scanId, tags=tags,
                                 url_prefix=_candplot_url_prefix,
                                 indexprefix=indexprefix)
@@ -275,8 +276,6 @@ def createproducts(candcollection, data, indexprefix=None,
     Currently BDFs are moved to no_archive lustre area by default.
     """
 
-    from rfpipe.source import apply_otfcorrections
-
     if isinstance(candcollection, distributed.Future):
         candcollection = candcollection.result()
 
@@ -325,6 +324,7 @@ def createproducts(candcollection, data, indexprefix=None,
 
     # if otf, then phase shift data to central phase center
     if st.otfcorrections is not None:
+        from rfpipe.source import apply_otfcorrections
         apply_otfcorrections(st, segment, data, raw=True)
         # TODO: also correct metadata in output SDM for new phase center
 
