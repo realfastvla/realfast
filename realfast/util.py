@@ -114,7 +114,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
     """
 
     from rfpipe import candidates
-    from astropy import coordinates
+    from astropy import coordinates, units
     from ne2001 import ne_io, density
 
     if frbprobt is None:
@@ -136,8 +136,8 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
                 ra_ctr, dec_ctr = st.get_radec(cc.segment)
                 l1 = cc.candl
                 m1 = cc.candm
-                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='hourstr')
-                coords = coordinates.SkyCoord(ra, dec)
+                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='degfloat')
+                coords = coordinates.SkyCoord(ra, dec, unit=units.deg)
                 ls, bs = coords.galactic.l, coords.galactic.b
                 dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
             else:
