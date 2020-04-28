@@ -175,7 +175,8 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
                     sleep(10)
 
             if time.Time.now().mjd-t0 > timeout/(24*3600):
-                logger.warn("Timed out of frbprob queries")
+                logger.warn("Timed out of frbprob queries. Not selecting {0} cands without an frbprob".format())
+                sel *= probset  # do not select ones without frbprob, if required
 
         sel = np.where(sel)[0]
         if len(sel):
