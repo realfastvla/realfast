@@ -157,7 +157,11 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
             while time.Time.now().mjd-t0 < timeout/(24*3600):
                 for i, candId in enumerate(cc.candids):
                     if (sel[i] == True) and (probset[i] == False):
-                        doc = elastic.get_doc('newcands', candId)
+                        try:
+                            doc = elastic.get_doc('newcands', candId)
+                        except NotFoundError:
+                            continue
+
                         if 'frbprob' in doc['_source']:
                             frbprob = doc['_source']['frbprob']
                             if frbprob > frbprobt:
@@ -175,7 +179,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
                     sleep(10)
 
             if time.Time.now().mjd-t0 > timeout/(24*3600):
-                logger.warn("Timed out of frbprob queries. Not selecting {0} cands without an frbprob".format())
+                logger.warn("Timed out of frbprob queries. Not selecting {0} cands without an frbprob".format(len(np.where(probset == False)[0])))
                 sel *= probset  # do not select ones without frbprob, if required
 
         sel = np.where(sel)[0]
