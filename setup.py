@@ -6,7 +6,7 @@ setup(
     description='Real-time data analysis at the VLA',
     author='Casey Law and the realfast team',
     author_email='caseyjlaw@gmail.com',
-    version='3.6.4',
+    version='3.6.5',
     url='http://realfast.io',
     include_package_data=True,
     packages=find_packages(),

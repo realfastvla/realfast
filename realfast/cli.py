@@ -319,7 +319,7 @@ def move_dataset(prefix1, prefix2, datasetid, scanid, force):
 
 @cli2.command()
 @click.option('--consensusstr', type=str, default=None)
-@click.option('--consensusfile', type=click.File('r'), default=None)
+@click.option('--consensusfile', type=click.File('rb'), default=None)
 @click.option('--prefix1', default='new')
 @click.option('--prefix2', default='final')
 def move_consensus(consensusstr, consensusfile, prefix1, prefix2):
