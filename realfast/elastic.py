@@ -166,7 +166,8 @@ def indexcands(candcollection, scanId, tags=None, url_prefix=None,
 
         # get reference ra, dec
         segment = canddict['segment']
-        ra_ctr, dec_ctr = st.get_radec()
+        pc0 = st.get_pc(segment)
+        ra_ctr, dec_ctr = st.get_radec(pc=pc0)
 
         # fill optional fields
         canddict['scanId'] = scanId
