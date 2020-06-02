@@ -378,10 +378,11 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def cc_to_annotation(cc0):
+def cc_to_annotation(cc0, run_QA_query=False):
     """ Takes candcollection and returns dict to be passed to sdmbuilder.
     Dict has standard fields to fill annotations table for archiving queries.
     mode can be 'dict' to return single dict at max snrtot or 'list' to return list of dicts.
+    run_QA_query will query portal for values to fill QA fields.
     """
 
     from rfpipe import candidates
@@ -405,11 +406,24 @@ def cc_to_annotation(cc0):
     ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='hourstr')
     candids = ','.join(['{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind) for segment, integration, dmind, dtind, beamnum in cc0.locs])
 
+    if run_QA_query:
+        # TODO: replace with query to portal
+        label = None  # frbprob should map to Good/Marginalble/Questionable
+        zf = None
+        vnoise = None
+        inoise = None
+    else:
+        label = None
+        zf = None
+        vnoise = None
+        inoise = None
+        
+        
     dd = {'primary_filesetId': cc.metadata.datasetId,
           'portal_candidate_IDs': candids,
-          'transient_RA': ra[0].replace('h', ':').replace('m', ':').rstrip('s'),
-          'transient_RA_error': float(pixel_sec),
-          'transient_Dec': dec[0].replace('d', ':').replace('m', ':').rstrip('s'),
+          'transient_RA': ra.replace('h', ':').replace('m', ':').rstrip('s'),
+          'transient_RA_error': float(pixel_sec)/15,  # seconds of time
+          'transient_Dec': dec.replace('d', ':').replace('m', ':').rstrip('s'),
           'transient_Dec_error': float(pixel_sec),
           'transient_SNR': float(maxsnr),
           'transient_DM': float(cc.canddm[0]),
@@ -417,10 +431,10 @@ def cc_to_annotation(cc0):
           'preaverage_time': float(cc.canddt[0]),
           'rfpipe_version': cc.prefs.rfpipe_version,
           'prefs_Id': cc.prefs.name,
-          'rf_QA_label': None,     # generate from frbprob
-          'rf_QA_zero_fraction': None,   # take from noise
-          'rf_QA_visibility_noise': None,   # take from noise
-          'rf_QA_image_noise': None}   # take from noise
+          'rf_QA_label': label,
+          'rf_QA_zero_fraction': zf,
+          'rf_QA_visibility_noise': vnoise,
+          'rf_QA_image_noise': inoise}
 
     annotation = dd
 
