@@ -87,8 +87,9 @@ class realfast_controller(Controller):
         else:
             self.client = distributed.Client(host)
 
-        self.lock = distributed.Lock('measures', client=self.client)
-#        self.lock = dask.utils.SerializableLock()
+        # TODO: test this other centralized lock
+#        self.lock = distributed.Lock('measures', client=self.client)
+        self.lock = dask.utils.SerializableLock()
         self.states = {}
 
         # set futures from stored dataset, if it exists
