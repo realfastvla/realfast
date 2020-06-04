@@ -561,9 +561,9 @@ class realfast_controller(Controller):
                                            format='mjd').unix
             if st.metadata.datasource in ['vys', 'sim']:
                 # TODO: define buffer delay better
-                if segsubtime > starttime+2:
+                if segsubtime > starttime+3:
                     logger.warning("Segment {0} time window has passed ({1} > {2}). Skipping."
-                                   .format(segment, segsubtime, starttime+2))
+                                   .format(segment, segsubtime, starttime+3))
                     try:
                         segment = next(segments)
                         continue
