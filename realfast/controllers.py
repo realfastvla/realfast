@@ -88,8 +88,8 @@ class realfast_controller(Controller):
             self.client = distributed.Client(host)
 
         # TODO: test this other centralized lock
-#        self.lock = distributed.Lock('measures', client=self.client)
-        self.lock = dask.utils.SerializableLock()
+#        self.lock = distributed.Lock('measures', client=self.client)  # this should work over whole cluster. overkill
+        self.lock = dask.utils.SerializableLock('measures')  # should work in one process. test it. needs arg?
         self.states = {}
 
         # set futures from stored dataset, if it exists
