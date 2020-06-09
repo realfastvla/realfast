@@ -11,7 +11,6 @@ import random
 import distributed
 from time import sleep
 from astropy import time
-import dask.utils
 from evla_mcast.controller import Controller
 from realfast import pipeline, elastic, heuristics, util
 
@@ -87,9 +86,6 @@ class realfast_controller(Controller):
         else:
             self.client = distributed.Client(host)
 
-        # TODO: test this other centralized lock
-#        self.lock = distributed.Lock('measures', client=self.client)  # this should work over whole cluster. overkill
-        self.lock = dask.utils.SerializableLock('measures')  # should work in one process. test it. needs arg?
         self.states = {}
 
         # set futures from stored dataset, if it exists
@@ -488,7 +484,7 @@ class realfast_controller(Controller):
                                             inprefs=self.inprefs)
 
         st = state.State(inmeta=inmeta, config=config, inprefs=inprefs,
-                         lock=self.lock, sdmfile=sdmfile, sdmscan=sdmscan,
+                         sdmfile=sdmfile, sdmscan=sdmscan,
                          bdfdir=bdfdir, validate=validate, showsummary=showsummary)
 
         logger.info('State set for scanId {0}. Requires {1:.1f} GB read and'
@@ -1190,8 +1186,6 @@ class config_controller(Controller):
         """ Triggered when obs comes in.
         Downstream logic starts here.
         """
-
-        from rfpipe import util
 
         logger.info('Received complete configuration for {0}, '
                     'scan {1}, subscan {2}, source {3}, intent {4}'
