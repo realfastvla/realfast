@@ -366,6 +366,8 @@ class realfast_controller(Controller):
                          ignoreintents=self.ignoreintents):
             logger.warn("Config not suitable for realfast. Skipping subscan.")
             return
+        else:
+            logger.info("Config for subscan is searchable.")
 
         # set up OTF info
         # search pipeline needs [(startmjd, stopmjd, l1, m1), ...]
