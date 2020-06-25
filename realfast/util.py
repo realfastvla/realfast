@@ -378,11 +378,12 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def cc_to_annotation(cc0, run_QA_query=False):
+def cc_to_annotation(cc0, run_QA_query=False, indexprefix='new', timeout=300):
     """ Takes candcollection and returns dict to be passed to sdmbuilder.
     Dict has standard fields to fill annotations table for archiving queries.
     mode can be 'dict' to return single dict at max snrtot or 'list' to return list of dicts.
-    run_QA_query will query portal for values to fill QA fields.
+    run_QA_query will query portal for values to fill QA fields with frbprob timeout.
+    indexprefix used for QA query.
     """
 
     from rfpipe import candidates
@@ -391,6 +392,7 @@ def cc_to_annotation(cc0, run_QA_query=False):
     maxsnr = cc0.snrtot.max()
     ind = np.where(cc0.snrtot == maxsnr)[0][0]
     cc = cc0[ind]
+    candId = cc.candids[0]  # peak candId
     st = cc.state
     segment = cc.segment
 
@@ -406,19 +408,42 @@ def cc_to_annotation(cc0, run_QA_query=False):
     ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='hourstr')
     candids = ','.join(['{0}_seg{1}-i{2}-dm{3}-dt{4}'.format(scanid, segment, integration, dmind, dtind) for segment, integration, dmind, dtind, beamnum in cc0.locs])
 
+    label = None
+    zf = None
+    vnoise = None
+    inoise = None
     if run_QA_query:
-        # TODO: replace with query to portal
-        label = None  # frbprob should map to Good/Marginalble/Questionable
-        zf = None
-        vnoise = None
-        inoise = None
-    else:
-        label = None
-        zf = None
-        vnoise = None
-        inoise = None
-        
-        
+        Ids = [Id for Id in elastic.get_ids(indexprefix+'noises', scanId=scanid)
+               if '{0}.{1}'.format(scanid, segment) in Id]
+        if len(Ids):
+            source = elastic.get_doc(indexprefix+'noises', Ids[0])['_source']
+            zf = source['zerofrac']
+            vnoise = source['noiseperbl']
+            inoise = source['imstd']
+        else:
+            logger.warn("No noises found for {0}.{1}".format(scanid, segment))
+
+        t0 = time.Time.now().mjd
+        while time.Time.now().mjd-t0 < timeout/(24*3600):
+            try:
+                source = elastic.get_doc(indexprefix+'cands', candId)['_source'] 
+            except NotFoundError:
+                logger.warn("No candId {0} found".format(candId))
+                break
+
+            if 'frbprob' in source:
+                frbprob = source['frbprob']
+                if frbprob > 0.9:
+                    label = "Good"
+                elif frbprob > 0.1:
+                    label = "Marginal"
+                else:
+                    label = "Questionable"
+                break
+            else:
+                logger.info("No frbprob available for {0} yet...".format(candId))
+                sleep(10)
+
     dd = {'primary_filesetId': cc.metadata.datasetId,
           'portal_candidate_IDs': candids,
           'transient_RA': ra.replace('h', ':').replace('m', ':').rstrip('s'),
