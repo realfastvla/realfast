@@ -337,6 +337,19 @@ def move_consensus(consensusstr, consensusfile, prefix1, prefix2):
 
 
 @cli2.command()
+@click.argument('candid')
+@click.option('--prefix1', default='new')
+@click.option('--prefix2', default='final')
+def move_candid(candid, prefix1, prefix2):
+    """ Move candidates from 1 to 2.
+    """
+
+    from realfast import elastic
+    consensus = {candid: {'tags':[]}}
+    elastic.move_consensus(consensus=consensus, indexprefix1=prefix1, indexprefix2=prefix2)
+
+
+@cli2.command()
 @click.option('--prefix', default='new')
 @click.option('--datasetid', default=None)
 @click.option('--scanid', default=None)
