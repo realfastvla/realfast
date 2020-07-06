@@ -323,7 +323,7 @@ def createproducts(candcollection, data, indexprefix=None,
     calScanTime = candcollection.soltime  # solution saved during search
     logger.info('Getting data for candidate time ranges {0} in segment {1}.'
                 .format(candranges, segment))
-    annotation = cc_to_annotation(candcollection)
+    annotation = cc_to_annotation(candcollection, run_QA_query=True)
 
     ninttot, nbl, nchantot, npol = data.shape
     nchan = metadata.nchan_orig//metadata.nspw_orig
@@ -378,7 +378,7 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def cc_to_annotation(cc0, run_QA_query=False, indexprefix='new', timeout=300):
+def cc_to_annotation(cc0, run_QA_query=True, indexprefix='new', timeout=300):
     """ Takes candcollection and returns dict to be passed to sdmbuilder.
     Dict has standard fields to fill annotations table for archiving queries.
     mode can be 'dict' to return single dict at max snrtot or 'list' to return list of dicts.
