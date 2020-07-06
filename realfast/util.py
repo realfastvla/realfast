@@ -378,7 +378,7 @@ def createproducts(candcollection, data, indexprefix=None,
     return sdmlocs
 
 
-def cc_to_annotation(cc0, run_QA_query=True, indexprefix='new', timeout=300):
+def cc_to_annotation(cc0, run_QA_query=True, indexprefix='new', timeout=60):
     """ Takes candcollection and returns dict to be passed to sdmbuilder.
     Dict has standard fields to fill annotations table for archiving queries.
     mode can be 'dict' to return single dict at max snrtot or 'list' to return list of dicts.
@@ -443,6 +443,9 @@ def cc_to_annotation(cc0, run_QA_query=True, indexprefix='new', timeout=300):
             else:
                 logger.info("No frbprob available for {0} yet...".format(candId))
                 sleep(10)
+
+        if time.Time.now().mjd-t0 >= timeout/(24*3600):
+            logger.warn("Timed out querying for frbprob on {0}".format(candId))
 
     dd = {'primary_filesetId': cc.metadata.datasetId,
           'portal_candidate_IDs': candids,
