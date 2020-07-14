@@ -537,9 +537,9 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
         fut = cl.submit(reproduce.refine_sdm, sdmname_full, dm, preffile='/lustre/evla/test/realfast/realfast.yml',
                         npix_max=npix_max, npix_max_orig=npix_max_orig,
                         refine=True, classify=True, ddm=ddm, workdir=workdir,
-                        resources={"GPU": 1}, devicenum=devicenum, retries=1, workers=workernames, priority=-5)
+                        resources={"GPU": 1}, devicenum=devicenum, retries=1, workers=workernames)
 
-        fut2 = cl.submit(move_refined_plots, fut, priority=-5)
+        fut2 = cl.submit(move_refined_plots, fut)
         distributed.fire_and_forget(fut2)
     else:
         logger.info("Running refinement for candId {0} and sdm {1}".format(candid, sdmname))
