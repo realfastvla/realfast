@@ -340,13 +340,14 @@ def move_consensus(consensusstr, consensusfile, prefix1, prefix2):
 @click.argument('candid')
 @click.option('--prefix1', default='new')
 @click.option('--prefix2', default='final')
-def move_candid(candid, prefix1, prefix2):
+@click.option('--force', is_flag=True)
+def move_candid(candid, prefix1, prefix2, force):
     """ Move candidates from 1 to 2.
     """
 
     from realfast import elastic
     consensus = {candid: {'tags':[]}}
-    elastic.move_consensus(consensus=consensus, indexprefix1=prefix1, indexprefix2=prefix2)
+    elastic.move_consensus(consensus=consensus, indexprefix1=prefix1, indexprefix2=prefix2, force=force)
 
 
 @cli2.command()
