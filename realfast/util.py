@@ -347,9 +347,14 @@ def createproducts(candcollection, data, indexprefix=None,
         data_cut = data_cut.reshape(nint, nbl, nspw, 1, nchan, npol)
 
         logger.info("Creating SDM")
-        sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
-                                      data_cut, calScanTime,
-                                      annotation=annotation)
+        try:
+            sdmloc = mcaf_servers.makesdm(startTime, endTime, metadata.datasetId,
+                                          data_cut, calScanTime,
+                                          annotation=annotation)
+        except HTTPError:
+            logger.warn("HTTPError in call to mcaf_server.makesdm for {0}".format(metadata.datasetId))
+            sdmloc = None
+
         if sdmloc is not None:
             sdmpath = os.path.dirname(sdmloc)
             sdmloc = os.path.basename(sdmloc)  # ignore internal mcaf path from here on
