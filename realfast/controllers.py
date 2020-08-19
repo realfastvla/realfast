@@ -746,6 +746,8 @@ class realfast_controller(Controller):
                                                                        retries=1,
                                                                        workers=self.fetchworkers,
                                                                        resources={'GPU': 1}))
+                else:
+                    fut = cc  # used downstream even if indexresults=False
 
                 if self.createproducts:
                     # optionally save and archive sdm/bdfs for segment
@@ -755,7 +757,7 @@ class realfast_controller(Controller):
                                                                    indexprefix=indexprefix,
                                                                    retries=1))
                 if self.voevent is not False:
-                    distributed.fire_and_forget(self.client.submit(util.send_voevent, cc, dm=self.voevent,
+                    distributed.fire_and_forget(self.client.submit(util.send_voevent, fut, dm=self.voevent,
                                                                    dt=self.voevent_dt,
                                                                    snrtot=self.voevent_snrtot,
                                                                    frbprobt=self.voevent_frbprobt,

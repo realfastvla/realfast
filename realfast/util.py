@@ -71,12 +71,22 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     from rfpipe import candidates
     assert mode in ['max', 'all']
 
+    if isinstance(cc, distributed.Future):
+        cc = cc.result()
+
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
     cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
-    if len(cc):
+    assoc = match_nvss(cc)  # find nvss false positives
+    if assoc is not None:
+        ngood = assoc.count(False)  # how many not associated with nvss?
+    else:
+        ngood = len(cc)
+
+    if ngood:
         if mode == 'max':
-            cc0 = cc[np.where(cc.snrtot == max(cc.snrtot))[0][0]]
+            # define max snr for non-nvss sources
+            cc0 = cc[np.where(cc.snrtot == max(cc.snrtot[np.where(np.array(assoc) == False)]))[0][0]]
             logger.info('Making VOEvent xml file for max snrtot')
         else:
             cc0 = cc
@@ -349,6 +359,14 @@ def createproducts(candcollection, data, indexprefix=None,
 
     assert isinstance(data, np.ndarray) and data.dtype == 'complex64'
 
+    sdmlocs = []
+
+    assoc = match_nvss(candcollection)  # find nvss false positives
+    if assoc is not None:
+        if all(assoc):
+            logger.info("All candidates associated with NVSS sources. Skipping createproducts.")
+            return sdmlocs
+
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                 .format(candcollection.metadata.scanId, candcollection.segment,
                         len(candcollection)))
@@ -386,7 +404,6 @@ def createproducts(candcollection, data, indexprefix=None,
         apply_otfcorrections(st, segment, data, raw=True)
         # TODO: also correct metadata in output SDM for new phase center
 
-    sdmlocs = []
     # make sdm for each unique time range (e.g., segment)
     for (startTime, endTime) in set(candranges):
         nint = floor(86400*(endTime-startTime)/metadata.inttime)
@@ -610,6 +627,11 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
 
     from rfpipe import candidates
 
+    if isinstance(cc, distributed.Future):
+        cc = cc.result()
+
+    assoc = match_nvss(cc)  # find nvss false positives
+
     index = indexprefix + 'cands'
 
     try:
@@ -618,7 +640,12 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
                         "segment {2}"
                         .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
 
-            for cd in cc.canddata:
+            for i, cd in enumerate(cc.canddata):
+                if assoc is not None:
+                    if assoc[i]:
+                        logger.info("Candidate {0} ({1}) is associated with NVSS source. Skipping."
+                                    .format(i, cd.candid))
+                        continue
                 frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
                 elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
         else:
