@@ -39,9 +39,10 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 #        msp = makesummaryplot(workdir, scanId)
         candsfile = cc.state.candsfile
         msp = candidates.makesummaryplot(candsfile=candsfile)
-        workdir = cc.prefs.workdir + '/'
-        moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
-                                                                indexprefix))
+        # moving of plots managed by rsync on rfnode021 now
+#        workdir = cc.prefs.workdir + '/'
+#        moveplots(workdir, scanId, destination='{0}/{1}'.format(_candplot_dir,
+#                                                                indexprefix))
     else:
         nc = 0
         msp = 0
@@ -123,8 +124,6 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
     sel = [True]*len(cc)
 
     if len(cc):
-        st = cc.state
-        segment = cc.segment
         # snr selection
         if snrtot is not None:
             sel *= cc.snrtot > snrtot
@@ -134,12 +133,7 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
         if isinstance(dm, str):
             if dm.upper() == "FRB":  # calc DM threshold per candidate
                 ne = density.ElectronDensity(**ne_io.Params())
-                pc0 = st.get_pc(segment)
-                ra_ctr, dec_ctr = st.get_radec(pc=pc0)
-                l1 = cc.candl
-                m1 = cc.candm
-                ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='degfloat')
-                coords = coordinates.SkyCoord(ra, dec, unit=units.deg)
+                coords = get_skycoord(cc)
                 ls, bs = coords.galactic.l, coords.galactic.b
                 dmt = [ne.DM(l, b, 20.).value + dm_halo for (l, b) in zip(ls, bs)]
             else:
@@ -195,6 +189,63 @@ def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, time
     logger.info("Selecting {0} of {1} candidates for dm={2}, dt={3}, snrtot={4}, frbprobt={5}".format(len(sel), len(cc), dm, dt, snrtot, frbprobt))
 
     return cc0
+
+
+def get_skycoord(cc):
+    """ Convert candidate coordinates in to SkyCoord (catalog).
+    """
+
+    from rfpipe import candidates
+    from astropy import coordinates, units
+
+    if len(cc):
+        st = cc.state
+        segment = cc.segment
+        pc0 = st.get_pc(segment)
+        ra_ctr, dec_ctr = st.get_radec(pc=pc0)
+        l1 = cc.candl
+        m1 = cc.candm
+        ra, dec = candidates.source_location(ra_ctr, dec_ctr, l1, m1, format='degfloat')
+        coords = coordinates.SkyCoord(ra, dec, unit=units.deg)
+    else:
+        coords = None
+
+    return coords
+
+
+def match_nvss(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
+    """ Compare coordinates of candidates to nvss.
+    Return boolean for each one, where true means association with 
+    bright NVSS source.
+    nvss_radius (arcsec) and nvss_flux (mJy) are arguments.
+    """
+
+    from astropy import units
+    import pickle
+
+    workdir = cc.prefs.workdir + '/'
+
+    if os.path.exists(workdir + catfile):
+        logger.info("Loading NVSS catfile")
+        with open(workdir + catfile, 'rb') as pkl:
+            catalog = pickle.load(pkl)
+            fluxes = pickle.load(pkl)
+    else:
+        logger.warn("No catfile {0} found in workdir {1}".format(catfile, workdir))
+        return None
+
+    assoc = []
+    coords = get_skycoord(cc)
+    if coords is not None:
+        logger.info("Comparing SkyCoord for candidates to NVSS.")
+        for coord in coords:
+            ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
+            if sep2.value < nvss_radius and fluxes[ind] > nvss_flux:
+                assoc.append(True)
+            else:
+                assoc.append(False)
+
+    return assoc
 
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
