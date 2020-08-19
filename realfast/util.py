@@ -34,6 +34,17 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                                 url_prefix=_candplot_url_prefix,
                                 indexprefix=indexprefix)
 
+        assoc = find_bad(cc)  # find false positives
+        if assoc is not None:
+            for i, candId in enumerate(cc.candIds):
+                try:
+                    _ = es.update(indexprefix+"cands", indexprefix+"cand",
+                                  candId, {"script": 'ctx._source.tagcount += 1'})
+                    _ = es.update(indexprefix+"cands", indexprefix+"cand",
+                                  candId, {"doc": {"caseyjlaw_tags": "astrophysical,delete"}})
+                except NotFoundError:
+                    logger.warn('Not found:', candId)
+
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
 #        msp = makesummaryplot(workdir, scanId)
@@ -77,15 +88,15 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
     cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
-    assoc = match_nvss(cc)  # find nvss false positives
+    assoc = find_bad(cc)  # find false positives
     if assoc is not None:
-        ngood = assoc.count(False)  # how many not associated with nvss?
+        ngood = assoc.count(False)  # how many not bad?
     else:
         ngood = len(cc)
 
     if ngood:
         if mode == 'max':
-            # define max snr for non-nvss sources
+            # define max snr for good cands
             cc0 = cc[np.where(cc.snrtot == max(cc.snrtot[np.where(np.array(assoc) == False)]))[0][0]]
             logger.info('Making VOEvent xml file for max snrtot')
         else:
@@ -223,10 +234,10 @@ def get_skycoord(cc):
     return coords
 
 
-def match_nvss(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
-    """ Compare coordinates of candidates to nvss.
-    Return boolean for each one, where true means association with 
-    bright NVSS source.
+def find_bad(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
+    """ Identify candidates that are likely false positives.
+    Major check is for bright NVSS sources during VLASS.
+    Return boolean for each one, where true means a problematic source.
     nvss_radius (arcsec) and nvss_flux (mJy) are arguments.
     """
 
@@ -235,27 +246,31 @@ def match_nvss(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
 
     workdir = cc.prefs.workdir + '/'
 
-    if os.path.exists(workdir + catfile):
-        logger.info("Loading NVSS catfile")
-        with open(workdir + catfile, 'rb') as pkl:
-            catalog = pickle.load(pkl)
-            fluxes = pickle.load(pkl)
-    else:
-        logger.warn("No catfile {0} found in workdir {1}".format(catfile, workdir))
-        return None
+    # if using OTF (mostly)
+    if any([reject in cc.metadata.datasetId for reject in ['VLASS', 'TOTF', 'TSKY']]):
+        if os.path.exists(workdir + catfile):
+            logger.info("Loading NVSS catfile")
+            with open(workdir + catfile, 'rb') as pkl:
+                catalog = pickle.load(pkl)
+                fluxes = pickle.load(pkl)
+        else:
+            logger.warn("No catfile {0} found in workdir {1}".format(catfile, workdir))
+            return None
 
-    assoc = []
-    coords = get_skycoord(cc)
-    if coords is not None:
-        logger.info("Comparing SkyCoord for candidates to NVSS.")
-        for coord in coords:
-            ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
-            if sep2.value < nvss_radius and fluxes[ind] > nvss_flux:
-                assoc.append(True)
-            else:
-                assoc.append(False)
+        assoc = []
+        coords = get_skycoord(cc)
+        if coords is not None:
+            logger.info("Comparing SkyCoord for candidates to NVSS.")
+            for coord in coords:
+                ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
+                if sep2.value < nvss_radius and fluxes[ind] > nvss_flux:
+                    assoc.append(True)
+                else:
+                    assoc.append(False)
 
-    return assoc
+        return assoc
+    else:  # none bad otherwise
+        return [False]*len(cc)
 
 
 def moveplots(workdir, scanId, destination=_candplot_dir):
@@ -361,10 +376,10 @@ def createproducts(candcollection, data, indexprefix=None,
 
     sdmlocs = []
 
-    assoc = match_nvss(candcollection)  # find nvss false positives
+    assoc = find_bad(candcollection)  # find false positives
     if assoc is not None:
         if all(assoc):
-            logger.info("All candidates associated with NVSS sources. Skipping createproducts.")
+            logger.info("All candidates fail find_bad. Skipping createproducts.")
             return sdmlocs
 
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
@@ -630,7 +645,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
     if isinstance(cc, distributed.Future):
         cc = cc.result()
 
-    assoc = match_nvss(cc)  # find nvss false positives
+    assoc = find_bad(cc)  # find false positives
 
     index = indexprefix + 'cands'
 
@@ -643,7 +658,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
             for i, cd in enumerate(cc.canddata):
                 if assoc is not None:
                     if assoc[i]:
-                        logger.info("Candidate {0} ({1}) is associated with NVSS source. Skipping."
+                        logger.info("Candidate {0} ({1}) failed find_bad. Skipping."
                                     .format(i, cd.candid))
                         continue
                 frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
