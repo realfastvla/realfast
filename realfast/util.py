@@ -92,8 +92,11 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
 
     if assoc is not None:
         # select those without assoc
-        ccnew = sum([cc0 for (i, cc0) in enumerate(cc) if not assoc[i]])
-        cc = select_cc(ccnew, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+        cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
+        if len(cclist):
+            cc = select_cc(sum(cclist), dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+        else:
+            cc = []
     else:
         cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
