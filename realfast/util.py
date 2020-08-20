@@ -36,14 +36,13 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
         assoc = find_bad(cc)  # find false positives
         if assoc is not None:
-            for i, candId in enumerate(cc.candIds):
-                try:
-                    _ = es.update(indexprefix+"cands", indexprefix+"cand",
-                                  candId, {"script": 'ctx._source.tagcount += 1'})
-                    _ = es.update(indexprefix+"cands", indexprefix+"cand",
-                                  candId, {"doc": {"caseyjlaw_tags": "astrophysical,delete"}})
-                except NotFoundError:
-                    logger.warn('Not found:', candId)
+            for i, candId in enumerate(cc.candids):
+                # set a tag to indicate false positive
+                status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
+                                         'astrophysical,delete')
+                if not status:
+                    logger.warn("CandId {0} not found in {1}"
+                                .format(candId, indexprefix))
 
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
@@ -86,15 +85,19 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
         cc = cc.result()
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
-
-    assoc = find_bad(cc)  # find false positives
-    if assoc is not None:
-        ngood = assoc.count(False)  # how many not bad?
+    if len(cc):
+        assoc = find_bad(cc)  # find false positives
     else:
-        ngood = len(cc)
+        assoc = None
 
-    if ngood:
+    if assoc is not None:
+        # select those without assoc
+        ccnew = sum([cc0 for (i, cc0) in enumerate(cc) if not assoc[i]])
+        cc = select_cc(ccnew, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+    else:
+        cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+
+    if len(cc):
         if mode == 'max':
             # define max snr for good cands
             cc0 = cc[np.where(cc.snrtot == max(cc.snrtot[np.where(np.array(assoc) == False)]))[0][0]]
@@ -645,9 +648,10 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
     if isinstance(cc, distributed.Future):
         cc = cc.result()
 
-    assoc = find_bad(cc)  # find false positives
-
     index = indexprefix + 'cands'
+
+    if len(cc):
+        assoc = find_bad(cc)  # find false positives
 
     try:
         if len(cc.canddata):

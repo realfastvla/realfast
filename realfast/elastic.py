@@ -430,6 +430,22 @@ def remove_tags(prefix, **kwargs):
             resp = es.update(prefix+"cands", prefix+"cand", Id, {"script": 'ctx._source.tagcount = 0'})
 
 
+def add_tag(prefix, candId, user, tag):
+    """ Set tag for user
+    Returns True for success
+    """
+
+    try:
+        _ = es.update(prefix+"cands", prefix+"cand",
+                      candId, {"script": 'ctx._source.tagcount += 1'})
+        _ = es.update(prefix+"cands", prefix+"cand",
+                      candId, {"doc": {user+"_tags": tag}})
+    except NotFoundError:
+        logger.warn('Not found:', candId)
+        return False
+    return True
+
+
 def remove_ids(index, Ids=None, check=True, **kwargs):
     """ Gets Ids from an index
     doc_type derived from index name (one per index)

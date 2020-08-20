@@ -737,7 +737,7 @@ class realfast_controller(Controller):
                         kwargs['resources'] = {'READER': 1}
  
                     fut = self.client.submit(util.indexcands_and_plots, cc,
-                                             scanId, self.tags, self.indexprefix, workdir, retries=1,
+                                             scanId, self.tags, self.indexprefix, workdir,
                                              **kwargs) # returns cc
                     if self.classify:
                         # classify cands on special workers
