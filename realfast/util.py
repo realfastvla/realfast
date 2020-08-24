@@ -101,7 +101,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     if len(cc):
         if mode == 'max':
             # define max snr for good cands
-            cc0 = cc[np.where(cc.snrtot == max(cc.snrtot[np.where(np.array(assoc) == False)]))[0][0]]
+            cc0 = cc[np.where(cc.snrtot == max(cc.snrtot))[0][0]] 
             logger.info('Making VOEvent xml file for max snrtot')
         else:
             cc0 = cc
