@@ -41,9 +41,9 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                     # set a tag to indicate false positive
                     status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
                                              'astrophysical,delete')
-                if not status:
-                    logger.warn("CandId {0} not found in {1}"
-                                .format(candId, indexprefix))
+                    if not status:
+                        logger.warn("CandId {0} not found in {1}"
+                                    .format(candId, indexprefix))
 
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
