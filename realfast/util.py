@@ -37,9 +37,10 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
         assoc = find_bad(cc)  # find false positives
         if assoc is not None:
             for i, candId in enumerate(cc.candids):
-                # set a tag to indicate false positive
-                status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
-                                         'astrophysical,delete')
+                if assoc[i]:
+                    # set a tag to indicate false positive
+                    status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
+                                             'astrophysical,delete')
                 if not status:
                     logger.warn("CandId {0} not found in {1}"
                                 .format(candId, indexprefix))
@@ -85,10 +86,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
         cc = cc.result()
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    if len(cc):
-        assoc = find_bad(cc)  # find false positives
-    else:
-        assoc = None
+    assoc = find_bad(cc)  # find false positives
 
     if assoc is not None:
         # select those without assoc
@@ -252,6 +250,9 @@ def find_bad(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
 
     workdir = cc.prefs.workdir + '/'
 
+    if not len(cc):
+        return None
+
     # if using OTF (mostly)
     if any([reject in cc.metadata.datasetId for reject in ['VLASS', 'TOTF', 'TSKY']]):
         if os.path.exists(workdir + catfile):
@@ -387,6 +388,8 @@ def createproducts(candcollection, data, indexprefix=None,
         if all(assoc):
             logger.info("All candidates fail find_bad. Skipping createproducts.")
             return sdmlocs
+        else:
+            logger.info("Not all candidates fail find_bad.")
 
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                 .format(candcollection.metadata.scanId, candcollection.segment,
