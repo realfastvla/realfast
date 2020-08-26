@@ -683,6 +683,14 @@ class realfast_controller(Controller):
         # update shared list of futures
         removed = 0
 
+        # index cands and copy data from special workers
+        indexprefix = self.indexprefix if self.indexresults else None
+        indexkwargs = {'retries': 1}
+        if self.index_with_fetch:
+            indexkwargs['workers'] = self.fetchworkers
+        if self.index_with_reader:
+            indexkwargs['resources'] = {'READER': 1}
+
         scanIds = [scanId for scanId in self.futures]
         if len(scanIds):
             logger.info("Checking on {0} segments in {1} scanIds: {2}"
@@ -700,6 +708,9 @@ class realfast_controller(Controller):
         # clean futures and get finished jobs
         removed = self.removefutures(badstatuslist)
         for scanId in self.futures:
+            # TODO: need way to report number of cands and sdms before removal without slowing cleanup
+
+            workdir = self.states[scanId].prefs.workdir if scanId in self.states else '/lustre/evla/test/realfast'
 
             # check on finished
             finishedlist = [(seg, data, cc, acc)
@@ -717,57 +728,50 @@ class realfast_controller(Controller):
                                             errors=self.errors[scanId],
                                             retries=1))
 
+            # index mocks from special workers
+            if self.indexresults:
+                distributed.fire_and_forget(self.client.map(elastic.indexmock,
+                                            [(scanId, None, acc, self.indexprefix)
+                                             for (seg, data, cc, acc) in finishedlist],
+                                                    retries=1)
+
+                # returns cc from each future
+                fut_icp = self.client.map(util.indexcands_and_plots,
+                                          [(cc, scanId, self.tags, self.indexprefix, workdir)
+                                             for (seg, data, cc, acc) in finishedlist],
+                                             retries=1, **indexkwargs)
+            else:
+                fut_icp = [cc for (seg, data, cc, acc) in finishedlist]
+
+            # classify cands on special workers
+            if self.classify:
+                distributed.fire_and_forget(self.client.map(util.classify_candidates,
+                                                            [(fut, self.indexprefix)
+                                                             for fut in fut_icp],
+                                                            retries=1,
+                                                            workers=self.fetchworkers,
+                                                            resources={'GPU': 1}))
+
+            # optionally save and archive sdm/bdfs for segment
+            if self.createproducts:
+                fdlist = [(fut, data) for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist)]
+                distributed.fire_and_forget(self.client.map(util.createproducts,
+                                                            [(fut, data, indexprefix)
+                                                             for (fut, data) in fdlist],
+                                                            retries=1))
+
+            if self.voevent is not False:
+                distributed.fire_and_forget(self.client.map(util.send_voevent,
+                                                            [fut, self.voevent, self.voevent_dt,
+                                                             self.voevent_snrtot, self.voevent_frbprobt,
+                                                             'max', self.voevent_destination],
+                                                            retries=1))
+            # remove job from list
             for futures in finishedlist:
-                seg, data, cc, acc = futures
-
-                if self.indexresults:
-                    # index mocks from special workers
-                    distributed.fire_and_forget(self.client.submit(elastic.indexmock,
-                                                                   scanId,
-                                                                   acc=acc,
-                                                                   indexprefix=self.indexprefix,
-                                                                   retries=1))
-
-                    # index cands and copy data from special workers
-                    workdir = self.states[scanId].prefs.workdir if scanId in self.states else '/lustre/evla/test/realfast'
-                    kwargs = {'retries': 1}
-                    if self.index_with_fetch:
-                        kwargs['workers'] = self.fetchworkers
-                    if self.index_with_reader:
-                        kwargs['resources'] = {'READER': 1}
- 
-                    fut = self.client.submit(util.indexcands_and_plots, cc,
-                                             scanId, self.tags, self.indexprefix, workdir,
-                                             **kwargs) # returns cc
-                    if self.classify:
-                        # classify cands on special workers
-                        distributed.fire_and_forget(self.client.submit(util.classify_candidates,
-                                                                       fut, self.indexprefix,
-                                                                       retries=1,
-                                                                       workers=self.fetchworkers,
-                                                                       resources={'GPU': 1}))
-                else:
-                    fut = cc  # used downstream even if indexresults=False
-
-                if self.createproducts:
-                    # optionally save and archive sdm/bdfs for segment
-                    indexprefix = self.indexprefix if self.indexresults else None
-                    distributed.fire_and_forget(self.client.submit(util.createproducts,
-                                                                   fut, data,
-                                                                   indexprefix=indexprefix,
-                                                                   retries=1))
-                if self.voevent is not False:
-                    distributed.fire_and_forget(self.client.submit(util.send_voevent, fut, dm=self.voevent,
-                                                                   dt=self.voevent_dt,
-                                                                   snrtot=self.voevent_snrtot,
-                                                                   frbprobt=self.voevent_frbprobt,
-                                                                   destination=self.voevent_destination,
-                                                                   retries=1))
-                # remove job from list
-                # TODO: need way to report number of cands and sdms before removal without slowing cleanup
                 self.futures[scanId].remove(futures)
                 removed += 1
-                del fut  # to avoid mixing references?
+
+            del fut_icp  # to avoid mixing references?
 
         # clean up self.futures
         removeids = [scanId for scanId in self.futures
