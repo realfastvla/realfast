@@ -68,8 +68,8 @@ class realfast_controller(Controller):
         - searchintents, a list of intent names to search,
         - ignoreintents, a list of intent names to not search,
         - indexprefix, a string defining set of indices to save results,
-        - rsync_with_fetch, boolean to force index onto fetchworkers,
-        - rsync_with_reader, boolean to require index jobs to use a READER resource (avoiding read jobs).
+        - index_with_fetch, boolean to force index onto fetchworkers,
+        - index_with_reader, boolean to require index jobs to use a READER resource (avoiding read jobs).
         """
 
         super(realfast_controller, self).__init__()
@@ -134,15 +134,15 @@ class realfast_controller(Controller):
                     'voevent', 'voevent_destination',
                     'voevent_snrtot', 'voevent_frbprobt', 'voevent_dt',
                     'read_overhead', 'read_totfrac', 'indexprefix', 'daskdir',
-                    'requirecalibration', 'data_logging', 'rsync_with_fetch',
-                    'rsync_with_reader']
+                    'requirecalibration', 'data_logging', 'index_with_fetch',
+                    'index_with_reader']
 
         for attr in allattrs:
             if attr == 'indexprefix':
                 setattr(self, attr, 'new')
             elif attr == 'throttle':
                 setattr(self, attr, 0.8)  # submit relative to realtime
-            elif 'rsync_with' in attr:
+            elif 'index_with' in attr:
                 setattr(self, attr, False)
             elif attr == 'voevent':
                 setattr(self, attr, False)
@@ -731,9 +731,9 @@ class realfast_controller(Controller):
                     # index cands and copy data from special workers
                     workdir = self.states[scanId].prefs.workdir if scanId in self.states else '/lustre/evla/test/realfast'
                     kwargs = {'retries': 1}
-                    if self.rsync_with_fetch:
+                    if self.index_with_fetch:
                         kwargs['workers'] = self.fetchworkers
-                    if self.rsync_with_reader:
+                    if self.index_with_reader:
                         kwargs['resources'] = {'READER': 1}
  
                     fut = self.client.submit(util.indexcands_and_plots, cc,
@@ -767,6 +767,7 @@ class realfast_controller(Controller):
                 # TODO: need way to report number of cands and sdms before removal without slowing cleanup
                 self.futures[scanId].remove(futures)
                 removed += 1
+                del fut  # to avoid mixing references?
 
         # clean up self.futures
         removeids = [scanId for scanId in self.futures
