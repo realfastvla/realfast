@@ -757,10 +757,13 @@ class realfast_controller(Controller):
 
             # optionally save and archive sdm/bdfs for segment
             if self.createproducts:
-                fdlist = [(fut, data) for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist)]
-                partial_cp = partial(util.createproducts, indexprefix=self.indexprefix)
-                distributed.fire_and_forget(self.client.map(partial_cp, *fdlist,
-                                                            retries=1))
+# this fails with "indexprefix argument appears twice" kind of error. some issue with using partial.
+#                fdlist = [(fut, data) for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist)]
+#                partial_cp = partial(util.createproducts, indexprefix=self.indexprefix)
+                for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist):
+                    distributed.fire_and_forget(self.client.submit(util.createproducts, fut, data,
+                                                                   indexprefix=self.indexprefix,
+                                                                   retries=1))
 
             if self.voevent is not False:
                 partial_sv = partial(util.send_voevent, dm=self.voevent,
