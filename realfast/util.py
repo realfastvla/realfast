@@ -127,6 +127,9 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
             logger.info("Not sending voevent(s)")
     else:
         logger.info("No candidates meet criteria for voevent generation.")
+        outnames = None
+
+    return outnames
 
 
 def select_cc(cc, snrtot=None, dm=None, dt=None, frbprobt=None, dm_halo=10, timeout=300):

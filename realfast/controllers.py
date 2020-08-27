@@ -8,6 +8,7 @@ import os.path
 from datetime import date
 import gc
 import random
+from functools import partial
 import distributed
 from time import sleep
 from astropy import time
@@ -730,24 +731,26 @@ class realfast_controller(Controller):
 
             # index mocks from special workers
             if self.indexresults:
-                distributed.fire_and_forget(self.client.map(elastic.indexmock,
-                                            [(scanId, None, acc, self.indexprefix)
-                                             for (seg, data, cc, acc) in finishedlist],
-                                                    retries=1)
+#                partial_im = partial(elastic.indexmock, scanId, mocks=None,
+#                                     indexprefix=self.indexprefix)
+                for (seg, data, cc, acc) in finishedlist:
+                    distributed.fire_and_forget(self.client.submit(elastic.indexmock, scanId,
+                                                                   acc=acc, mocks=None,
+                                                                   indexprefix=self.indexprefix,
+                                                                   retries=1))
 
                 # returns cc from each future
-                fut_icp = self.client.map(util.indexcands_and_plots,
-                                          [(cc, scanId, self.tags, self.indexprefix, workdir)
-                                             for (seg, data, cc, acc) in finishedlist],
-                                             retries=1, **indexkwargs)
+                partial_icp = partial(util.indexcands_and_plots, scanId=scanId, tags=self.tags,
+                                     indexprefix=self.indexprefix, workdir=workdir)
+                fut_icp = self.client.map(partial_icp, [cc for (seg, data, cc, acc) in finishedlist],
+                                          **indexkwargs)
             else:
                 fut_icp = [cc for (seg, data, cc, acc) in finishedlist]
 
             # classify cands on special workers
             if self.classify:
-                distributed.fire_and_forget(self.client.map(util.classify_candidates,
-                                                            [(fut, self.indexprefix)
-                                                             for fut in fut_icp],
+                partial_cl = partial(util.classify_candidates, indexprefix=self.indexprefix)
+                distributed.fire_and_forget(self.client.map(partial_cl, fut_icp,
                                                             retries=1,
                                                             workers=self.fetchworkers,
                                                             resources={'GPU': 1}))
@@ -755,17 +758,18 @@ class realfast_controller(Controller):
             # optionally save and archive sdm/bdfs for segment
             if self.createproducts:
                 fdlist = [(fut, data) for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist)]
-                distributed.fire_and_forget(self.client.map(util.createproducts,
-                                                            [(fut, data, indexprefix)
-                                                             for (fut, data) in fdlist],
+                partial_cp = partial(util.createproducts, indexprefix=self.indexprefix)
+                distributed.fire_and_forget(self.client.map(partial_cp, *fdlist,
                                                             retries=1))
 
             if self.voevent is not False:
-                distributed.fire_and_forget(self.client.map(util.send_voevent,
-                                                            [fut, self.voevent, self.voevent_dt,
-                                                             self.voevent_snrtot, self.voevent_frbprobt,
-                                                             'max', self.voevent_destination],
+                partial_sv = partial(util.send_voevent, dm=self.voevent,
+                                     dt=self.voevent_dt, snrtot=self.voevent_snrtot,
+                                     frbprobt=self.voevent_frbprobt,
+                                     destination=self.voevent_destination)
+                distributed.fire_and_forget(self.client.map(partial_sv, fut_icp,
                                                             retries=1))
+
             # remove job from list
             for futures in finishedlist:
                 self.futures[scanId].remove(futures)
