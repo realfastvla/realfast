@@ -24,7 +24,7 @@ _antflagger_xsd = os.path.join(_xsd_dir, 'AntFlaggerMessage.xsd')
 _antflagger_parser = objectify.makeparser(
         schema=etree.XMLSchema(file=_antflagger_xsd))
 
-_host = 'mctest.evla.nrao.edu'
+_host = 'mctest.evla.nrao.edu:8181'
 _flaghost = 'mchammer.evla.nrao.edu'
 _sdmpath = 'sdm-builder/offline'
 _antpath = 'evla-mcaf-production/dataset'
@@ -89,10 +89,11 @@ class SDMBuilder(object):
     @property
     def _url(self):
         query = urlencode({'xml': self.xml})
-        url = urlunparse(('https', self.host, self.path, '', query, ''))
+        url = urlunparse(('http', self.host, self.path, '', query, ''))
         return url
 
     def send(self):
+        #logger.info("SDMBuilder URL: '{0}'".format(self._url))
         response_xml = urlopen(self._url, timeout=600).read()
         self.response = None
         if b'error' in response_xml:
