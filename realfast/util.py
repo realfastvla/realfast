@@ -28,6 +28,11 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
 
     from rfpipe import candidates
 
+    if isinstance(cc, distributed.Future):
+        cc = cc.result()
+
+    logger.info("cc type: {0}".format(type(cc)))
+
     if len(cc):
         logger.info("Indexing candidates")
         nc = elastic.indexcands(cc, scanId, tags=tags,
