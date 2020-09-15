@@ -722,7 +722,10 @@ def remove_bdfs(indexprefix, candIds):
     """
 
     for Id in candIds:
-        bdfname = candid_bdf(indexprefix, Id) 
+        try:
+            bdfname = candid_bdf(indexprefix, Id)
+        except NotFoundError:
+            logger.warn("Id {0} not found in {1}".format(Id, indexprefix))
         if bdfname is not None: 
             os.remove(bdfname)
             logger.info('Removed {0}'.format(bdfname))
