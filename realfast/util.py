@@ -39,7 +39,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                                 url_prefix=_candplot_url_prefix,
                                 indexprefix=indexprefix)
 
-        assoc = find_bad(cc)  # find false positives
+        assoc = find_associations(cc, mode='nvss')  # find false positives
         if assoc is not None:
             for i, candId in enumerate(cc.candids):
                 if assoc[i]:
@@ -49,6 +49,11 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                     if not status:
                         logger.warn("CandId {0} not found in {1}"
                                     .format(candId, indexprefix))
+
+        # TODO: repeat for pulsars
+#        assoc = find_associations(cc, mode='pulsar')  # find known pulsars
+#        if assoc is not None:
+#            ...
 
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
@@ -91,7 +96,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
         cc = cc.result()
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    assoc = find_bad(cc)  # find false positives
+    assoc = find_associations(cc, mode='nvss')  # find NVSS sources to ignore
 
     if assoc is not None:
         # select those without assoc
@@ -103,6 +108,8 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     else:
         cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
+#    assoc = find_associations(cc, mode='pulsar')  # find pulsars to ignore for voevent
+    
     if len(cc):
         if mode == 'max':
             # define max snr for good cands
@@ -246,11 +253,13 @@ def get_skycoord(cc):
     return coords
 
 
-def find_bad(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
+def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius=5,
+                      nvsscat='nvss_astropy.pkl', atnfcat='atnf_astropy.pkl'):
     """ Identify candidates that are likely false positives.
-    Major check is for bright NVSS sources during VLASS.
+    Major check is for bright NVSS sources during VLASS (mode='nvss')
+    For mode='pulsar', it will return any pulsar in atnf catalog.
     Return boolean for each one, where true means a problematic source.
-    nvss_radius (arcsec) and nvss_flux (mJy) are arguments.
+    nvss_radius (arcsec), nvss_flux (mJy), atnf_radius (arcsec) define cross match.
     """
 
     from astropy import units
@@ -262,14 +271,14 @@ def find_bad(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
         return None
 
     # if using OTF (mostly)
-    if any([reject in cc.metadata.datasetId for reject in ['VLASS', 'TOTF', 'TSKY']]):
-        if os.path.exists(workdir + catfile):
-            logger.info("Loading NVSS catfile")
-            with open(workdir + catfile, 'rb') as pkl:
+    if any([reject in cc.metadata.datasetId for reject in ['VLASS', 'TOTF', 'TSKY']]) and mode.lower()=='nvss':
+        if os.path.exists(workdir + nvsscat):
+            logger.info("Loading NVSS catalog")
+            with open(workdir + nvsscat, 'rb') as pkl:
                 catalog = pickle.load(pkl)
                 fluxes = pickle.load(pkl)
         else:
-            logger.warn("No catfile {0} found in workdir {1}".format(catfile, workdir))
+            logger.warn("No NVSS catalog {0} found in workdir {1}".format(nvsscat, workdir))
             return None
 
         assoc = []
@@ -284,6 +293,17 @@ def find_bad(cc, nvss_radius=5, nvss_flux=400, catfile='nvss_astropy.pkl'):
                     assoc.append(False)
 
         return assoc
+
+    elif mode.lower() == 'pulsar':
+        if os.path.exists(workdir + atnfcat):
+            logger.info("Loading ATNF atnfcat (not really)")
+#            with open(workdir + atnfcat, 'rb') as pkl:
+#                catalog = pickle.load(pkl)
+#                fluxes = pickle.load(pkl)
+        else:
+            logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
+            return None
+
     else:  # none bad otherwise
         return [False]*len(cc)
 
@@ -391,13 +411,13 @@ def createproducts(candcollection, data, indexprefix=None,
 
     sdmlocs = []
 
-    assoc = find_bad(candcollection)  # find false positives
+    assoc = find_associations(candcollection, mode='nvss')  # find false positives
     if assoc is not None:
         if all(assoc):
-            logger.info("All candidates fail find_bad. Skipping createproducts.")
+            logger.info("All candidates have NVSS associations. Skipping createproducts.")
             return sdmlocs
         else:
-            logger.info("Not all candidates fail find_bad.")
+            logger.info("Not all candidates have NVSS associations.")
 
     logger.info("Creating an SDM for {0}, segment {1}, with {2} candidates"
                 .format(candcollection.metadata.scanId, candcollection.segment,
@@ -665,7 +685,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
     index = indexprefix + 'cands'
 
     if len(cc):
-        assoc = find_bad(cc)  # find false positives
+        assoc = find_associations(cc, mode='nvss')  # find false positives
 
     try:
         if len(cc.canddata):
@@ -676,7 +696,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
             for i, cd in enumerate(cc.canddata):
                 if assoc is not None:
                     if assoc[i]:
-                        logger.info("Candidate {0} ({1}) failed find_bad. Skipping."
+                        logger.info("Candidate {0} ({1}) has NVSS association. Skipping."
                                     .format(i, cd.candid))
                         continue
                 frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
