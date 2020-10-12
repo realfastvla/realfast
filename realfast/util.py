@@ -262,7 +262,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
     nvss_radius (arcsec), nvss_flux (mJy), atnf_radius (arcsec) define cross match.
     """
 
-    from astropy import units
+    from astropy import units, coordinates, table
     import pickle
 
     workdir = cc.prefs.workdir + '/'
@@ -297,12 +297,27 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
     elif mode.lower() == 'pulsar':
         if os.path.exists(workdir + atnfcat):
             logger.info("Loading ATNF atnfcat (not really)")
-#            with open(workdir + atnfcat, 'rb') as pkl:
-#                catalog = pickle.load(pkl)
-#                fluxes = pickle.load(pkl)
+            tab = table.Table.read(atnfcat, format='ascii')
+            catalog = coordinates.SkyCoord(ra=tab['RAJ'], dec=tab['DECJ'], unit=(units.hourangle, units.deg))
         else:
-            logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
             return None
+
+        assoc = []
+        coords = get_skycoord(cc)
+        if coords is not None:
+            logger.info("Comparing SkyCoord for candidates to ATNF.")
+            for coord in coords:
+                ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
+                if sep2.value < atnf_radius:
+                    assoc.append(True)
+                else:
+                    assoc.append(False)
+
+        return assoc
+
+    else:
+        logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
+        return None
 
     else:  # none bad otherwise
         return [False]*len(cc)
