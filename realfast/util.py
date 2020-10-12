@@ -296,7 +296,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
 
     elif mode.lower() == 'pulsar':
         if os.path.exists(workdir + atnfcat):
-            logger.info("Loading ATNF atnfcat (not really)")
+            logger.info("Loading ATNF atnfcat")
             tab = table.Table.read(atnfcat, format='ascii')
             catalog = coordinates.SkyCoord(ra=tab['RAJ'], dec=tab['DECJ'], unit=(units.hourangle, units.deg))
         else:
