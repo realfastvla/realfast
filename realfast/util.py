@@ -254,7 +254,7 @@ def get_skycoord(cc):
 
 
 def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius=5,
-                      nvsscat='nvss_astropy.pkl', atnfcat='atnf_astropy.pkl'):
+                      nvsscat='nvss_astropy.pkl', atnfcat='atnfcat_v1.56.txt'):
     """ Identify candidates that are likely false positives.
     Major check is for bright NVSS sources during VLASS (mode='nvss')
     For mode='pulsar', it will return any pulsar in atnf catalog.
@@ -300,6 +300,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
             tab = table.Table.read(atnfcat, format='ascii')
             catalog = coordinates.SkyCoord(ra=tab['RAJ'], dec=tab['DECJ'], unit=(units.hourangle, units.deg))
         else:
+            logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
             return None
 
         assoc = []
@@ -314,10 +315,6 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
                     assoc.append(False)
 
         return assoc
-
-    else:
-        logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
-        return None
 
     else:  # none bad otherwise
         return [False]*len(cc)
