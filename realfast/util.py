@@ -96,8 +96,8 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
         cc = cc.result()
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
-    assoc = find_associations(cc, mode='nvss')  # find NVSS sources to ignore
 
+    assoc = find_associations(cc, mode='nvss')  # find NVSS sources to ignore
     if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
@@ -108,8 +108,17 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     else:
         cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
-#    assoc = find_associations(cc, mode='pulsar')  # find pulsars to ignore for voevent
-    
+    assoc = find_associations(cc, mode='pulsar')  # find pulsars to ignore for voevent
+    if assoc is not None:
+        # select those without assoc
+        cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
+        if len(cclist):
+            cc = select_cc(sum(cclist), dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+        else:
+            cc = []
+    else:
+        cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
+
     if len(cc):
         if mode == 'max':
             # define max snr for good cands
