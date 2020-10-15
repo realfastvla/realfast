@@ -101,6 +101,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
+        logger.info("Selecting {0} of {1} candidates due to NVSS association".format(len(cclist), len(cc)))
         if len(cclist):
             cc = select_cc(sum(cclist), dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
         else:
@@ -112,6 +113,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
+        logger.info("Selecting {0} of {1} candidates due to pulsar association".format(len(cclist), len(cc)))
         if len(cclist):
             cc = select_cc(sum(cclist), dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
         else:
