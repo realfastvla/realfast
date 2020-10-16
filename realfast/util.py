@@ -31,8 +31,6 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     if isinstance(cc, distributed.Future):
         cc = cc.result()
 
-    logger.info("cc type: {0}".format(type(cc)))
-
     if len(cc):
         logger.info("Indexing candidates")
         nc = elastic.indexcands(cc, scanId, tags=tags,
@@ -307,8 +305,8 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
 
     elif mode.lower() == 'pulsar':
         if os.path.exists(workdir + atnfcat):
-            logger.info("Loading ATNF atnfcat")
-            tab = table.Table.read(atnfcat, format='ascii')
+            logger.info("Loading ATNF catalog")
+            tab = table.Table.read(workdir + atnfcat, format='ascii')
             catalog = coordinates.SkyCoord(ra=tab['RAJ'], dec=tab['DECJ'], unit=(units.hourangle, units.deg))
         else:
             logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
