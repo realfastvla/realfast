@@ -274,10 +274,10 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
     from astropy import units, coordinates, table
     import pickle
 
-    workdir = cc.prefs.workdir + '/'
-
     if not len(cc):
         return None
+
+    workdir = cc.prefs.workdir + '/'
 
     # if using OTF (mostly)
     if any([reject in cc.metadata.datasetId for reject in ['VLASS', 'TOTF', 'TSKY']]) and mode.lower()=='nvss':
