@@ -935,23 +935,37 @@ class realfast_controller(Controller):
                              (scanId0 == scanId)]
 
             self.errors[scanId] += len(removelist)
+
+            # print status
+            who_has = self.client.who_has()
             for removefuts in removelist:
                 (seg, data, cc, acc) = removefuts
-                if len(self.client.who_has()[data.key]):
-                    try:
-                        dataloc = self.workernames[self.client.who_has()[data.key][0]]
-                    except KeyError:
-                        dataloc = '[key lost]'
-
+                if data.key in who_has:
+                    if len(who_has[data.key]):
+                        dataloc = self.workernames[who_has[data.key][0]]
+                        logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
+                                    .format(scanId, seg, data.status, cc.status,
+                                            acc.status, dataloc))
+                    else:
+                        logger.info('{0}, {1}: {2}, {3}, {4}.'
+                                    .format(scanId, seg, data.status, cc.status,
+                                            acc.status))
+                else:
+                    dataloc = '[key lost]'
                     logger.warn("scanId {0} segment {1} bad status: {2}, {3}, {4}. Data on {5}"
                                 .format(scanId, seg, data.status, cc.status,
                                         acc.status, dataloc))
-                else:
-                    logger.info('{0}, {1}: {2}, {3}, {4}.'
-                                .format(scanId, seg, data.status, cc.status,
-                                        acc.status))
 
-            # clean them up
+            # first, clean up dropped keys
+            lostjobs = [fut for futs in removelist for fut in futs[1:] if fut.key not in who_has]
+            if len(lostjobs):
+                logger.warn("Some futures in removelist have no key in client.")
+            for futures in removelist:
+                if any([fut in lostjobs for fut in futures]):
+                    logger.warn("Removing scanId {0} and futures {1}".format(scanId, futures))
+                    self.futures[scanId].remove(futures)
+
+            # next, clean up errors
             errworkers = [(fut, self.client.who_has(fut))
                           for futs in removelist
                           for fut in futs[1:] if fut.status == 'error']
