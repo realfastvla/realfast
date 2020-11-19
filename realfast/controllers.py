@@ -646,8 +646,10 @@ class realfast_controller(Controller):
                         self.client.run(gc.collect)
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                         justran = 1
+                        util.update_slack('#alerts', 'WARNING: High reader memory on cluster. Skipping ScanId {0}, segment {1}'.format(scanId, segment))
                     elif (int(segsubtime-t0) % 20):
                         justran = 0
+                        util.update_slack('#alerts', 'WARNING: High reader memory on cluster. Skipping ScanId {0}, segment {1}'.format(scanId, segment))
                 elif not heuristics.readertotal_memory_ok(self.client,
                                                           tot_memlim):
                     if not (int(segsubtime-t0) % 20) and not justran:  # every 20 sec
@@ -656,8 +658,10 @@ class realfast_controller(Controller):
                         self.client.run(gc.collect)
                         self.cleanup(keep=scanId)  # do not remove keys of ongoing submission
                         justran = 1
+                        util.update_slack('#alerts', 'WARNING: High total memory on cluster. Skipping ScanId {0}, segment {1}'.format(scanId, segment))
                     elif (int(segsubtime-t0) % 20):
                         justran = 0
+                        util.update_slack('#alerts', 'WARNING: High total memory on cluster. Skipping ScanId {0}, segment {1}'.format(scanId, segment))
                 elif not (telcalset if self.requirecalibration else True):
                     if not (int(segsubtime-t0) % 5) and not justran:  # every 5 sec
                         logger.info("System not ready. No telcalfile available for {0}"
