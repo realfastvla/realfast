@@ -537,9 +537,12 @@ class realfast_controller(Controller):
                      'with timeout {2}s'
                      .format(self.read_overhead, self.read_totfrac, timeout))
 
-        tot_memlim = self.read_totfrac*sum([v['resources']['MEMORY']
-                                            for v in itervalues(self.client.scheduler_info()['workers'])
-                                            if 'READER' in v['resources']])
+        try:
+            tot_memlim = self.read_totfrac*sum([v['resources']['MEMORY']
+                                                for v in itervalues(self.client.scheduler_info()['workers'])
+                                                if 'READER' in v['resources']])
+        except KeyError:
+            tot_memlim = 5.6e11
 
         # submit segments
         nsubmitted = 0  # count number submitted from list segments
@@ -699,7 +702,10 @@ class realfast_controller(Controller):
                                 ','.join(scanIds)))
 
         # run memory logging
-        memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 14])
+        try:
+            memory_summary = ','.join(['({0}, {1})'.format(v['id'], v['metrics']['memory']/1e9) for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 14])
+        except KeyError:
+            memory_summary = '(KeyError)'
         if memory_summary:
             logger.info("High memory usage on cluster: {0}".format(memory_summary))
             workers_highmem = [k for k, v in iteritems(self.client.scheduler_info()['workers']) if v['metrics']['memory']/1e9 > 14]
