@@ -639,7 +639,7 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
                 if (k == indexprefix1+'cands') and result:
                     png_url = get_doc(index=indexprefix1+'cands', Id=Id)['_source']['png_url']
                     update_field(indexprefix2+'cands', 'png_url',
-                                 png_url.replace(indexprefix1, indexprefix2),
+                                 png_url.replace(indexprefix1, indexprefix2, 1),
                                  Id=Id)
                     candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
                                  .format(indexprefix1, Id))
