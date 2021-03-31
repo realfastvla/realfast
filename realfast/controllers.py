@@ -866,7 +866,8 @@ class realfast_controller(Controller):
 
             if len(futs):
                 sleep(5)
-
+            else:
+                self.restart()
 
     def cleanup_loop(self, timeout=None):
         """ Clean up until all jobs gone or timeout elapses.
