@@ -1129,7 +1129,7 @@ def get_prefsname(inmeta=None, config=None, sdmfile=None, sdmscan=None,
     elif (config is not None) and (band == 'L'):
         subbands = config.get_subbands()
         inttimes_final = [subband.final_time_res for subband in subbands]
-        if (meta.inttime < 0.02) and (len(meta.spw_orig) == 8) and len(subbands == 32):
+        if (meta.inttime < 0.02) and (len(meta.spw_orig) == 8) and (len(subbands) == 32):
             prefsname = '20A-346'
             logger.info("Looks like this is 20A-346 L band")
         else:
