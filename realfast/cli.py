@@ -319,20 +319,67 @@ def move_dataset(prefix1, prefix2, datasetid, scanid, force):
 @cli2.command()
 @click.option('--consensusstr', type=str, default=None)
 @click.option('--consensusfile', type=click.File('rb'), default=None)
-@click.option('--prefix1', default='new')
-@click.option('--prefix2', default='final')
-def move_consensus(consensusstr, consensusfile, prefix1, prefix2):
+@click.option('--nop', default=3, help="Number of tags required to get consensus")
+@click.option('--decidable', default=True, help="Only move those with decidable consensus")
+@click.option('--prefix1', default='new', help="Moving from this index prefix")
+@click.option('--prefix2', default='final', help="Moving to this index prefix")
+def move_consensus(consensusstr, consensusfile, nop, decidable, prefix1, prefix2):
     """ Use consensus to move candidates from 1 to 2 with a given consensus.
-    Designed to be executed remotely (from rfnode on aoc).
+    Can be executed remotely (from rfnode on aoc) or to find consensus locally.
     """
 
     from realfast import elastic
     import json
-    if consensusstr is None and consensusfile is not None:
+
+    # three options to get consensus
+    if consensusstr is None and consensusfile is None:
+        consensus = elastic.get_consensus(consensustype='majority', nop=nop)
+    elif consensusfile is not None:
         with consensusfile:
             consensusstr = consensusfile.read()
-    consensus = json.loads(consensusstr)
+        consensus = json.loads(consensusstr)
+    elif consensusstr is not None:
+        consensus = json.loads(consensusstr)
+
+    if decidable:
+        delete, archive = elastic.consensus_decision(consensus)
+        consensus = {}
+        for candId in delete + archive:
+            consensus[candId] = {'tags': []}
+
     elastic.move_consensus(consensus=consensus, indexprefix1=prefix1, indexprefix2=prefix2, force=True)
+
+
+@cli2.command()
+@click.option('--nop', default=3)
+@click.option('--confirm', type=bool, default=True)
+def run_consensus_rfnode(nop, confirm):
+    """ Go to rfnode021 and run the consensus to find "delete/rfi" or "archive/astrophysical" groups.
+    Then delete the bad and build SDMs for the good.
+    nop is number of tags required to get consensus.
+    confirm is boolean to check whether to confirm before deleting/building SDMs.
+    """
+
+    from realfast import elastic, util
+
+    assert os.path.exists('/lustre/evla/test/realfast'), 'Must be run at VLA site'
+
+    con = elastic.get_consensus(consensustype='majority', nop=nop)
+
+    delete, archive = elastic.consensus_decision(con)
+
+    yn = 'yes'
+    if confirm:
+        yn = input(f"Found {len(delete)} BDFs for deletion and {len(archive)} to build SDMs.\n"
+        f"Start of delete list: {delete[:10]}\n"
+        f"Start of archive list: {archive[:10]}.\n"
+        "Delete and build SDMs for these candIds?")
+
+    if yn.lower() in ['y', 'yes']:
+        for candId in archive:
+            util.buildsdm(sdmname=None, candid=candId, indexprefix='new', copybdf=True)
+
+        elastic.remove_bdfs('new', delete)
 
 
 @cli2.command()

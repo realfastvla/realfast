@@ -731,6 +731,22 @@ def remove_bdfs(indexprefix, candIds):
             logger.info('Removed {0}'.format(bdfname))
 
             
+def consensus_decision(consensus):
+    """ Given a consensus dict, return list of candidates to delete/archive.
+    """
+
+    delete = []
+    archive = []
+    for k, v in consensus.items():
+        tags = v['tags']
+        if 'delete' in tags or 'rfi' in tags:
+            delete.append(k)
+        elif 'archive' in tags or 'astrophysical' in tags or 'notify' in tags:
+            archive.append(k)
+
+    return delete, archive
+
+
 def find_docids(indexprefix, candId=None, scanId=None):
     """ Find docs associated with a candId or scanId.
     Finds relations based on scanId, which ties all docs together.

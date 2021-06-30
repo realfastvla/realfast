@@ -748,7 +748,10 @@ def buildsdm(sdmname, candid, indexprefix=None, copybdf=True):
     sdmloc = '/home/mctest/evla/mcaf/workspace/'
     sdmname_full = os.path.join(sdmloc, sdmname)
     if os.path.exists(sdmname_full):
-        shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
+        if not os.path.exists(os.path.join('.', sdmname)):
+            shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
+        else:
+            logger.info(f"SDM {sdmname} found in local directory.")
     else:
         logger.info("Trying realfast temp archive...")
         sdmloc = '/lustre/evla/test/realfast/archive/sdm_archive'
