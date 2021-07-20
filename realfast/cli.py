@@ -377,7 +377,10 @@ def run_consensus_rfnode(nop, confirm):
 
     if yn.lower() in ['y', 'yes']:
         for candId in archive:
-            util.buildsdm(sdmname=None, candid=candId, indexprefix='new', copybdf=True)
+            try:
+                util.buildsdm(sdmname=None, candid=candId, indexprefix='new', copybdf=True)
+            except AssertionError:
+                logger.info(f'candId {candId} SDM not made.')
 
         elastic.remove_bdfs('new', delete)
 

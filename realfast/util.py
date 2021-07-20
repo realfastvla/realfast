@@ -2,6 +2,7 @@ from __future__ import print_function, division, absolute_import #, unicode_lite
 from builtins import bytes, dict, object, range, map, input#, str # not casa compatible
 from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
+from future.moves.urllib.error import HTTPError
 
 from math import floor
 import os
