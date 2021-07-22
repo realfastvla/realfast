@@ -722,6 +722,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
                                     .format(i, cd.candid))
                         continue
                 frbprob = candidates.cd_to_fetch(cd, classify=True, devicenum=devicenum)
+                logger.info(f'frbprob debugging: {frbprob}')
                 elastic.update_field(index, 'frbprob', frbprob, Id=cd.candid)
         else:
             logger.info("No canddata available for scanId {0}, segment {1}."
