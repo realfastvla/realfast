@@ -635,8 +635,15 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
 
     workdir = '/lustre/evla/test/realfast/archive/refined'
     sdmloc0 = '/home/mctest/evla/mcaf/workspace/'
+    sdmloc0b = '/home/mctest/evla/mcaf/workspace/realfast-archived/'
     sdmloc1 = '/lustre/evla/test/realfast/archive/sdm_archive'
-    sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
+    if os.path.exists(os.path.join(sdmloc0, sdmname)):
+        sdmname_full = os.path.join(sdmloc0, sdmname)
+    elif os.path.exists(os.path.join(sdmloc0b, sdmname)):
+        sdmname_full = os.path.join(sdmloc0b, sdmname)
+    else:
+        sdmname_full = os.path.join(sdmloc1, sdmname)
+#    sdmname_full = os.path.join(sdmloc0, sdmname) if os.path.exists(os.path.join(sdmloc0, sdmname)) else os.path.join(sdmloc1, sdmname)
     assert os.path.exists(sdmname_full)
     dm = doc['_source']['canddm']
     scanId = doc['_source']['scanId']
@@ -748,7 +755,11 @@ def buildsdm(sdmname, candid, indexprefix=None, copybdf=True):
         logger.info("Got sdmname {0} from {1}cands index".format(sdmname, indexprefix))
 
     sdmloc = '/home/mctest/evla/mcaf/workspace/'
+    sdmlocb = '/home/mctest/evla/mcaf/workspace/realfast-archived/'
     sdmname_full = os.path.join(sdmloc, sdmname)
+    if not os.path.exists(sdmname_full):  # if needed, overload with backup location
+        sdmname_full = os.path.join(sdmlocb, sdmname)
+
     if os.path.exists(sdmname_full):
         if not os.path.exists(os.path.join('.', sdmname)):
             shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
@@ -828,7 +839,11 @@ def assemble_sdmbdf(candcollection, sdmloc='/home/mctest/evla/mcaf/workspace/',
     sdm0 = get_sdmname(candcollection)
     bdf0 = get_uid(candcollection).replace(':', '_').replace('/', '_')
     newsdm = os.path.join(destination, sdm0)
-    shutil.copytree(os.path.join(sdmloc, sdm0), newsdm)
+    sdmname_full = os.path.join(sdmloc, sdm0)
+    if not os.path.exists(sdmname_full):  # if needed, overload with backup location
+        sdmlocb = '/home/mctest/evla/mcaf/workspace/realfast-archived/'
+        sdmname_full = os.path.join(sdmlocb, sdm0)
+    shutil.copytree(sdmname_full, newsdm)
 
     bdfdestination = os.path.join(newsdm, 'ASDMBinary')
     os.mkdir(bdfdestination)

@@ -146,8 +146,10 @@ def backup(globstr):
     """
 
     import glob
+    default2 = '/home/mctest/evla/mcaf/workspace/realfast-archived'
 
     sdmnames = glob.glob(globstr)
+    sdmnames += glob.glob(default2)
     for sdmname in sdmnames:
         sdmname = os.path.basename(sdmname)
         if not os.path.exists(sdmname):
