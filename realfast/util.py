@@ -86,6 +86,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     """ Runs make_voevent for some selection of candidates and optionall sends them.
     mode can be 'max' or 'all', which selects whether to make/send for all cands
     or just max of snrtot.
+    destination is ip addresses, comma-delimited
     """
 
     from rfpipe import candidates
@@ -135,14 +136,20 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
             role = 'observation'
         outnames = candidates.make_voevent(cc0, role=role)
 
-        # send to destination
+        # send to destination(s)
         if destination is not None:
-            logger.info("Sending voevent(s) to {0}".format(destination))
+            if ',' in destination:
+                destinations = destination.split(',')
+            else:
+                destinations = [destination]
+
             for outname in outnames:
                 success = rsync(outname, 'claw@nmpost-master:' + voeventdir)
                 if success:
                     outname0 = voeventdir + outname.split('/')[-1]
-                    subprocess.call(['ssh', 'claw@nmpost-master', 'conda activate rfs; comet-sendvo -h {0} -f {1}'.format(destination, outname0)])
+                    for dest in destinations:
+                        logger.info("Sending voevent to {0}".format(dest))
+                        subprocess.call(['ssh', 'claw@nmpost-master', 'conda activate rfs; comet-sendvo -h {0} -f {1}'.format(dest, outname0)])
                 else:
                     logger.warn("rsync of voevent xml file failed.")
         else:
