@@ -23,7 +23,7 @@ _candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast
 _candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 
 
-def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
+def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=None):
     """ Wraps indexcands, makesummaryplot, and moveplots calls.
     """
 
@@ -38,7 +38,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
                                 url_prefix=_candplot_url_prefix,
                                 indexprefix=indexprefix)
 
-        assoc = find_associations(cc, mode='nvss')  # find false positives
+        assoc = find_associations(cc, mode='nvss', nvss_radius=nvss_radius)  # find false positives
         if assoc is not None:
             for i, candId in enumerate(cc.candids):
                 if assoc[i]:
@@ -82,7 +82,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir):
     return cc
 
 
-def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', destination=None):
+def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', destination=None, atnf_radius=None, nvss_radius=None):
     """ Runs make_voevent for some selection of candidates and optionall sends them.
     mode can be 'max' or 'all', which selects whether to make/send for all cands
     or just max of snrtot.
@@ -97,7 +97,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
 
-    assoc = find_associations(cc, mode='nvss')  # find NVSS sources to ignore
+    assoc = find_associations(cc, mode='nvss', nvss_radius=nvss_radius)  # find NVSS sources to ignore
     if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
@@ -109,7 +109,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     else:
         cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
-    assoc = find_associations(cc, mode='pulsar')  # find pulsars to ignore for voevent
+    assoc = find_associations(cc, mode='pulsar', atnf_radius=atnf_radius)  # find pulsars to ignore for voevent
     if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
@@ -415,7 +415,7 @@ def calc_and_indexnoises(st, segment, data, indexprefix='new'):
                     .format(st.metadata.scanId, scindex))
 
 
-def createproducts(candcollection, data, indexprefix=None,
+def createproducts(candcollection, data, indexprefix=None, nvss_radius=None,
                    savebdfdir='/lustre/evla/wcbe/data/realfast/'):
     """ Create SDMs and BDFs for a given candcollection (time segment).
     Takes data future and calls data only if windows found to cut.
@@ -440,7 +440,7 @@ def createproducts(candcollection, data, indexprefix=None,
 
     sdmlocs = []
 
-    assoc = find_associations(candcollection, mode='nvss')  # find false positives
+    assoc = find_associations(candcollection, mode='nvss', nvss_radius=nvss_radius)  # find false positives
     if assoc is not None:
         if all(assoc):
             logger.info("All candidates have NVSS associations. Skipping createproducts.")
@@ -709,7 +709,7 @@ def refine_candid(candid, indexprefix='new', ddm=50, npix_max=8192, npix_max_ori
         move_refined_plots(cc)
             
 
-def classify_candidates(cc, indexprefix='new', devicenum=None):
+def classify_candidates(cc, indexprefix='new', devicenum=None, nvss_radius=None):
     """ Submit canddata object to node with fetch model ready
     """
 
@@ -721,7 +721,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None):
     index = indexprefix + 'cands'
 
     if len(cc):
-        assoc = find_associations(cc, mode='nvss')  # find false positives
+        assoc = find_associations(cc, mode='nvss', nvss_radius=nvss_radius)  # find false positives
 
     try:
         if len(cc.canddata):

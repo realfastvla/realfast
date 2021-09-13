@@ -134,6 +134,7 @@ class realfast_controller(Controller):
                     'throttle', 'classify',
                     'voevent', 'voevent_destination',
                     'voevent_snrtot', 'voevent_frbprobt', 'voevent_dt',
+                    'atnf_radius', 'nvss_radius',
                     'read_overhead', 'read_totfrac', 'indexprefix', 'daskdir',
                     'requirecalibration', 'data_logging', 'index_with_fetch',
                     'index_with_reader']
@@ -775,7 +776,7 @@ class realfast_controller(Controller):
                 partial_sv = partial(util.send_voevent, dm=self.voevent,
                                      dt=self.voevent_dt, snrtot=self.voevent_snrtot,
                                      frbprobt=self.voevent_frbprobt,
-                                     destination=self.voevent_destination)
+                                     destination=self.voevent_destination, atnf_radius=self.atnf_radius)
                 distributed.fire_and_forget(self.client.map(partial_sv, fut_icp,
                                                             retries=1))
 
