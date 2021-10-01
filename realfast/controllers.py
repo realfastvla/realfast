@@ -5,7 +5,7 @@ from io import open
 
 import pickle
 import os.path
-from datetime import date
+from datetime import timezone, datetime
 import gc
 import random
 from functools import partial
@@ -904,7 +904,7 @@ class realfast_controller(Controller):
         # try to find file
         if st.gainfile is None:
             gainfile = ''
-            today = date.today()
+            today = datetime.now(timezone.utc)
             directory = '/home/mchammer/evladata/telcal/{0}/{1:02}'.format(today.year, today.month)
             name = '{0}.GN'.format(st.metadata.datasetId)
             gainfile = os.path.join(directory, name)
