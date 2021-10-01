@@ -748,7 +748,7 @@ class realfast_controller(Controller):
 
                 # returns cc from each future
                 partial_icp = partial(util.indexcands_and_plots, scanId=scanId, tags=self.tags,
-                                     indexprefix=self.indexprefix, workdir=workdir)
+                                      nvss_radius=self.nvss_radius, indexprefix=self.indexprefix, workdir=workdir)
                 fut_icp = self.client.map(partial_icp, [cc for (seg, data, cc, acc) in finishedlist],
                                           **indexkwargs)
             else:
@@ -756,7 +756,7 @@ class realfast_controller(Controller):
 
             # classify cands on special workers
             if self.classify:
-                partial_cl = partial(util.classify_candidates, indexprefix=self.indexprefix)
+                partial_cl = partial(util.classify_candidates, indexprefix=self.indexprefix, nvss_radius=self.nvss_radius)
                 distributed.fire_and_forget(self.client.map(partial_cl, fut_icp,
                                                             retries=1,
                                                             workers=self.fetchworkers,
@@ -770,13 +770,15 @@ class realfast_controller(Controller):
                 for (fut, (seg, data, cc, acc)) in zip(fut_icp, finishedlist):
                     distributed.fire_and_forget(self.client.submit(util.createproducts, fut, data,
                                                                    indexprefix=self.indexprefix,
+                                                                   nvss_radius=self.nvss_radius,
                                                                    retries=1))
 
             if self.voevent is not False:
                 partial_sv = partial(util.send_voevent, dm=self.voevent,
                                      dt=self.voevent_dt, snrtot=self.voevent_snrtot,
                                      frbprobt=self.voevent_frbprobt,
-                                     destination=self.voevent_destination, atnf_radius=self.atnf_radius)
+                                     destination=self.voevent_destination, atnf_radius=self.atnf_radius,
+                                     nvss_radius=self.nvss_radius)
                 distributed.fire_and_forget(self.client.map(partial_sv, fut_icp,
                                                             retries=1))
 
