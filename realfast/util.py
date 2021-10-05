@@ -271,7 +271,7 @@ def get_skycoord(cc):
 
 
 def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius=5,
-                      nvsscat='nvss_astropy.pkl', atnfcat='atnfcat_v1.56.txt'):
+                      nvsscat='nvss_astropy.pkl', atnfcat='atnfcat_v1.65.txt'):
     """ Identify candidates that are likely false positives.
     Major check is for bright NVSS sources during VLASS (mode='nvss')
     For mode='pulsar', it will return any pulsar in atnf catalog.
