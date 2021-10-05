@@ -748,7 +748,8 @@ class realfast_controller(Controller):
 
                 # returns cc from each future
                 partial_icp = partial(util.indexcands_and_plots, scanId=scanId, tags=self.tags,
-                                      nvss_radius=self.nvss_radius, indexprefix=self.indexprefix, workdir=workdir)
+                                      nvss_radius=self.nvss_radius, atnf_radius=self.atnf_radius,
+                                      indexprefix=self.indexprefix, workdir=workdir)
                 fut_icp = self.client.map(partial_icp, [cc for (seg, data, cc, acc) in finishedlist],
                                           **indexkwargs)
             else:

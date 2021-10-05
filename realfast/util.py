@@ -23,7 +23,7 @@ _candplot_dir = 'claw@nmpost-master:/lustre/aoc/projects/fasttransients/realfast
 _candplot_url_prefix = 'http://realfast.nrao.edu/plots'
 
 
-def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=None):
+def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=None, atnf_radius=None):
     """ Wraps indexcands, makesummaryplot, and moveplots calls.
     """
 
@@ -49,10 +49,16 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=Non
                         logger.warn("CandId {0} not found in {1}"
                                     .format(candId, indexprefix))
 
-        # TODO: repeat for pulsars
-#        assoc = find_associations(cc, mode='pulsar')  # find known pulsars
-#        if assoc is not None:
-#            ...
+        assoc = find_associations(cc, mode='pulsar', atnf_radius=atnf_radius)  # find known pulsars
+        if assoc is not None:
+            for i, candId in enumerate(cc.candids):
+                if assoc[i]:
+                    # set a tag to indicate false positive
+                    status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
+                                             'astrophysical,archive')
+                    if not status:
+                        logger.warn("CandId {0} not found in {1}"
+                                    .format(candId, indexprefix))
 
         # TODO: makesumaryplot logs cands in all segments
         # this is confusing when only one segment being handled here
