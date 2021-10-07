@@ -310,7 +310,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
             logger.info("Comparing SkyCoord for candidates to NVSS.")
             for coord in coords:
                 ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
-                if sep2.value < nvss_radius and fluxes[ind] > nvss_flux:
+                if sep2 < nvss_radius*units.arcsec and fluxes[ind] > nvss_flux:
                     assoc.append(True)
                 else:
                     assoc.append(False)
@@ -334,7 +334,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
             logger.info("Comparing SkyCoord for candidates to ATNF.")
             for coord in coords:
                 ind, sep2, sep3 = coord.match_to_catalog_sky(catalog)
-                if sep2.value < atnf_radius:
+                if sep2 < atnf_radius*units.arcsec:
                     assoc.append(True)
                 else:
                     assoc.append(False)
