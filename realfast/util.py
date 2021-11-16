@@ -423,6 +423,8 @@ def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     except NotFoundError:
         logger.warn("scanId {0} not found in {1}. Not indexing noise estimate."
                     .format(st.metadata.scanId, scindex))
+    except ConnectionRefusedError:
+        logger.warn("Cannot connect to elastic backend.")
 
 
 def createproducts(candcollection, data, indexprefix=None, nvss_radius=None,
