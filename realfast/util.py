@@ -13,7 +13,7 @@ from astropy import time
 from time import sleep
 from realfast import elastic, mcaf_servers
 import distributed
-from elasticsearch import NotFoundError
+from elasticsearch import NotFoundError, ConnectionError
 
 import logging
 logger = logging.getLogger(__name__)
@@ -423,7 +423,7 @@ def calc_and_indexnoises(st, segment, data, indexprefix='new'):
     except NotFoundError:
         logger.warn("scanId {0} not found in {1}. Not indexing noise estimate."
                     .format(st.metadata.scanId, scindex))
-    except ConnectionRefusedError:
+    except ConnectionError:
         logger.warn("Cannot connect to elastic backend.")
 
 

@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(20)
 
 # eventually should be updated to search.realfast.io/api with auth
-es = Elasticsearch(['realfast.nrao.edu:9200'], timeout=60, max_retries=3, retry_on_timeout=True)
+es = Elasticsearch(['realfast-vml-new.aoc.nrao.edu:9200'], timeout=60, max_retries=3, retry_on_timeout=True)
 
 
 ###
@@ -76,6 +76,7 @@ def indexscan(config=None, inmeta=None, sdmfile=None, sdmscan=None,
     index = indexprefix+'scans'
     res = pushdata(scandict, index=index, Id=meta.scanId,
                    command='index')
+
     if res == 1:
         logger.info('Indexed scanId {0} to {1}'
                     .format(meta.scanId, index))
@@ -504,7 +505,10 @@ def get_ids(index, *args, **kwargs):
     else:
         query = {"query": {"match_all": {}}, "_source": field}
 
-    res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
+    try:
+        res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
+    except (ConnectionError, NewConnectionError):
+        logger.warn("ConnectionError during scan. Elasticsearch down?")
 
     if field == 'false':
         return [hit['_id'] for hit in res]
@@ -517,7 +521,11 @@ def get_doc(index, Id):
     """
 
     doc_type = index.rstrip('s')
-    doc = es.get(index=index, doc_type=doc_type, id=Id)
+    try:
+        doc = es.get(index=index, doc_type=doc_type, id=Id)
+    except (ConnectionError, NewConnectionError):
+        logger.warn("ConnectionError during get. Elasticsearch down?")
+
     return doc
 
 
