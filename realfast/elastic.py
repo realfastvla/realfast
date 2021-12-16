@@ -7,15 +7,14 @@ import os.path
 import subprocess
 import shutil
 from time import sleep
-from elasticsearch import Elasticsearch, RequestError, TransportError, helpers, NotFoundError
-from urllib3.connection import ConnectionError, NewConnectionError
+from elasticsearch import Elasticsearch, RequestError, TransportError, helpers, NotFoundError, ConnectionError
 import logging
 logging.getLogger('elasticsearch').setLevel(30)
 logger = logging.getLogger(__name__)
 logger.setLevel(20)
 
 # eventually should be updated to search.realfast.io/api with auth
-es = Elasticsearch(['realfast-vml-new.aoc.nrao.edu:9200'], timeout=60, max_retries=3, retry_on_timeout=True)
+es = Elasticsearch(['realfast-vml-new.aoc.nrao.edu:9200'], timeout=60, max_retries=1, retry_on_timeout=True)
 
 
 ###
@@ -348,7 +347,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
             return res['_shards']['successful']
         else:
             return res
-    except (ConnectionError, NewConnectionError):
+    except ConnectionError:
         logger.warn("ConnectionError during push to index. Elasticsearch down?")
 
 
@@ -507,7 +506,7 @@ def get_ids(index, *args, **kwargs):
 
     try:
         res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
-    except (ConnectionError, NewConnectionError):
+    except ConnectionError:
         logger.warn("ConnectionError during scan. Elasticsearch down?")
 
     if field == 'false':
@@ -523,7 +522,7 @@ def get_doc(index, Id):
     doc_type = index.rstrip('s')
     try:
         doc = es.get(index=index, doc_type=doc_type, id=Id)
-    except (ConnectionError, NewConnectionError):
+    except ConnectionError:
         logger.warn("ConnectionError during get. Elasticsearch down?")
 
     return doc
