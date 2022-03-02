@@ -355,6 +355,32 @@ def move_consensus(consensusstr, consensusfile, nop, decidable, prefix1, prefix2
 @cli2.command()
 @click.option('--nop', default=3)
 @click.option('--confirm', type=bool, default=True)
+def run_remove_bad(nop, confirm):
+    """ Finds candidates with a consensus 'bad' tag and removes bdfs (at VLA)
+    and/or moves them to 'final' index (at AOC).
+    """
+
+    con = elastic.get_consensus(consensustype='majority', nop=nop, match='bad')
+        
+    yn = 'yes'
+    if confirm:
+        if os.getcwd() == '/lustre/evla/test/realfast':  # at VLA on CBE/lustre
+            yn = input(f"Remove BDFs for {len(con)} candidates?")
+        else:
+            yn = input(f"Move {len(con)} candids to final?")
+
+    if yn.lower() in ['y', 'yes']:
+        if os.getcwd() == '/lustre/evla/test/realfast':  # at VLA on CBE/lustre
+            print('Deleting BDFs...')
+            elastic.remove_bdfs('new', con.keys())
+        else:
+            print('Moving candids...')
+            elastic.move_consensus(indexprefix1='new', indexprefix2='final', force=True, consensus=con)
+
+
+@cli2.command()
+@click.option('--nop', default=3)
+@click.option('--confirm', type=bool, default=True)
 def run_consensus_rfnode(nop, confirm):
     """ Go to rfnode021 and run the consensus to find "delete/rfi" or "archive/astrophysical" groups.
     Then delete the bad and build SDMs for the good.
