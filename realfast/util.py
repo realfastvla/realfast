@@ -381,7 +381,7 @@ def moveplots(workdir, scanId, destination=_candplot_dir):
     subprocess.call(args)
 
 
-def indexcandsfile(candsfile, indexprefix, tags=None):
+def indexcandsfile(candsfile, indexprefix, tags=None, nvss_radius=None, atnf_radius=None):
     """ Use candsfile to index cands, scans, prefs, mocks, and noises.
     Should produce identical index results as real-time operation.
     """
@@ -396,7 +396,7 @@ def indexcandsfile(candsfile, indexprefix, tags=None):
 
         elastic.indexscan(inmeta=st.metadata, preferences=st.prefs,
                           indexprefix=indexprefix)
-        indexcands_and_plots(cc, scanId, tags, indexprefix, workdir)
+        indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=nvss_radius, atnf_radius=atnf_radius)
 
         if os.path.exists(cc.state.noisefile):
             elastic.indexnoises(scanId, noisefile=cc.state.noisefile,
