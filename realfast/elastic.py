@@ -349,6 +349,7 @@ def pushdata(datadict, index, Id=None, command='index', force=False):
             return res
     except ConnectionError:
         logger.warn("ConnectionError during push to index. Elasticsearch down?")
+        return None
 
 
 def candid(datadict=None, cc=None):
@@ -508,6 +509,7 @@ def get_ids(index, *args, **kwargs):
         res = helpers.scan(es, index=index, doc_type=doc_type, query=query)
     except ConnectionError:
         logger.warn("ConnectionError during scan. Elasticsearch down?")
+        return []
 
     if field == 'false':
         return [hit['_id'] for hit in res]
@@ -524,6 +526,7 @@ def get_doc(index, Id):
         doc = es.get(index=index, doc_type=doc_type, id=Id)
     except ConnectionError:
         logger.warn("ConnectionError during get. Elasticsearch down?")
+        return None
 
     return doc
 
