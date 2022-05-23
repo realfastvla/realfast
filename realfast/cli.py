@@ -360,6 +360,8 @@ def run_remove_bad(nop, confirm):
     and/or moves them to 'final' index (at AOC).
     """
 
+    from realfast import elastic
+    
     con = elastic.get_consensus(consensustype='majority', nop=nop, match='bad')
         
     yn = 'yes'
