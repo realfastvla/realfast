@@ -304,7 +304,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
             logger.warn("No NVSS catalog {0} found in workdir {1}".format(nvsscat, workdir))
             return None
 
-        assoc = []
+        assoc = None
         coords = get_skycoord(cc)
         if coords is not None and nvss_radius > 0:
             logger.info("Comparing SkyCoord for candidates to NVSS.")
@@ -328,7 +328,7 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
             logger.warn("No ATNF catalog {0} found in workdir {1}".format(atnfcat, workdir))
             return None
 
-        assoc = []
+        assoc = None
         coords = get_skycoord(cc)
         if coords is not None and atnf_radius > 0:
             logger.info("Comparing SkyCoord for candidates to ATNF.")

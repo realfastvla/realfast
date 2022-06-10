@@ -1036,10 +1036,10 @@ def search_config(config, preffile=None, inprefs={},
     reffreqs = [subband.sky_center_freq*1e6 for subband in subbands]
 
     # Do not process if...
-    # 1) if nameincludes set, reject if datasetId does not have it
+    # 1) if nameincludes set, reject if datasetId has one of that (comma-delimited) list
     if nameincludes is not None:
         if any([name in config.datasetId for name in nameincludes.split(',')]):
-            logger.warn("datasetId {0} not in nameincludes {1}"
+            logger.warn("datasetId {0} has one of fields in nameincludes {1}"
                         .format(config.datasetId, nameincludes))
             return False
 

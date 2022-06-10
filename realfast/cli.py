@@ -444,6 +444,17 @@ def remove_dataset(prefix, datasetid, scanid, force):
 
 
 @cli2.command()
+@click.argument('datasetid', default=None)
+def move_test(datasetid):
+    """ Force move all data associated with test datasetId from "new" to "test".
+    """
+
+    from realfast import elastic
+
+    elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
+
+
+@cli2.command()
 @click.argument('prefix')
 def audit_indexprefix(prefix):
     """ Audit all indices with given prefix
