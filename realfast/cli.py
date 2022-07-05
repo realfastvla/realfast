@@ -447,11 +447,18 @@ def remove_dataset(prefix, datasetid, scanid, force):
 @click.argument('datasetid', default=None)
 def move_test(datasetid):
     """ Force move all data associated with test datasetId from "new" to "test".
+    if datasetid is "all", then all with "test" in name are moved.
     """
 
     from realfast import elastic
 
-    elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
+    if datasetid.lower() != "all":
+        elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
+    else:
+        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids('newscans') if 'test' in Id])
+        print(f"Moving all datasetIds {testids}")
+        for datasetid in testids:
+            elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
 
 
 @cli2.command()
