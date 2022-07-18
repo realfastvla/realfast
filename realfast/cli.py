@@ -455,7 +455,7 @@ def move_test(datasetid):
     if datasetid.lower() != "all":
         elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
     else:
-        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids('newscans') if 'test' in Id])
+        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids('newscans') if 'test' in Id or 'TSKY0001' in Id])
         print(f"Moving all datasetIds {testids}")
         for datasetid in testids:
             elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
