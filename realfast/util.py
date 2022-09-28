@@ -791,7 +791,7 @@ def buildsdm(sdmname, candid, indexprefix=None, copybdf=True):
         if os.path.exists(sdmname_full):
             shutil.copytree(sdmname_full, os.path.join('.', sdmname), ignore_dangling_symlinks=True, symlinks=True)
         else:
-            logger.warn("No SDM found")
+            logger.warn(f"No SDM found at {sdmname_full}")
             return
 
     bdfdestination = os.path.join('.', sdmname, 'ASDMBinary')

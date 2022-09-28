@@ -436,12 +436,17 @@ def move_candid(candid, prefix1, prefix2, force):
 @click.option('--force', is_flag=True)
 def remove_dataset(prefix, datasetid, scanid, force):
     """ Remove all data associated with given datasetid
+    If datasetid is "test", it removes data with "test", "TFST0001", "TSKY0001", and "mimic-vlass" in the datasetId.
     """
 
     from realfast import elastic
 
-    elastic.remove_dataset(prefix, datasetId=datasetid, scanId=scanid, force=force)
-
+    if datasetid.lower() == "test":
+        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids(f'{prefix}scans') if 'test' in Id or 'TFST0001' in Id or 'TSKY0001' in Id or 'mimic-vlass' in Id])
+        for datasetid in testids:
+            elastic.remove_dataset(prefix, datasetId=datasetid, scanId=scanid, force=force)
+    else:
+        elastic.remove_dataset(prefix, datasetId=datasetid, scanId=scanid, force=force)
 
 @cli2.command()
 @click.argument('datasetid', default=None)
@@ -455,7 +460,7 @@ def move_test(datasetid):
     if datasetid.lower() != "all":
         elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
     else:
-        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids('newscans') if 'test' in Id or 'TSKY0001' in Id])
+        testids = set(['.'.join(Id.split('.')[:-2])  for Id in elastic.get_ids('newscans') if 'test' in Id or 'TFST0001' in Id or 'TSKY0001' in Id or 'mimic-vlass' in Id])
         print(f"Moving all datasetIds {testids}")
         for datasetid in testids:
             elastic.move_dataset("new", "test", datasetId=datasetid, force=True)
