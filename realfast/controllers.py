@@ -71,6 +71,7 @@ class realfast_controller(Controller):
         - indexprefix, a string defining set of indices to save results,
         - index_with_fetch, boolean to force index onto fetchworkers,
         - index_with_reader, boolean to require index jobs to use a READER resource (avoiding read jobs).
+        - max_cc, an integer that sets the maximum number of candidates in a segment that will be pushed to portal.
         """
 
         super(realfast_controller, self).__init__()
@@ -137,7 +138,7 @@ class realfast_controller(Controller):
                     'atnf_radius', 'nvss_radius',
                     'read_overhead', 'read_totfrac', 'indexprefix', 'daskdir',
                     'requirecalibration', 'data_logging', 'index_with_fetch',
-                    'index_with_reader']
+                    'index_with_reader', 'max_cc']
 
         for attr in allattrs:
             if attr == 'indexprefix':
@@ -749,7 +750,7 @@ class realfast_controller(Controller):
                 # returns cc from each future
                 partial_icp = partial(util.indexcands_and_plots, scanId=scanId, tags=self.tags,
                                       nvss_radius=self.nvss_radius, atnf_radius=self.atnf_radius,
-                                      indexprefix=self.indexprefix, workdir=workdir)
+                                      indexprefix=self.indexprefix, workdir=workdir, max_cc=self.max_cc)
                 fut_icp = self.client.map(partial_icp, [cc for (seg, data, cc, acc) in finishedlist],
                                           **indexkwargs)
             else:
