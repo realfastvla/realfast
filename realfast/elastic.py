@@ -493,10 +493,10 @@ def get_ids(index, *args, **kwargs):
     else:
         field = 'false'
 
-    if len(args):
-        wildcard = '*' + '* *'.join(args) + '*'
-        logger.debug("Using arg as wildcard")
-        query = {"query":{"query_string": {"query": wildcard}}}
+    if len(args) == 1:
+#        wildcard = '*' + '* *'.join(args) + '*'
+        logger.debug("Using arg as a wildcard. Strips starting '*'")
+        query = {"query":{"query_string": {"query": args[0].lstrip('*')}}}
     elif "query_string" in kwargs:
         query = {"query":{"query_string": {"query": kwargs["query_string"]}}}
         logger.info("Using query_string kwargs only")
