@@ -46,7 +46,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=5, 
                                 indexprefix=indexprefix)
 
         assoc = find_associations(cc, mode='nvss', nvss_radius=nvss_radius)  # find false positives
-        if assoc is not None or len(assoc):
+        if assoc is not None:
             for i, candId in enumerate(cc.candids):
                 if assoc[i]:
                     # set a tag to indicate false positive
@@ -57,7 +57,7 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=5, 
                                     .format(candId, indexprefix))
 
         assoc = find_associations(cc, mode='pulsar', atnf_radius=atnf_radius)  # find known pulsars
-        if assoc is not None or len(assoc):
+        if assoc is not None:
             for i, candId in enumerate(cc.candids):
                 if assoc[i]:
                     # set a tag to indicate false positive
@@ -111,7 +111,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
     voeventdir = '/lustre/aoc/projects/fasttransients/realfast/voevents/'
 
     assoc = find_associations(cc, mode='nvss', nvss_radius=nvss_radius)  # find NVSS sources to ignore
-    if assoc is not None or len(assoc):
+    if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
         logger.info("Selecting {0} of {1} candidates due to NVSS association".format(len(cclist), len(cc)))
@@ -123,7 +123,7 @@ def send_voevent(cc, dm='FRB', dt=None, snrtot=None, frbprobt=None, mode='max', 
         cc = select_cc(cc, dm=dm, dt=dt, snrtot=snrtot, frbprobt=frbprobt)
 
     assoc = find_associations(cc, mode='pulsar', atnf_radius=atnf_radius)  # find pulsars to ignore for voevent
-    if assoc is not None or len(assoc):
+    if assoc is not None:
         # select those without assoc
         cclist = [cc0 for (i, cc0) in enumerate(cc) if not assoc[i]]
         logger.info("Selecting {0} of {1} candidates due to pulsar association".format(len(cclist), len(cc)))
@@ -324,6 +324,9 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
         else:
             logger.info("Not comparing to NVSS catalog")
 
+        if not len(assoc):
+            assoc = None
+
         return assoc
 
     elif mode.lower() == 'pulsar':
@@ -347,6 +350,9 @@ def find_associations(cc, mode='nvss', nvss_radius=5, nvss_flux=400, atnf_radius
                     assoc.append(False)
         else:
             logger.info("Not comparing to ATNF catalog")
+
+        if not len(assoc):
+            assoc = None
 
         return assoc
 
@@ -460,7 +466,7 @@ def createproducts(candcollection, data, indexprefix=None, nvss_radius=None,
     sdmlocs = []
 
     assoc = find_associations(candcollection, mode='nvss', nvss_radius=nvss_radius)  # find false positives
-    if assoc is not None or len(assoc):
+    if assoc is not None:
         if all(assoc):
             logger.info("All candidates have NVSS associations. Skipping createproducts.")
             return sdmlocs
@@ -749,7 +755,7 @@ def classify_candidates(cc, indexprefix='new', devicenum=None, nvss_radius=None)
                         .format(len(cc.canddata), cc.metadata.scanId, cc.segment))
 
             for i, cd in enumerate(cc.canddata):
-                if assoc is not None or len(assoc):
+                if assoc is not None:
                     if assoc[i]:
                         logger.info("Candidate {0} ({1}) has NVSS association. Skipping."
                                     .format(i, cd.candid))
