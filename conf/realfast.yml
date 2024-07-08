@@ -110,6 +110,7 @@ rfpipe:
     npix_max: 2048
 #    spw: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
     spw: [4, 5, 6, 7, 8, 9, 10, 11, 12, 13]  # avoid low-level RFI
+    excludeants: !!python/tuple ['ea17',]
     badspwpol: 2.
     uvoversample: 1.5
     savenoise: False
