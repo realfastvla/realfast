@@ -15,7 +15,7 @@ Ids = elastic.get_ids('finalcands', caseyjlaw_tags="astrophysical,archive")
 # filter out most recent
 mjds = [int(Id.split('.eb')[1].split('.')[1]) if '.eb' in Id else 0 for Id in Ids]
 now = Time.now().mjd
-Ids = [Id for i, Id in enumerate(Ids) if mjds[i] < now-14]  # archived after 14 days
+Ids = [Id for i, Id in enumerate(Ids) if mjds[i] < now-365*4.9]  # archived after 14 days
 
 try:
     with open('finished_Ids.pkl', 'rb') as fp:  # sdmnames already done
