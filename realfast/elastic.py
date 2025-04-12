@@ -4,6 +4,7 @@ from future.utils import itervalues, viewitems, iteritems, listvalues, listitems
 from io import open
 
 import os.path
+import os
 import subprocess
 import shutil
 from time import sleep
@@ -683,6 +684,48 @@ def copy_all_docs(indexprefix1, indexprefix2, candId=None, scanId=None, force=Fa
                     success = shutil.copy(summary1, summary2)
 
     return iddict
+
+
+def png_groups(indexprefix):
+    """ Move pngs into subdirectories under "indexprefix" to reduce number of files in a directory.
+    Subdirectory is the first part of the name that includes the project code.
+    The subdirectory is parsed from the png_url field.
+    """
+
+    assert os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots'), 'Only works on AOC lustre'
+    Ids = get_ids(indexprefix+'cands')
+    for Id in Ids:
+        png_url = get_doc(index=indexprefix+'cands', Id=Id)['_source']['png_url']
+        pcode = png_url.split('/')[-1].lstrip('cands_').split('.')[0]
+        candplot1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.png'
+                     .format(indexprefix, Id))
+        candplot2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}/cands_{2}.png'
+                     .format(indexprefix, pcode, Id))
+
+        if os.path.exists(candplot1) and not os.path.exists(candplot2):
+            update_field(indexprefix+'cands', 'png_url',
+                         png_url.replace(indexprefix, indexprefix + '/' + pcode, 1),
+                         Id=Id)
+
+            if not os.path.exists('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}'.format(indexprefix, pcode)):
+                logger.info(f'making directory for {pcode}')
+                os.mkdir('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/{1}'.format(indexprefix, pcode))
+            shutil.move(candplot1, candplot2)
+            logger.info("Updated png_url field and moved plot for {0}"
+                        .format(Id))
+        elif not os.path.exists(candplot1) and os.path.exists(candplot2):
+            logger.info(f"{Id} already moved to {candplot2}")
+        else:
+            logger.warn("Something went wrong moving {0}".format(Id))
+
+            # copy summary html file
+#            if k == indexprefix1+'scans':
+#                summary1 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+#                            .format(indexprefix1, v[0]))
+#                summary2 = ('/lustre/aoc/projects/fasttransients/realfast/plots/{0}/cands_{1}.html'
+#                            .format(indexprefix2, v[0]))
+#                if os.path.exists(summary1):
+#                    success = shutil.copy(summary1, summary2)
 
 
 def candid_bdf(indexprefix, candId, bdfdir='/lustre/evla/wcbe/data/realfast'):
