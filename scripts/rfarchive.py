@@ -15,6 +15,7 @@ Ids = elastic.get_ids('finalcands', caseyjlaw_tags="astrophysical,archive")
 # filter out most recent
 mjds = [int(Id.split('.eb')[1].split('.')[1]) if '.eb' in Id else 0 for Id in Ids]
 now = Time.now().mjd
+
 Ids = sorted([Id for i, Id in enumerate(Ids) if mjds[i] < now-365*3], reverse=True)  # should be archived after at least 14 days
 
 try:

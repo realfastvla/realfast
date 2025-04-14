@@ -52,6 +52,10 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=5, 
                     # set a tag to indicate false positive
                     status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
                                              'astrophysical,delete')
+                    status = elastic.add_tag(indexprefix, candId, 'reshmaannathomas',
+                                             'astrophysical,delete')
+                    status = elastic.add_tag(indexprefix, candId, 'demorest',
+                                             'astrophysical,delete')
                     if not status:
                         logger.warn("CandId {0} not found in {1}"
                                     .format(candId, indexprefix))
@@ -62,6 +66,10 @@ def indexcands_and_plots(cc, scanId, tags, indexprefix, workdir, nvss_radius=5, 
                 if assoc[i]:
                     # set a tag to indicate false positive
                     status = elastic.add_tag(indexprefix, candId, 'caseyjlaw',
+                                             'astrophysical,archive')
+                    status = elastic.add_tag(indexprefix, candId, 'reshmaannathomas',
+                                             'astrophysical,archive')
+                    status = elastic.add_tag(indexprefix, candId, 'demorest',
                                              'astrophysical,archive')
                     if not status:
                         logger.warn("CandId {0} not found in {1}"
